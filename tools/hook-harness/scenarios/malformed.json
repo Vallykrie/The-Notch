@@ -1,0 +1,26 @@
+{
+  "name": "malformed",
+  "steps": [
+    {
+      "label": "plain junk",
+      "source": "claude",
+      "raw_input": "this is not json\n",
+      "process_timeout": "3s",
+      "expect": { "exit_code": 0, "timed_out": false, "stdout": "" }
+    },
+    {
+      "label": "broken json lines",
+      "source": "codex",
+      "raw_input": "{not-json}\n[still-not-json\n",
+      "process_timeout": "3s",
+      "expect": { "exit_code": 0, "timed_out": false, "stdout": "" }
+    },
+    {
+      "label": "unknown event",
+      "source": "claude",
+      "raw_input": "{\"event\":\"UnknownEvent\",\"session_id\":\"malformed-s1\",\"cwd\":\"/tmp/notch-harness/malformed\"}\n",
+      "process_timeout": "3s",
+      "expect": { "exit_code": 0, "timed_out": false, "stdout": "" }
+    }
+  ]
+}

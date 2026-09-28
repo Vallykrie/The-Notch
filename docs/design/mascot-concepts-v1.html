@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mascot Concepts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#07070a; --panel:#101015; --line:#23232b; --text:#e9e9ef; --muted:#8c8c99; --accent:#ff8514;
+  --pixel:'Silkscreen', ui-monospace, monospace; --mono:'IBM Plex Mono', ui-monospace, monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 var(--mono)}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 16px 80px}
+h1{font:400 26px/1.1 var(--pixel);margin:0 0 6px;letter-spacing:.5px}
+.sub{color:var(--muted);margin:0 0 22px;max-width:760px}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:22px;position:sticky;top:0;background:var(--bg);padding:10px 0;z-index:5;border-bottom:1px solid var(--line)}
+.tab{font:400 12px var(--pixel);background:var(--panel);color:var(--muted);border:1px solid var(--line);padding:9px 12px;cursor:pointer;border-radius:3px}
+.tab[aria-selected=true]{color:#000;background:var(--text);border-color:var(--text)}
+.ctl{margin-left:auto;display:flex;gap:6px;align-items:center}
+.btn{font:500 12px var(--mono);background:transparent;color:var(--text);border:1px solid var(--line);padding:7px 10px;border-radius:3px;cursor:pointer}
+.btn:hover{border-color:var(--muted)}
+.concept{display:none}
+.concept.on{display:block}
+.head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:4px}
+.head h2{font:400 20px var(--pixel);margin:0}
+.tag{font:500 11px var(--mono);color:var(--muted);border:1px solid var(--line);padding:2px 7px;border-radius:99px}
+.pitch{color:var(--muted);margin:0 0 18px}
+.top{display:grid;grid-template-columns:auto 1fr;gap:28px;align-items:start;margin-bottom:28px}
+.story{background:#000;border:1px solid var(--line);border-radius:6px;padding:14px;text-align:center}
+.story .lbl{font:400 12px var(--pixel);margin-top:8px;height:16px}
+ul.points{margin:0;padding-left:18px}
+ul.points li{margin:0 0 7px}
+ul.points b{color:var(--text);font-weight:500}
+.cost{margin-top:12px;color:var(--muted);font-size:12.5px}
+h3{font:400 13px var(--pixel);color:var(--muted);margin:0 0 10px;letter-spacing:.5px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:30px}
+.cellbox{background:#000;border:1px solid var(--line);border-radius:6px;padding:10px 6px 8px;text-align:center}
+.cellbox .lbl{font-size:11.5px;margin-top:4px}
+canvas{display:block;margin:0 auto}
+/* notch mock, 1 css px = 1 pt */
+.mockrow{display:flex;gap:40px;flex-wrap:wrap;align-items:flex-start}
+.notch{--s:1;background:#000;border-radius:0 0 calc(12px*var(--s)) calc(12px*var(--s));height:calc(32px*var(--s));display:flex;align-items:center;padding:0 calc(12px*var(--s));gap:calc(8px*var(--s));font:500 calc(11px*var(--s)) var(--mono);border:1px solid #1a1a1a;border-top:none}
+.notch .cam{width:calc(180px*var(--s))}
+.mbox{position:relative;flex:none}
+.mbox canvas{position:absolute;margin:0;pointer-events:none}
+.panel{--s:1;background:#000;border-radius:0 0 calc(22px*var(--s)) calc(22px*var(--s));padding:calc(14px*var(--s)) calc(18px*var(--s)) calc(16px*var(--s));width:calc(420px*var(--s));border:1px solid #1a1a1a;border-top:none}
+.srow{display:flex;gap:calc(10px*var(--s));align-items:center;padding:calc(6px*var(--s)) 0}
+.srow .t1{font:500 calc(12px*var(--s)) var(--mono);color:#eee}
+.srow .t2{font:400 calc(11px*var(--s)) var(--mono)}
+.pick{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.pick .story{padding:12px}
+.pick .story h4{font:400 13px var(--pixel);margin:0 0 8px;text-align:left}
+.legend{display:flex;flex-wrap:wrap;gap:12px;margin:-6px 0 18px;font-size:12px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;display:inline-block}
+@media (max-width:720px){.top{grid-template-columns:1fr}.ctl{margin-left:0}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Agent mascot · 4 directions</h1>
+  <p class="sub">Every tile is rendered live with the real status colours, the real 12×10 blob and the real cell/gap/bloom maths from <code>AgentActivityGlyph.swift</code>. Each concept keeps the colours and the 8-bit look — they differ in <em>where</em> the extra life comes from. Start with <b>Side by side</b>, then open a concept for the 9 states and the actual-size notch.</p>
+  <div class="legend" id="legend"></div>
+  <div class="tabs" role="tablist" id="tabs">
+    <div class="ctl">
+      <button class="btn" id="replay">↻ Replay transitions</button>
+      <button class="btn" id="scale">Notch: actual size</button>
+    </div>
+  </div>
+  <div id="concepts"></div>
+</div>
+
+<script>
+// ---------- data ----------
+const STATUSES=['working','thinking','runningTool','compacting','needsApproval','waitingForAnswer','waitingForInput','done','idle'];
+const LABEL={working:'Working',thinking:'Thinking',runningTool:'Running tool',compacting:'Compacting',needsApproval:'Needs approval',waitingForAnswer:'Waiting for answer',waitingForInput:'Waiting for input',done:'Done',idle:'Idle'};
+const TINT={working:[41,158,255],thinking:[189,107,255],runningTool:[77,224,255],compacting:[140,71,255],needsApproval:[255,133,20],waitingForAnswer:[255,204,26],waitingForInput:[107,214,255],done:[56,255,115],idle:[77,184,112]};
+const P={working:1.1,thinking:1.35,tool:1.15,compacting:1.7,approval:1.5,question:2.0,cursor:1.06,idle:3.6,doneDraw:0.5,doneWag:0.8};
+const STORY=[['idle',2.5],['working',3],['thinking',3],['runningTool',2.6],['needsApproval',3.2],['working',2],['compacting',3.4],['waitingForAnswer',3.2],['done',3.6],['waitingForInput',3],['idle',9]];
+const W=18,H=12,OY=2,SLEEP=6;
+const WHITE=[255,255,255],BLACK=[0,0,0];
+const mix=(a,b,t)=>a.map((v,i)=>Math.round(v+(b[i]-v)*t));
+const hi=c=>mix(c,WHITE,.42), lo=c=>mix(c,BLACK,.36);
+const frac=(e,p)=>{const v=(e%p)/p;return v<0?v+1:v};
+const attack=t=>(t>=0&&t<1)?Math.exp(-t*11):0;
+const ramp=t=>{t=Math.min(1,Math.max(0,t));return t*t*(3-2*t)};
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function hash(n){n=Math.sin(n*127.1+311.7)*43758.5453;return n-Math.floor(n)}
+const pointer={x:0,y:0,active:false};
+addEventListener('mousemove',e=>{pointer.x=e.clientX;pointer.y=e.clientY;pointer.active=true});
+addEventListener('mouseleave',()=>pointer.active=false);
+
+// ---------- the blob (port of AgentActivityGlyph) ----------
+const ART={rest:{body:[[3,4,7],[4,2,9],[5,1,10],[6,1,10],[7,2,9]],antennaRow:2,eyeRow:5},
+           squashed:{body:[[4,3,8],[5,1,10],[6,1,10],[7,2,9]],antennaRow:3,eyeRow:5}};
+const legs=ph=>ph===0?[[3,8],[4,8],[7,8],[8,8],[2,9],[9,9]]:[[2,8],[3,8],[8,8],[9,8],[4,9],[7,9]];
+const newPose=()=>({squashed:false,bob:0,lean:0,legPhase:0,aL:1,aR:1,eyes:'open',eyeShift:0,eyeLift:0,brightness:1,dx:0});
+
+function basePose(s,e){const p=newPose();
+  switch(s){
+  case 'working':{const ph=frac(e,P.working),up=ph>=.5;p.bob=up?-1:0;p.legPhase=Math.floor(ph*4)%2;p.aL=p.aR=up?1:2;break}
+  case 'thinking':{const w=Math.sin(2*Math.PI*frac(e,P.thinking));p.eyeShift=Math.round(w*1.3);p.aL=w>0?2:1;p.aR=w>0?1:2;break}
+  case 'runningTool':{const ph=frac(e,P.tool);p.legPhase=Math.floor(ph*8)%2;p.eyes='narrow';p.aL=p.aR=0;break}
+  case 'compacting':{const ph=frac(e,P.compacting);const q=Math.min(1,ph/.75);const ea=q*q*(3-2*q);p.squashed=ea>.55;p.eyes='narrow';p.aL=p.aR=0;p.brightness=1-Math.max(0,(ph-.75)/.25)*.25;break}
+  case 'needsApproval':{const ph=frac(e,P.approval);const b=Math.max(attack(ph),attack(ph-.17));p.aL=p.aR=2;p.eyes=b>.45?'wide':'open';p.brightness=.5+.5*b;break}
+  case 'waitingForAnswer':{const w=Math.sin(2*Math.PI*frac(e,P.question));p.lean=w>0?1:0;p.aL=0;p.aR=2;p.eyeShift=p.lean;break}
+  case 'waitingForInput':{p.eyes=frac(e,P.cursor)<.5?'open':'closed';break}
+  case 'done':{const hop=ramp(e/P.doneDraw)-ramp((e-P.doneDraw-.2)/.25);const air=hop>.4;const wag=Math.sin(2*Math.PI*frac(e,P.doneWag))>0;p.bob=air?-1:0;p.aL=air?1:(wag?2:1);p.aR=air?1:(wag?1:2);p.eyes='narrow';p.brightness=.8+.2*hop;break}
+  case 'idle':{const ph=frac(e,P.idle);p.eyes=ph>.96?'closed':'narrow';p.aL=p.aR=0;p.brightness=.9;break}
+  }return p}
+
+function bodyCells(p){
+  const art=p.squashed?ART.squashed:ART.rest;const m=new Map();
+  const put=(x,y,k)=>m.set(x+','+y,{x,y,k});
+  for(const[r,a,b] of art.body)for(let x=a;x<=b;x++)put(x,r,'body');
+  const ant=(root,dir,lift)=>{put(root,art.antennaRow,'ant');if(lift<=0){put(root+dir,art.antennaRow,'ant');return}
+    for(let s=1;s<=Math.min(lift,2);s++)put(root+dir*s,art.antennaRow-s,s===lift?'tip':'ant')};
+  ant(4,-1,p.aL);ant(7,1,p.aR);
+  for(const[x,y] of legs(p.legPhase))put(x,y,'leg');
+  const holes=[];
+  if(p.eyes!=='closed'){
+    const er=art.eyeRow+(p.eyes==='sleep'?1:p.eyeLift);
+    const span=(art.body.find(b=>b[0]===er)||[0,1,10]);
+    const rows=p.eyes==='wide'?[er,er-1]:[er];
+    for(const st of [3,7]){const w=p.eyes==='narrow'?1:2;
+      for(let o=0;o<w;o++){const shift=p.eyes==='sleep'?0:p.eyeShift;const c=clamp(st+o+shift,span[1]+1,span[2]-2);
+        for(const r of rows){m.delete(c+','+r);holes.push({x:c,y:r,first:o===0,top:r===rows[rows.length-1]})}}}}
+  const mv=c=>({...c,x:c.x+(c.y<=7?p.lean:0)+p.dx,y:c.y+p.bob});
+  return{cells:[...m.values()].map(mv),holes:holes.map(mv)};
+}
+function shade(cells,t,a){const occ=new Set(cells.map(c=>c.x+','+c.y));const H_=hi(t),L=lo(t);
+  return cells.map(c=>{let col=t;
+    if(c.k==='leg')col=L;else if(c.k==='tip')col=H_;else if(!occ.has(c.x+','+(c.y-1)))col=H_;else if(!occ.has(c.x+','+(c.y+1)))col=L;
+    return{x:c.x,y:c.y,c:col,a}})}
+const at=(cells,ox)=>cells.map(c=>({...c,x:c.x+ox,y:c.y+OY}));
+function blinkAt(e,seed){const win=3.3,w=Math.floor(e/win),off=.4+hash(w*13.7+seed)*2.5,a=e-w*win-off;return a>=0&&a<.11}
+function glyph(rows,x0,y0,c,a,out){rows.forEach((r,j)=>[...r].forEach((ch,i)=>{if(ch==='#')out.push({x:x0+i,y:y0+j,c,a})}))}
+const Z=['##.','.#.','.##'];
+const Q=['###','..#','.#.','...','.#.'];
+
+// ---------- shared FX ----------
+function confetti(e,start,ox,out){const age=e-start;if(age<0||age>1.3)return;
+  const pal=[TINT.done,TINT.needsApproval,TINT.working,TINT.thinking,TINT.waitingForAnswer,WHITE];
+  for(let i=0;i<12;i++){const vx=(hash(i+.3)-.5)*16,vy=-9-hash(i+9.1)*9;
+    out.push({x:Math.round(ox+5.5+vx*age),y:Math.round(OY+1+vy*age+15*age*age),c:pal[i%6],a:1-age/1.3})}}
+function twinkle(e,after,ox,seed,t,out){if(e<after)return;const w=Math.floor(e/2.2),a=e-w*2.2;if(a>.35)return;
+  const cx=ox-1+Math.round(hash(w+seed)*13),cy=Math.round(hash(w*3+seed)*3);
+  out.push({x:cx,y:cy,c:WHITE,a:1-a/.35});
+  if(a>.06&&a<.26)for(const[dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]])out.push({x:cx+dx,y:cy+dy,c:hi(t),a:.7})}
+function zzz(e,x0,y0,t,out,period=2.4){for(let k=0;k<2;k++){const age=frac(e-k*period/2,period)*period;
+  const a=Math.sin(Math.PI*age/period)*.8;glyph(Z,Math.round(x0+age*1.2),Math.round(y0-age*1.4),hi(t),a,out)}}
+
+function fxA(s,e,ox,t,tile){const out=[];const add=(x,y,c,a)=>out.push({x:Math.round(x),y:Math.round(y),c,a});
+  switch(s){
+  case 'working':{const age=frac(e-.75*P.working,P.working)*P.working;if(age<.45){const n=Math.floor(age/.15),a=.7*(1-age/.45),c=mix(lo(t),[120,120,130],.4);
+    add(ox+2-n,OY+9-(n>0?1:0),c,a);add(ox+9+n,OY+9-(n>0?1:0),c,a)}break}
+  case 'thinking':{const ph=frac(e,1.8),fade=ph>.85?1-(ph-.85)/.15:1;
+    if(ph>.1)add(ox+11,OY+1,hi(t),.9*fade);if(ph>.3)add(ox+12,OY-1,hi(t),.9*fade);
+    if(ph>.5)for(const[dx,dy] of [[0,0],[1,0],[0,1],[1,1]])add(ox+13+dx,-0+dy,hi(t),.9*fade);break}
+  case 'runningTool':{for(let i=0;i<6;i++){const per=.42,st=i*.07,cyc=Math.floor((e-st)/per),age=frac(e-st,per)*per,life=.3;if(age>life)continue;
+    const sd=cyc*7+i,side=i%2?1:-1,vx=side*(5+hash(sd)*10),vy=-7-hash(sd+1)*9;
+    add((side>0?ox+11:ox)+vx*age,OY+5+vy*age+22*age*age,age<.07?WHITE:age<.16?hi(t):t,1-age/life)}break}
+  case 'compacting':{const ph=frac(e,P.compacting);if(ph<.75){const q=ph/.75;for(let j=0;j<3;j++){const d=2+2*j,a=.25+.7*q;
+    const lx=ox+1-Math.round(d*(1-q)),rx=ox+10+Math.round(d*(1-q));if(lx<ox+1)add(lx,OY+4+j,hi(t),a);if(rx>ox+10)add(rx,OY+4+j,hi(t),a)}}break}
+  case 'needsApproval':{const ph=frac(e,P.approval),b=Math.max(attack(ph),attack(ph-.17));
+    glyph(['#','#','#','.','#'],ox+12,0,b>.55?WHITE:hi(t),.35+.65*b,out);break}
+  case 'waitingForAnswer':{const bob=Math.sin(2*Math.PI*frac(e,P.question))>0?0:1;glyph(Q,ox+12,bob,hi(t),.9,out);break}
+  case 'waitingForInput':{if(frac(e,P.cursor)<.5){add(ox+12,OY+7,hi(t),.95);add(ox+12,OY+8,hi(t),.95)}break}
+  case 'done':{confetti(e,.35,ox,out);twinkle(e,1.6,ox,tile.seed,t,out);break}
+  case 'idle':{zzz(e,ox+9,OY+1,t,out);break}
+  }return out}
+
+function poseA(s,e,tile){const p=basePose(s,e);
+  if(s==='working'){const st=Math.floor(frac(e,P.working)*4);p.bob=[0,-1,-1,0][st];p.legPhase=st%2;p.aL=p.aR=[2,1,2,2][st]}
+  if(s==='needsApproval'){const ph=frac(e,P.approval),b=Math.max(attack(ph),attack(ph-.17));p.bob=b>.6?-1:0}
+  if(['working','thinking','waitingForAnswer'].includes(s)&&p.eyes!=='closed'&&blinkAt(e,tile.seed))p.eyes='closed';
+  return p}
+function drawA(p,s,ox){const t=TINT[s];const{cells,holes}=bodyCells(p);const out=at(shade(cells,t,p.brightness),ox);
+  if(p.eyes==='wide')for(const h of holes)if(h.first&&h.top)out.push({x:h.x+ox,y:h.y+OY,c:WHITE,a:.95});
+  return out}
+
+// ---------- concept C props ----------
+function line(x0,y0,x1,y1){const pts=[];let dx=Math.abs(x1-x0),dy=-Math.abs(y1-y0),sx=x0<x1?1:-1,sy=y0<y1?1:-1,err=dx+dy;
+  for(;;){pts.push([x0,y0]);if(x0===x1&&y0===y1)break;const e2=2*err;if(e2>=dy){err+=dy;x0+=sx}if(e2<=dx){err+=dx;y0+=sy}}return pts}
+function poseC(s,e,tile){const p=poseA(s,e,tile);
+  switch(s){
+  case 'working':{const k=Math.floor(e*7);p.bob=0;p.legPhase=0;p.eyeShift=1;p.aR=k%2?2:1;p.aL=(k>>1)%2?2:1;break}
+  case 'thinking':{const ph=frac(e,2.4);if(ph<.7){p.eyeLift=-1;p.eyeShift=1}else{p.aL=p.aR=2;p.eyes='wide';p.eyeShift=1;p.bob=ph<.8?-1:0}break}
+  case 'runningTool':{p.eyeShift=1;p.legPhase=0;const ph=frac(e,.55);if(ph>.62&&ph<.7)p.bob=0;break}
+  case 'compacting':{const ph=frac(e,P.compacting);p.squashed=ph>.45&&ph<.85;p.eyeShift=1;p.brightness=1;break}
+  case 'waitingForInput':p.eyeShift=1;break;
+  case 'waitingForAnswer':p.eyeShift=1;break;
+  }return p}
+function propsC(s,e,t,tile){const out=[];const add=(x,y,c,a=1)=>out.push({x,y,c,a});const H_=hi(t),L=lo(t);
+  switch(s){
+  case 'working':{glyph(['######','#....#','#....#','######'],12,5,L,1,out);glyph(['..##..','.####.'],12,9,L,1,out);
+    const cyc=Math.floor(e/2.2),n=Math.floor(frac(e,2.2)*12);const slots=[[13,6],[14,6],[15,6],[16,6],[13,7],[14,7],[15,7],[16,7]];
+    slots.forEach(([x,y],i)=>{if(i<n){const gap=hash(cyc*11+i)>.72;add(x,y,gap?L:H_,gap?.5:1)}});
+    if(n<8&&frac(e,.3)<.5)add(slots[n][0],slots[n][1],WHITE,1);break}
+  case 'thinking':{const ph=frac(e,2.4),lit=ph>=.7,fl=lit?1:.35+.35*hash(Math.floor(e*14));
+    glyph(['.##.','#..#','#..#','.##.'],12,0,lit?H_:t,fl,out);glyph(['.##.'],12,4,L,1,out);
+    if(lit){for(const[x,y] of [[13,1],[14,1],[13,2],[14,2]])add(x,y,WHITE,1);for(const[x,y] of [[11,0],[16,0],[11,3],[16,3]])add(x,y,H_,.8)}break}
+  case 'runningTool':{glyph(['#####'],12,8,H_,1,out);glyph(['.###.','.###.','#####'],12,9,L,1,out);
+    const ph=frac(e,.55);const f=ph<.55?'up':ph<.62?'mid':ph<.82?'down':'mid';
+    const head={up:[13,2],mid:[15,4],down:[15,6]}[f],grip={up:[13,4],mid:[14,5],down:[14,7]}[f];
+    for(const[x,y] of line(11,7,grip[0],grip[1]))add(x,y,L,1);
+    for(const[dx,dy] of [[0,0],[1,0],[0,1],[1,1]])add(head[0]+dx,head[1]+dy,H_,1);
+    if(ph>=.62&&ph<.82){const age=(ph-.62)*.55;for(let i=0;i<5;i++){const cyc=Math.floor(e/.55),vx=(hash(cyc*5+i)-.5)*22,vy=-8-hash(cyc*5+i+.5)*12;
+      add(Math.round(15.5+vx*age),Math.round(7+vy*age+30*age*age),age<.04?WHITE:H_,1-age/.11)}}break}
+  case 'compacting':{const ph=frac(e,P.compacting);const block=(y,h,c,a)=>{for(let j=0;j<h;j++)for(let x=13;x<=16;x++)add(x,y+j,j===0?hi(c):j===h-1?lo(c):c,a)};
+    if(ph<.4){const q=ramp(ph/.4);block(10,2,t,1);block(Math.round(7+q),2,t,1);block(Math.round(4+2*q),2,t,1)}
+    else if(ph<.7){const q=ramp((ph-.4)/.3),h=Math.round(6-4*q);block(12-h,h,mix(t,WHITE,q*.5),1)}
+    else if(ph<.85){block(10,2,mix(t,WHITE,.6),1)}
+    else{const q=ramp((ph-.85)/.15),up=Math.round((1-q)*4);block(10,2,t,q);block(7-up,2,t,q);block(4-up,2,t,q)}break}
+  case 'needsApproval':{const ph=frac(e,P.approval),b=Math.max(attack(ph),attack(ph-.17)),dx=b>.5?(Math.floor(e*24)%2?1:-1):0;
+    for(let y=6;y<=11;y++)add(14,y,L,1);const holes=new Set(['14,1','14,2','14,4']);
+    for(let y=0;y<=5;y++)for(let x=12;x<=16;x++)if(!holes.has(x+','+y))add(x+dx,y,(y===0?H_:t),.55+.45*b);break}
+  case 'waitingForAnswer':{const a=.8+.2*Math.sin(e*4);const holes=new Set(['14,1','15,1','16,2','15,3','15,5','12,0','17,0','12,6','17,6']);
+    for(let y=0;y<=6;y++)for(let x=12;x<=17;x++)if(!holes.has(x+','+y))add(x,y,y===0?H_:t,a);add(13,7,t,a);add(12,8,t,a);break}
+  case 'waitingForInput':{for(const[x,y] of [[12,8],[13,9],[12,10]])add(x,y,H_,1);
+    if(frac(e,P.cursor)<.5)for(const[x,y] of [[15,9],[16,9],[15,10],[16,10]])add(x,y,WHITE,.95);break}
+  case 'done':{for(let y=0;y<=11;y++)add(13,y,L,1);const fy=Math.round(7-7*ramp(e/.6));
+    const A=[[14,0,2],[15,0,2],[16,1,3],[17,1,2]],B=[[14,0,2],[15,1,3],[16,0,2],[17,0,1]];
+    for(const[x,y0,y1] of (Math.floor(e/.25)%2?A:B))for(let y=y0;y<=y1;y++)add(x,y+fy,y===y0?H_:t,1);
+    confetti(e,.35,0,out);twinkle(e,1.6,2,tile.seed,t,out);break}
+  case 'idle':{zzz(e,11,3,t,out);break}
+  }return out}
+
+// ---------- concept D life ----------
+function poseD(s,e,tile){let p=poseA(s,e,tile);const fresh=tile.prev&&tile.prev!=='__off';
+  const calm=['waitingForInput','idle','done','waitingForAnswer','needsApproval'].includes(s);
+  const sleeping=s==='idle'&&e>SLEEP;
+  if(fresh&&e<.9)switch(s){
+    case 'needsApproval':if(e<.18){p.bob=-1;p.eyes='wide';p.aL=p.aR=2;p.brightness=1}else if(e<.6){p.dx=Math.floor(e*30)%2?1:-1;p.eyes='wide';p.brightness=1}break;
+    case 'thinking':if(e<.7){p.eyeLift=-1;p.eyeShift=1;p.aL=p.aR=2}break;
+    case 'working':if(e<.45){p.bob=0;p.legPhase=Math.floor(e*22)%2;p.aL=p.aR=0;p.eyes='narrow'}break;
+    case 'waitingForAnswer':if(e<.6){p.lean=1;p.aR=2;p.aL=0;p.eyeShift=1;p.eyeLift=-1}break;
+    case 'compacting':if(e<.35){p.squashed=true;p.eyes='closed'}break;
+    case 'waitingForInput':if(e<.5){p.eyeShift=0;p.eyes=e<.12?'closed':'open';p.aL=p.aR=2}break;
+  }
+  if(s==='done'){const h2=ramp((e-.95)/.18)-ramp((e-1.25)/.18);if(h2>.4){p.bob=-1;p.aL=p.aR=2}}
+  if(calm&&!sleeping&&e>1.2){const win=4.2,w=Math.floor(e/win),kind=Math.floor(hash(w*3.1+tile.seed)*5),off=hash(w*7.7+tile.seed)*2+.6,a=e-w*win-off;
+    if(a>0&&a<1.1&&s!=='needsApproval')switch(kind){
+      case 0:p.eyes=p.eyes==='narrow'?'narrow':'open';p.eyeShift=a<.5?-1:1;break;
+      case 1:p.eyes='open';p.eyeLift=-1;break;
+      case 2:if(a<.1||(a>.22&&a<.32))p.eyes='closed';break;
+      case 3:p.aL=a<.3?2:a<.6?0:2;break;
+      case 4:if(a<.22){p.bob=-1;p.aL=p.aR=1}break;}}
+  if(pointer.active&&tile.rect&&calm&&!sleeping&&!(fresh&&e<.7)){
+    const cx=tile.rect.left+tile.rect.width/2,cy=tile.rect.top+tile.rect.height/2;
+    if(p.eyes==='narrow')p.eyes='open';
+    p.eyeShift=clamp(Math.round((pointer.x-cx)/110),-1,1);
+    p.eyeLift=pointer.y<cy-90?-1:pointer.y>cy+120?1:0;}
+  if(sleeping){p.eyes='sleep';p.aL=p.aR=0;p.eyeShift=0;p.eyeLift=0;p.brightness=.72+.14*Math.sin(e*2.2)}
+  return p}
+function fxD(s,e,ox,t,tile){const out=[];const fresh=tile.prev&&tile.prev!=='__off';
+  if(s==='needsApproval'&&fresh&&e<1.4){const a=e<1?1:1-(e-1)/.4;glyph(['#','#','#','.','#'],ox+12,0,Math.floor(e*10)%2?WHITE:hi(t),a,out)}
+  if(s==='needsApproval'&&e>=1.4){const ph=frac(e,P.approval),b=Math.max(attack(ph),attack(ph-.17));if(b>.4)out.push({x:ox+12,y:4,c:hi(t),a:b})}
+  if(s==='done'){confetti(e,1.1,ox,out);twinkle(e,2.4,ox,tile.seed,t,out)}
+  if(s==='idle'&&e>SLEEP)zzz(e,ox+9,OY+1,t,out,3.2);
+  return out}
+function beamIn(cells,e,ox){if(e>=.7)return cells;const rev=H-(e/.5)*H;const q=ramp(e/.6);
+  const out=cells.filter(c=>c.y>=rev).map(c=>({...c,c:mix(WHITE,c.c,q)}));
+  for(let y=0;y<H;y++)for(const x of [ox+5,ox+6])out.push({x,y,c:WHITE,a:.55*(1-e/.7)*(y>=rev-1?1:.4)});return out}
+
+// ---------- concepts ----------
+const CONCEPTS=[
+ {id:'current',name:'Current',tag:'baseline',pitch:'What ships today — a faithful port of AgentActivityGlyph.swift, so the others have something honest to be compared against.',
+  points:['12×10 invader blob, flat single colour, hole-eyes, 0.5pt gap, restrained bloom.','Two-frame toggles; state is carried by antennae, eyes and legs.','Nothing happens outside the 12×10 box, so a hop can’t raise the antennae without clipping them.'],
+  cost:'—',ox:3,
+  frame(tile,now){const e=now-tile.changedAt,s=tile.status,t=TINT[s],p=basePose(s,e);
+    const cells=bodyCells(p).cells.filter(c=>c.x>=0&&c.x<=11&&c.y>=0&&c.y<=9).map(c=>({x:c.x+3,y:c.y+OY,c:t,a:p.brightness}));
+    return{cells,bloom:.42,bloomR:.34}}},
+ {id:'A',name:'A · Arcade Polish',tag:'same creature, shipped-game finish',pitch:'Keep everything you like and finish it the way a real NES/arcade sprite is finished: volume, proper animation frames, and little pixel effects that say the verb.',
+  points:['<b>3-tone shading</b> from each status colour (lit top edge, shaded underside + legs). Same hues, now with volume.','<b>4-frame motion</b> with anticipation and follow-through (antennae drag on the rise, catch up at the apex) instead of 2-frame toggles.','<b>Per-state pixel FX</b> in a 2-cell apron: landing dust, thought dots, tool sparks, context pixels sucked in, flashing “!”, bobbing “?”, terminal cursor, confetti, drifting Z’s.','<b>Natural blinks</b> seeded per session so rows never blink in unison. Wide eyes get a white glint.','The apron also removes the “hop clips the antennae” constraint — approval now jumps on the heartbeat.'],
+  cost:'Effort: low–medium. Same Pose system + a shading pass + an FX layer. Collapsed shoulder: body + shading only (FX hidden at 2pt).',ox:3,
+  frame(tile,now){const e=now-tile.changedAt,s=tile.status,p=poseA(s,e,tile);
+    return{cells:[...drawA(p,s,3),...fxA(s,e,3,TINT[s],tile)],bloom:.5,bloomR:.36}}},
+ {id:'B',name:'B · Phosphor CRT',tag:'the display is the star',pitch:'Leave the sprite exactly as it is and push the “notch is a CRT” idea all the way: afterglow, scanlines, colour fringing, and state changes that arrive as signal events.',
+  points:['<b>Phosphor persistence</b> — moving cells leave a short decaying afterglow trail.','<b>Scanlines + RGB fringe</b> on the bloom, and a faint 50 Hz flicker.','<b>State changes are events</b> — ~0.4s of row tearing, static and a white flash while the colour swaps.','<b>Power-on</b> — a new session draws in like a CRT warming up (line → full image).'],
+  cost:'Effort: low (render-layer only). Risk: the noisiest option; with 4+ sessions changing state the panel can get busy.',ox:3,
+  frame(tile,now){const e=now-tile.changedAt,s=tile.status,t=TINT[s];const clip=c=>c.x>=0&&c.x<=11&&c.y>=0&&c.y<=9;
+    const p=basePose(s,e),cur=bodyCells(p).cells.filter(clip),key=new Set(cur.map(c=>c.x+','+c.y)),out=[];
+    for(const[dt,a] of [[.05,.34],[.1,.18],[.15,.08]]){if(e-dt<0)continue;const gp=basePose(s,e-dt);
+      for(const c of bodyCells(gp).cells.filter(clip))if(!key.has(c.x+','+c.y))out.push({x:c.x+3,y:c.y+OY,c:t,a:a*gp.brightness})}
+    const fl=.93+.07*hash(Math.floor(now*24));let cells=cur.map(c=>({x:c.x+3,y:c.y+OY,c:t,a:p.brightness*fl}));
+    const G=.42,fr=Math.floor(e*30);
+    if(tile.prev==='__off'&&e<.55){if(e<.12){const hw=e/.12*6;cells=[];for(let x=Math.ceil(8.5-hw);x<=8.5+hw;x++)cells.push({x,y:OY+5,c:WHITE,a:1})}
+      else{const q=(e-.12)/.43;cells=cells.filter(c=>Math.abs(c.y-(OY+5))<=q*6).map(c=>({...c,c:mix(WHITE,t,q)}))}return{cells,bloom:.7,bloomR:.45,scan:true,rgb:true}}
+    if(tile.prev&&e<G){const q=e/G,col=e<.06?WHITE:mix(TINT[tile.prev]||t,t,ramp(q));
+      cells=cells.map(c=>({...c,c:col,x:c.x+(hash(c.y*3.7+fr)>.5?Math.round((hash(c.y*9.1+fr)-.5)*5):0)}));
+      for(let i=0;i<18;i++)out.push({x:Math.floor(hash(i+fr*31)*W),y:Math.floor(hash(i*2.3+fr*17)*H),c:mix(col,WHITE,.5),a:.5*(1-q)})}
+    return{cells:[...out,...cells],bloom:.62,bloomR:.45,scan:true,rgb:true}}},
+ {id:'C',name:'C · Tiny Worker',tag:'a prop for every verb',pitch:'The blob gets a little workbench. Each state is a tiny scene, so you can read what the agent is doing without learning the colours.',
+  points:['<b>Working</b>: types at a monitor, code fills in line by line. <b>Thinking</b>: a lightbulb flickers, then <i>pings</i> (eyes go wide).','<b>Tool</b>: hammer on an anvil with impact sparks. <b>Compacting</b>: a stack of context blocks gets crushed into one.','<b>Approval</b>: holds up a shaking “!” placard. <b>Question</b>: speech bubble with “?”. <b>Input</b>: terminal prompt with a blinking cursor.','<b>Done</b>: raises a flag + confetti. <b>Idle</b>: Z’s.'],
+  cost:'Effort: medium–high (9 props to draw and animate). Row icon grows from 36pt to ~54pt wide. Collapsed shoulder shows the body only.',ox:0,rowCols:18,
+  frame(tile,now){const e=now-tile.changedAt,s=tile.status,p=poseC(s,e,tile);
+    return{cells:[...drawA(p,s,0),...propsC(s,e,TINT[s],tile)],bloom:.5,bloomR:.36}}},
+ {id:'D',name:'D · Alive',tag:'a pet, not an indicator',pitch:'A’s finish with restrained FX, plus behaviour: it notices you, reacts to what happens to it, fidgets when it has nothing to do, and eventually falls asleep.',
+  points:['<b>Eyes follow your mouse</b> in the calm states — move your pointer around this page.','<b>Reacts to state changes</b>: startle-jump + shake when approval is needed, looks up when it starts thinking, revs its legs before working, double victory hop on done.','<b>Idle personality</b>: looks around, double-blinks, antenna twitch, little hop — random per session so rows feel like individuals.','<b>Falls asleep</b> after a long idle (6s here, ~5 min for real) with a breathing glow and Z’s.','<b>Beams in</b> when a new session appears.'],
+  cost:'Effort: medium. Needs “previous state” + a hover position passed into the glyph. Every behaviour is a pose, so Reduce Motion still maps to one resting frame.',ox:3,
+  frame(tile,now){const e=now-tile.changedAt,s=tile.status,p=poseD(s,e,tile);let cells=[...drawA(p,s,3),...fxD(s,e,3,TINT[s],tile)];
+    if(tile.prev==='__off')cells=beamIn(cells,e,3);return{cells,bloom:.5,bloomR:.36}}},
+];
+
+// ---------- rendering ----------
+const tiles=[];let seedN=1;
+function makeTile(parent,cid,opts){const c=document.createElement('canvas');const p=opts.p;const dpr=devicePixelRatio||1;
+  const w=W*p,h=H*p;c.width=Math.round(w*dpr);c.height=Math.round(h*dpr);c.style.width=w+'px';c.style.height=h+'px';
+  const oc=document.createElement('canvas');oc.width=c.width;oc.height=c.height;const tmp=document.createElement('canvas');tmp.width=c.width;tmp.height=c.height;
+  parent.appendChild(c);
+  const tile={c,ctx:c.getContext('2d'),oc,octx:oc.getContext('2d'),tmp,tctx:tmp.getContext('2d'),p,dpr,w,h,cid,seed:(seedN++)*1.37,
+    status:opts.status||'idle',prev:'__off',changedAt:performance.now()/1000+(opts.delay||0),story:!!opts.story,step:0,label:opts.label,cycle:opts.cycle||11,
+    gap:p>3?p*.5/3:(p>=2?.5:0),group:opts.group};
+  if(tile.story){tile.status=STORY[0][0];tile.changedAt=performance.now()/1000}
+  tiles.push(tile);return tile}
+function advance(tile,now){
+  if(tile.story){if(now-tile.changedAt>STORY[tile.step][1]){tile.prev=tile.status;tile.step=(tile.step+1)%STORY.length;tile.status=STORY[tile.step][0];tile.changedAt=now;if(tile.step===0)tile.prev='__off'}
+    if(tile.label)tile.label.textContent=LABEL[tile.status];tile.label&&(tile.label.style.color=`rgb(${TINT[tile.status]})`)}
+  else if(now-tile.changedAt>tile.cycle){tile.prev=tile.status==='working'?'idle':'working';tile.changedAt=now}}
+function render(tile,now){const{ctx,octx,oc,tmp,tctx,p,dpr,c}=tile;const fr=CONCEPTS.find(k=>k.id===tile.cid).frame(tile,now);
+  octx.setTransform(1,0,0,1,0,0);octx.clearRect(0,0,oc.width,oc.height);octx.setTransform(dpr,0,0,dpr,0,0);
+  const g=tile.gap;
+  const K=CONCEPTS.find(k=>k.id===tile.cid);for(const q of fr.cells){if(q.x<0||q.y<0||q.x>=W||q.y>=H)continue;if(tile.bodyOnly&&(q.x<K.ox||q.x>K.ox+11))continue;const a=clamp(q.a,0,1);if(a<=0)continue;
+    octx.globalAlpha=a;octx.fillStyle=`rgb(${q.c})`;octx.fillRect(q.x*p+g/2,q.y*p+g/2,p-g,p-g)}
+  octx.globalAlpha=1;
+  ctx.setTransform(1,0,0,1,0,0);ctx.globalCompositeOperation='source-over';ctx.globalAlpha=1;ctx.filter='none';ctx.clearRect(0,0,c.width,c.height);
+  if(!tile.transparent){ctx.fillStyle='#000';ctx.fillRect(0,0,c.width,c.height)}
+  if(fr.rgb){for(const[col,dx] of [['#f00',-1],['#00f',1]]){tctx.globalCompositeOperation='source-over';tctx.clearRect(0,0,tmp.width,tmp.height);
+      tctx.drawImage(oc,0,0);tctx.globalCompositeOperation='multiply';tctx.fillStyle=col;tctx.fillRect(0,0,tmp.width,tmp.height);
+      tctx.globalCompositeOperation='destination-in';tctx.drawImage(oc,0,0);
+      ctx.globalCompositeOperation='lighter';ctx.globalAlpha=.45;ctx.filter=`blur(${p*.25*dpr}px)`;ctx.drawImage(tmp,dx*p*.3*dpr,0)}}
+  ctx.globalCompositeOperation='lighter';ctx.filter=`blur(${Math.max(.6,p*fr.bloomR*dpr)}px)`;ctx.globalAlpha=fr.bloom;ctx.drawImage(oc,0,0);
+  ctx.filter='none';ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.drawImage(oc,0,0);
+  if(fr.scan&&p>=3){ctx.fillStyle='rgba(0,0,0,.32)';const step=Math.max(2,Math.round(p*dpr/3));for(let y=0;y<c.height;y+=step)ctx.fillRect(0,y,c.width,Math.max(1,Math.round(step/2.6)))}}
+
+// ---------- build page ----------
+const tabs=document.getElementById('tabs'),root=document.getElementById('concepts'),ctl=tabs.querySelector('.ctl');
+document.getElementById('legend').innerHTML=STATUSES.map(s=>`<span><i style="background:rgb(${TINT[s]})"></i>${LABEL[s]}</span>`).join('');
+let mockScale=1;const mocks=[];
+function el(tag,cls,html){const e=document.createElement(tag);if(cls)e.className=cls;if(html!=null)e.innerHTML=html;return e}
+function addTab(id,name){const b=el('button','tab',name);b.setAttribute('role','tab');b.dataset.id=id;b.onclick=()=>show(id);tabs.insertBefore(b,ctl);return b}
+function show(id){for(const b of tabs.querySelectorAll('.tab'))b.setAttribute('aria-selected',b.dataset.id===id);
+  for(const s of root.children)s.classList.toggle('on',s.dataset.id===id);try{localStorage.setItem('mascot-tab',id)}catch(e){}}
+
+// side by side
+addTab('pick','Side by side');
+{const sec=el('section','concept');sec.dataset.id='pick';
+ sec.appendChild(el('p','pitch','All five playing the same session story in sync: idle → working → thinking → tool → <b>needs approval</b> → working → compacting → question → <b>done</b> → waiting for input → idle (D falls asleep). Hover over D to make it look at you.'));
+ const g=el('div','pick');sec.appendChild(g);
+ for(const k of CONCEPTS){const box=el('div','story');box.appendChild(el('h4',null,k.name));const lbl=el('div','lbl');const holder=el('div');box.append(holder,lbl);g.appendChild(box);
+   makeTile(holder,k.id,{p:12,story:true,label:lbl,group:'pick'})}
+ root.appendChild(sec)}
+
+for(const k of CONCEPTS){addTab(k.id,k.name);
+  const sec=el('section','concept');sec.dataset.id=k.id;
+  sec.appendChild(el('div','head',`<h2>${k.name}</h2><span class="tag">${k.tag}</span>`));
+  sec.appendChild(el('p','pitch',k.pitch));
+  const top=el('div','top');const st=el('div','story');const holder=el('div');const lbl=el('div','lbl');st.append(holder,lbl);
+  makeTile(holder,k.id,{p:16,story:true,label:lbl,group:k.id});
+  const info=el('div');info.appendChild(el('ul','points',k.points.map(x=>`<li>${x}</li>`).join('')));info.appendChild(el('div','cost',k.cost));
+  top.append(st,info);sec.appendChild(top);
+  sec.appendChild(el('h3',null,'All nine states · zoomed'));
+  const grid=el('div','grid');sec.appendChild(grid);
+  STATUSES.forEach((s,i)=>{const b=el('div','cellbox');const h=el('div');b.appendChild(h);b.appendChild(el('div','lbl',`<span style="color:rgb(${TINT[s]})">${LABEL[s]}</span>`));grid.appendChild(b);
+    makeTile(h,k.id,{p:8,status:s,delay:i*.13,cycle:11+i*.37,group:k.id})});
+  sec.appendChild(el('h3',null,'In the notch · real point size'));
+  const mr=el('div','mockrow');sec.appendChild(mr);mocks.push({k,mr});
+  root.appendChild(sec)}
+
+function buildMock({k,mr}){for(let i=tiles.length-1;i>=0;i--)if(tiles[i].mock===k.id)tiles.splice(i,1);mr.innerHTML='';const s=mockScale;
+  const place=(parent,status,p,cols,delay,bodyOnly)=>{const box=el('div','mbox');box.style.width=(cols||12)*p+'px';box.style.height=10*p+'px';parent.appendChild(box);
+    const t=makeTile(box,k.id,{p,status,delay,cycle:13});t.mock=k.id;t.transparent=true;t.bodyOnly=!!bodyOnly;t.c.style.left=-k.ox*p+'px';t.c.style.top=-OY*p+'px';return t};
+  const n=el('div','notch');n.style.setProperty('--s',s);
+  place(n,'needsApproval',2*s,12,0,true);n.appendChild(el('span',null,`<span style="color:rgb(${TINT.needsApproval})">Approve</span>`));
+  n.appendChild(el('div','cam'));n.appendChild(el('span',null,'<span style="color:#888">3 agents</span>'));
+  const pn=el('div','panel');pn.style.setProperty('--s',s);
+  [['working','the-notch · refine mascot','Working · Edit Theme.swift'],['needsApproval','api-server · migrate db','Needs approval · Bash: rm -rf build/'],['done','landing · fix hero','Done · 4m 12s']].forEach(([st,a,b],i)=>{
+    const r=el('div','srow');place(r,st,3*s,k.rowCols||12,i*.3);r.appendChild(el('div',null,`<div class="t1">${a}</div><div class="t2" style="color:rgb(${TINT[st]})">${b}</div>`));pn.appendChild(r)});
+  const col=el('div');col.style.display='flex';col.style.flexDirection='column';col.style.gap='18px';col.append(n,pn);mr.appendChild(col)}
+mocks.forEach(buildMock);
+
+document.getElementById('replay').onclick=()=>{const now=performance.now()/1000;for(const t of tiles){if(t.story){t.step=0;t.status=STORY[0][0]}t.prev=t.story?'__off':'working';t.changedAt=now}};
+document.getElementById('scale').onclick=e=>{mockScale=mockScale===1?2:1;e.target.textContent=mockScale===1?'Notch: actual size':'Notch: 2×';mocks.forEach(buildMock)};
+
+let start='pick';try{start=localStorage.getItem('mascot-tab')||'pick'}catch(e){}
+show(start);
+
+function loop(ms){const now=ms/1000;
+  for(const t of tiles){if(!t.c.isConnected||t.c.offsetParent===null)continue;
+    if(t.cid==='D')t.rect=t.c.getBoundingClientRect();advance(t,now);render(t,now)}
+  requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

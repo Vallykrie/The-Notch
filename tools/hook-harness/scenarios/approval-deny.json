@@ -1,0 +1,55 @@
+{
+  "name": "approval-deny",
+  "steps": [
+    {
+      "label": "permission denied",
+      "source": "claude",
+      "event": "PermissionRequest",
+      "input": {
+        "hook_event_name": "PermissionRequest",
+        "session_id": "approval-deny-s1",
+        "cwd": "/tmp/notch-harness/approval-deny",
+        "tool_name": "Bash",
+        "tool_input": { "command": "git status --short" }
+      },
+      "process_timeout": "3s",
+      "expect": {
+        "exit_code": 0,
+        "timed_out": false,
+        "stdout": "{\"permissionDecision\":\"deny\"}\n"
+      },
+      "envelope": {
+        "event_name": "PermissionRequest",
+        "source": "claude",
+        "cwd": "/tmp/notch-harness/approval-deny",
+        "thread_name": "approval-deny-s1",
+        "timeout": 7200
+      }
+    },
+    {
+      "label": "codex permission denied",
+      "source": "codex",
+      "event": "PermissionRequest",
+      "input": {
+        "hook_event_name": "PermissionRequest",
+        "thread_name": "approval-deny-codex-t1",
+        "cwd": "/tmp/notch-harness/approval-deny-codex",
+        "tool_name": "shell",
+        "tool_input": { "command": "git status --short" }
+      },
+      "process_timeout": "3s",
+      "expect": {
+        "exit_code": 0,
+        "timed_out": false,
+        "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PermissionRequest\",\"decision\":{\"behavior\":\"deny\"}}}\n"
+      },
+      "envelope": {
+        "event_name": "PermissionRequest",
+        "source": "codex",
+        "cwd": "/tmp/notch-harness/approval-deny-codex",
+        "thread_name": "approval-deny-codex-t1",
+        "timeout": 7200
+      }
+    }
+  ]
+}

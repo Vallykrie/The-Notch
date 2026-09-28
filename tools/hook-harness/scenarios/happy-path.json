@@ -1,0 +1,102 @@
+{
+  "name": "happy-path",
+  "steps": [
+    {
+      "label": "session start",
+      "source": "claude",
+      "input": {
+        "hook_event_name": "SessionStart",
+        "session_id": "happy-s1",
+        "cwd": "/tmp/notch-harness/happy"
+      },
+      "process_timeout": "3s",
+      "expect": { "exit_code": 0, "timed_out": false, "stdout": "" },
+      "envelope": {
+        "event_name": "SessionStart",
+        "source": "claude",
+        "cwd": "/tmp/notch-harness/happy",
+        "thread_name": "happy-s1",
+        "timeout": 5
+      }
+    },
+    {
+      "label": "user prompt",
+      "source": "claude",
+      "input": {
+        "hook_event_name": "UserPromptSubmit",
+        "session_id": "happy-s1",
+        "cwd": "/tmp/notch-harness/happy",
+        "prompt": "Summarize the repository"
+      },
+      "process_timeout": "3s",
+      "expect": { "exit_code": 0, "timed_out": false, "stdout": "" },
+      "envelope": {
+        "event_name": "UserPromptSubmit",
+        "source": "claude",
+        "cwd": "/tmp/notch-harness/happy",
+        "thread_name": "happy-s1",
+        "timeout": 5
+      }
+    },
+    {
+      "label": "before tool",
+      "source": "claude",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "session_id": "happy-s1",
+        "cwd": "/tmp/notch-harness/happy",
+        "tool_name": "Read",
+        "tool_input": { "file_path": "README.md" }
+      },
+      "process_timeout": "3s",
+      "expect": { "exit_code": 0, "timed_out": false, "stdout": "" },
+      "envelope": {
+        "event_name": "PreToolUse",
+        "source": "claude",
+        "cwd": "/tmp/notch-harness/happy",
+        "thread_name": "happy-s1",
+        "timeout": 5
+      }
+    },
+    {
+      "label": "after tool",
+      "source": "claude",
+      "input": {
+        "hook_event_name": "PostToolUse",
+        "session_id": "happy-s1",
+        "cwd": "/tmp/notch-harness/happy",
+        "tool_name": "Read",
+        "tool_input": { "file_path": "README.md" },
+        "tool_response": { "success": true }
+      },
+      "process_timeout": "3s",
+      "expect": { "exit_code": 0, "timed_out": false, "stdout": "" },
+      "envelope": {
+        "event_name": "PostToolUse",
+        "source": "claude",
+        "cwd": "/tmp/notch-harness/happy",
+        "thread_name": "happy-s1",
+        "timeout": 5
+      }
+    },
+    {
+      "label": "stop",
+      "source": "claude",
+      "input": {
+        "hook_event_name": "Stop",
+        "session_id": "happy-s1",
+        "cwd": "/tmp/notch-harness/happy",
+        "stop_hook_active": false
+      },
+      "process_timeout": "3s",
+      "expect": { "exit_code": 0, "timed_out": false, "stdout": "" },
+      "envelope": {
+        "event_name": "Stop",
+        "source": "claude",
+        "cwd": "/tmp/notch-harness/happy",
+        "thread_name": "happy-s1",
+        "timeout": 5
+      }
+    }
+  ]
+}

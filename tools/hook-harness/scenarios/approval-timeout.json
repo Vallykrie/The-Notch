@@ -1,0 +1,26 @@
+{
+  "name": "approval-timeout",
+  "steps": [
+    {
+      "label": "permission reply timeout",
+      "source": "codex",
+      "event": "PermissionRequest",
+      "input": {
+        "hook_event_name": "PermissionRequest",
+        "thread_name": "approval-timeout-t1",
+        "cwd": "/tmp/notch-harness/approval-timeout",
+        "tool_name": "shell",
+        "tool_input": { "command": "pwd" }
+      },
+      "process_timeout": "2s",
+      "expect": { "exit_code": 0, "timed_out": false, "stdout": "" },
+      "envelope": {
+        "event_name": "PermissionRequest",
+        "source": "codex",
+        "cwd": "/tmp/notch-harness/approval-timeout",
+        "thread_name": "approval-timeout-t1",
+        "timeout": 7200
+      }
+    }
+  ]
+}

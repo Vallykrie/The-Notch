@@ -1,0 +1,36 @@
+# Third-party licenses
+
+The Notch has **zero third-party code dependencies**. It bundles one third-party font, below.
+
+## Included
+
+### Departure Mono
+
+- **Version:** 1.500
+- **Copyright:** Copyright 2022–2024 Helena Zhang (helenazhang.com)
+- **License:** SIL Open Font License, Version 1.1
+- **Source:** https://github.com/rektdeckard/departure-mono
+- **Bundled at:** `The Notch/Resources/Fonts/DepartureMono-Regular.otf`
+- **Modifications:** none — the released OTF is shipped verbatim.
+
+The full OFL text ships alongside the font at
+`The Notch/Resources/Fonts/DepartureMono-LICENSE.txt`.
+
+The OFL permits bundling and redistributing the font inside a larger work under any licence,
+including this MIT project. It must not be sold on its own, and a Reserved Font Name must not be
+reused on a modified version; the font is shipped unmodified. The OFL text ships with the app.
+
+The candidate list below is not a list of current contents.
+
+## Vetted-compatible candidates — not yet included
+
+These candidates are recorded in `docs/ARCHITECTURE.md` §4a for future consideration. All are
+permissive and MIT-compatible. Every item below is **not yet included** in The Notch:
+
+- **SkyLightWindow** — MIT — not yet included
+- **Sparkle** — MIT — not yet included
+  - bundled **bsdiff** — BSD-2-Clause — not yet included
+  - bundled **sais-lite** — MIT — not yet included
+  - bundled **Ed25519** — Zlib — not yet included
+- **Defaults** — MIT — not yet included
+- **KeyboardShortcuts** — MIT — not yet included

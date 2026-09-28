@@ -1,0 +1,144 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Swift build
+    runs-on: macos-15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      # The project is saved in the Xcode 16 project format (objectVersion 77), so the
+      # runner's newest Xcode must be selected explicitly -- the image default can lag.
+      - name: Select the newest installed Xcode
+        run: |
+          set -euo pipefail
+          newest="$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+          echo "Selecting $newest"
+          sudo xcode-select -s "$newest/Contents/Developer"
+          xcodebuild -version
+
+      # There are no packages yet, but these are the standard locations for future
+      # SwiftPM downloads and Xcode build artifacts.
+      - name: Cache SwiftPM and Xcode artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/org.swift.swiftpm
+            ~/Library/Developer/Xcode/DerivedData
+          key: ${{ runner.os }}-swift-${{ hashFiles('The Notch.xcodeproj/project.pbxproj', '**/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-swift-
+
+      - name: Build app
+        run: |
+          xcodebuild -project "The Notch.xcodeproj" \
+            -scheme "The Notch" \
+            -configuration Debug \
+            -destination 'platform=macOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+  go:
+    name: Go checks (${{ matrix.module }})
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          - tools/notch-hook
+          - tools/hook-harness
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: false
+
+      - name: Cache Go build and module data
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('tools/notch-hook/go.mod', 'tools/hook-harness/go.mod') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Vet
+        working-directory: ${{ matrix.module }}
+        run: go vet ./...
+
+      - name: Build
+        working-directory: ${{ matrix.module }}
+        run: go build ./...
+
+      - name: Test
+        working-directory: ${{ matrix.module }}
+        run: go test ./...
+
+  harness:
+    name: Hook harness
+    runs-on: macos-15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: false
+
+      - name: Cache Go build and module data
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('tools/notch-hook/go.mod', 'tools/hook-harness/go.mod') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Run all harness scenarios
+        run: bash tools/hook-harness/run-all.sh
+
+  theme-guard:
+    name: Theme animation guard
+    runs-on: macos-15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Reject curves outside Theme.swift
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          pattern='\.(spring|smooth|bouncy)\(|\.(easeIn|easeOut)|\.linear\('
+          violations="$(
+            while IFS= read -r -d '' swift_file; do
+              grep -HnE "$pattern" "$swift_file" || true
+            done < <(find "The Notch" -type f -name '*.swift' \
+              ! -path "The Notch/Core/Theme.swift" -print0) \
+              | sed -E 's/Theme\.Motion\.(spring|smooth|bouncy|easeIn|easeOut|linear)//g' \
+              | grep -E "$pattern" || true
+          )"
+
+          if [[ -n "$violations" ]]; then
+            echo "Theme guard failed: animation curves found outside The Notch/Core/Theme.swift"
+            printf '%s\n' "$violations"
+            exit 1
+          fi
+
+          echo "Theme guard passed: no animation curves outside The Notch/Core/Theme.swift"

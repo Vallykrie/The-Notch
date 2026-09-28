@@ -1,0 +1,36 @@
+name: Bug report
+description: Something is broken or behaves unexpectedly
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead? Screenshots help.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: The Notch version
+      placeholder: 1.0.0-beta.2
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version and Mac model
+      placeholder: macOS 15.5, MacBook Pro 14" M3
+    validations:
+      required: true
+  - type: input
+    id: agent
+    attributes:
+      label: Agent(s) involved, if any
+      placeholder: Claude Code 2.1, Codex 0.40

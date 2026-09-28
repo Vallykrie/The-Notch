@@ -1,0 +1,24 @@
+.DS_Store
+build/
+
+# Local-only maintainer notes and agent run logs — kept on disk, never published
+.codex-swarm/
+docs/STATE.md
+docs/superpowers/
+.claude/settings.local.json
+tools/notch-hook/dist/
+tools/hook-harness/hook-harness
+tools/notch-hook/notch-hook
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+.swiftpm/
+Packages/
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+dist/

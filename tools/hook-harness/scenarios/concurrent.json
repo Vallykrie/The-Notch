@@ -1,0 +1,77 @@
+{
+  "name": "concurrent",
+  "steps": [
+    {
+      "label": "alpha starts",
+      "source": "claude",
+      "input": { "hook_event_name": "SessionStart", "session_id": "alpha", "cwd": "/tmp/notch-harness/alpha" },
+      "process_timeout": "3s",
+      "expect": { "exit_code": 0, "timed_out": false, "stdout": "" },
+      "envelope": { "event_name": "SessionStart", "source": "claude", "cwd": "/tmp/notch-harness/alpha", "thread_name": "alpha", "timeout": 5 }
+    },
+    {
+      "label": "beta starts",
+      "source": "codex",
+      "input": { "hook_event_name": "SessionStart", "conversation_id": "beta", "cwd": "/tmp/notch-harness/beta" },
+      "process_timeout": "3s",
+      "expect": { "exit_code": 0, "timed_out": false, "stdout": "" },
+      "envelope": { "event_name": "SessionStart", "source": "codex", "cwd": "/tmp/notch-harness/beta", "thread_name": "beta", "timeout": 5 }
+    },
+    {
+      "label": "gamma starts",
+      "source": "claude",
+      "input": { "hook_event_name": "SessionStart", "thread_name": "gamma", "cwd": "/tmp/notch-harness/gamma" },
+      "process_timeout": "3s",
+      "expect": { "exit_code": 0, "timed_out": false, "stdout": "" },
+      "envelope": { "event_name": "SessionStart", "source": "claude", "cwd": "/tmp/notch-harness/gamma", "thread_name": "gamma", "timeout": 5 }
+    },
+    {
+      "label": "alpha prompt",
+      "source": "claude",
+      "input": { "hook_event_name": "UserPromptSubmit", "session_id": "alpha", "cwd": "/tmp/notch-harness/alpha", "prompt": "alpha work" },
+      "process_timeout": "3s",
+      "expect": { "exit_code": 0, "timed_out": false, "stdout": "" },
+      "envelope": { "event_name": "UserPromptSubmit", "source": "claude", "cwd": "/tmp/notch-harness/alpha", "thread_name": "alpha", "timeout": 5 }
+    },
+    {
+      "label": "beta notification",
+      "source": "codex",
+      "input": { "hook_event_name": "Notification", "conversation_id": "beta", "cwd": "/tmp/notch-harness/beta", "message": "waiting" },
+      "process_timeout": "3s",
+      "expect": { "exit_code": 0, "timed_out": false, "stdout": "" },
+      "envelope": { "event_name": "Notification", "source": "codex", "cwd": "/tmp/notch-harness/beta", "thread_name": "beta", "timeout": 5 }
+    },
+    {
+      "label": "gamma before tool",
+      "source": "claude",
+      "input": { "hook_event_name": "PreToolUse", "thread_name": "gamma", "cwd": "/tmp/notch-harness/gamma", "tool_name": "Read", "tool_input": { "file_path": "go.mod" } },
+      "process_timeout": "3s",
+      "expect": { "exit_code": 0, "timed_out": false, "stdout": "" },
+      "envelope": { "event_name": "PreToolUse", "source": "claude", "cwd": "/tmp/notch-harness/gamma", "thread_name": "gamma", "timeout": 5 }
+    },
+    {
+      "label": "beta stops",
+      "source": "codex",
+      "input": { "hook_event_name": "Stop", "conversation_id": "beta", "cwd": "/tmp/notch-harness/beta" },
+      "process_timeout": "3s",
+      "expect": { "exit_code": 0, "timed_out": false, "stdout": "" },
+      "envelope": { "event_name": "Stop", "source": "codex", "cwd": "/tmp/notch-harness/beta", "thread_name": "beta", "timeout": 5 }
+    },
+    {
+      "label": "alpha stops",
+      "source": "claude",
+      "input": { "hook_event_name": "Stop", "session_id": "alpha", "cwd": "/tmp/notch-harness/alpha" },
+      "process_timeout": "3s",
+      "expect": { "exit_code": 0, "timed_out": false, "stdout": "" },
+      "envelope": { "event_name": "Stop", "source": "claude", "cwd": "/tmp/notch-harness/alpha", "thread_name": "alpha", "timeout": 5 }
+    },
+    {
+      "label": "gamma stops",
+      "source": "claude",
+      "input": { "hook_event_name": "SubagentStop", "thread_name": "gamma", "cwd": "/tmp/notch-harness/gamma" },
+      "process_timeout": "3s",
+      "expect": { "exit_code": 0, "timed_out": false, "stdout": "" },
+      "envelope": { "event_name": "SubagentStop", "source": "claude", "cwd": "/tmp/notch-harness/gamma", "thread_name": "gamma", "timeout": 5 }
+    }
+  ]
+}
