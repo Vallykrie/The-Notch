@@ -113,28 +113,26 @@ lipo -info "/Volumes/The Notch/The Notch.app/Contents/MacOS/The Notch" # x86_64 
 
 ## Distribution repos
 
-| Repo | Visibility | Holds |
-| --- | --- | --- |
-| `Vallykrie/The-Notch` | public | source, and the canonical release |
-| [`Vallykrie/the-notch-releases`](https://github.com/Vallykrie/the-notch-releases) | public | a mirror of the `.dmg` and its checksum |
-| [`Vallykrie/homebrew-tap`](https://github.com/Vallykrie/homebrew-tap) | public | `Casks/the-notch.rb` |
+| Repo | Holds |
+| --- | --- |
+| `Vallykrie/The-Notch` | source, and the release DMGs |
+| [`Vallykrie/homebrew-tap`](https://github.com/Vallykrie/homebrew-tap) | `Casks/the-notch.rb` |
 
-The releases mirror dates from when the source repo was private (release assets on a private
-repo 404 for Homebrew). Now that the source is public it is optional: to retire it, point the
-cask's `url` at this repo's releases and delete the "Mirror" step from `release.yml`.
+`Vallykrie/the-notch-releases` is retired. It mirrored DMGs while the source repo was private;
+it still holds beta.1 and beta.2 but receives nothing new.
 
 ### One-time token setup
 
-Mirroring and the cask bump need a token that can write to the two public repos; the built-in
-`GITHUB_TOKEN` is scoped to this repository only. Create a fine-grained PAT with **Contents:
-read and write** on `the-notch-releases` and `homebrew-tap`, then:
+The cask bump needs a token that can write to `homebrew-tap`; the built-in `GITHUB_TOKEN` is
+scoped to this repository only. Create a fine-grained PAT with **Contents: read and write** on
+`homebrew-tap` only, then:
 
 ```bash
-gh secret set RELEASE_REPO_TOKEN
+gh secret set RELEASE_REPO_TOKEN --repo Vallykrie/The-Notch
 ```
 
-Until that secret exists, tagging still builds and publishes the release here; the workflow
-logs a warning and skips the mirror, so `brew install` keeps serving the previous version.
+Until that secret exists, tagging still builds and publishes the release; the workflow logs a
+warning and skips the cask bump, so update `version` and `sha256` in the cask by hand.
 
 ### The cask
 

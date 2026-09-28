@@ -60,7 +60,7 @@ brew install --cask vallykrie/tap/the-notch
 ### Or download the DMG
 
 1. Download the latest `The-Notch-<version>.dmg` from
-   [the releases page](https://github.com/Vallykrie/the-notch-releases/releases/latest).
+   [the releases page](https://github.com/Vallykrie/The-Notch/releases).
 2. Open it and drag **The Notch** into **Applications**.
 
 ### First launch

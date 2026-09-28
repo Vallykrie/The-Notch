@@ -27,9 +27,8 @@ jobs:
       NOTARY_KEY: ${{ secrets.NOTARY_KEY }}
       NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
       NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
-      # A PAT with `repo` scope on Vallykrie/the-notch-releases and
-      # Vallykrie/homebrew-tap. The built-in GITHUB_TOKEN is scoped to this repository
-      # only, so it cannot push the DMG or bump the cask.
+      # A fine-grained PAT with Contents: read and write on Vallykrie/homebrew-tap. The
+      # built-in GITHUB_TOKEN is scoped to this repository only, so it cannot bump the cask.
       RELEASE_TOKEN: ${{ secrets.RELEASE_REPO_TOKEN }}
     steps:
       - name: Check out repository
@@ -116,98 +115,6 @@ jobs:
       # The source repo is private, so its release assets 404 for anyone unauthenticated --
       # including Homebrew, which downloads with plain curl. The public artifacts repo holds
       # the DMG and nothing else; no source is ever pushed to it.
-      - name: Mirror the DMG to the public releases repo
-        if: ${{ github.event_name == 'push' && env.RELEASE_TOKEN != '' }}
-        env:
-          GH_TOKEN: ${{ env.RELEASE_TOKEN }}
-          TAG: ${{ github.ref_name }}
-          VERSION: ${{ steps.version.outputs.version }}
-          SIGNED: ${{ env.MACOS_SIGN_IDENTITY != '' }}
-        run: |
-          set -euo pipefail
-          dmg="$(ls dist/*.dmg)"
-          sha="$(awk '{print $1}' dist/*.dmg.sha256)"
-
-          {
-            echo "## The Notch $VERSION"
-            echo
-            echo "### Install"
-            echo
-            echo '```bash'
-            echo "brew install --cask vallykrie/tap/the-notch"
-            echo '```'
-            echo
-            echo "Or download the DMG and drag **The Notch** to Applications."
-            echo "The app has no Dock icon — it lives in the notch."
-            echo
-            if [[ "$SIGNED" != "true" ]]; then
-              echo "> **This build is not notarised.** macOS will refuse the first launch."
-              echo "> Clear the quarantine flag once:"
-              echo '> ```bash'
-              echo '> xattr -dr com.apple.quarantine "/Applications/The Notch.app"'
-              echo '> ```'
-              echo
-            fi
-            echo "### Requirements"
-            echo
-            echo "- macOS 14 or later"
-            echo "- Apple silicon or Intel (universal build)"
-            echo
-            echo "### Checksum"
-            echo
-            echo '```'
-            echo "$sha  $(basename "$dmg")"
-            echo '```'
-          } > public-notes.md
-
-          prerelease=()
-          if [[ "$VERSION" == *-* ]]; then prerelease=(--prerelease); fi
-
-          gh release create "$TAG" \
-            --repo Vallykrie/the-notch-releases \
-            --title "The Notch $VERSION" \
-            --notes-file public-notes.md \
-            "${prerelease[@]}" \
-            dist/*.dmg dist/*.dmg.sha256
-
-      - name: Bump the Homebrew cask
-        if: ${{ github.event_name == 'push' && env.RELEASE_TOKEN != '' }}
-        env:
-          GH_TOKEN: ${{ env.RELEASE_TOKEN }}
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          set -euo pipefail
-          sha="$(awk '{print $1}' dist/*.dmg.sha256)"
-
-          git clone --depth 1 \
-            "https://x-access-token:$RELEASE_TOKEN@github.com/Vallykrie/homebrew-tap.git" tap
-          cask="tap/Casks/the-notch.rb"
-
-          # Only the two generated lines change; everything else in the cask is hand-written.
-          /usr/bin/sed -i '' -E \
-            -e "s|^  version \".*\"$|  version \"$VERSION\"|" \
-            -e "s|^  sha256 \".*\"$|  sha256 \"$sha\"|" \
-            "$cask"
-
-          grep -E '^  (version|sha256) ' "$cask"
-
-          cd tap
-          if git diff --quiet; then
-            echo "Cask already at $VERSION; nothing to do."
-            exit 0
-          fi
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -aqm "the-notch $VERSION"
-          git push -q origin HEAD
-
-      - name: Warn when the public mirror was skipped
-        if: ${{ github.event_name == 'push' && env.RELEASE_TOKEN == '' }}
-        run: |
-          echo "::warning::RELEASE_REPO_TOKEN is not set, so the DMG was not mirrored to" \
-               "the public releases repo and the Homebrew cask was not bumped." \
-               "brew install will keep serving the previous version."
-
       - name: Publish GitHub Release
         if: ${{ github.event_name == 'push' }}
         env:
@@ -245,7 +152,7 @@ jobs:
             echo "### Requirements"
             echo
             echo "- macOS 14 or later"
-            echo "- A Mac with a notch (the shell adapts, but it is built for one)"
+            echo "- Apple silicon or Intel (universal build); Macs without a notch get a drawn one"
             echo
             echo "### Checksum"
             echo
@@ -262,3 +169,41 @@ jobs:
             --notes-file release-notes.md \
             "${prerelease[@]}" \
             dist/*.dmg dist/*.dmg.sha256
+
+      # Runs after the release exists, so the cask never points at a DMG that is not there yet.
+      - name: Bump the Homebrew cask
+        if: ${{ github.event_name == 'push' && env.RELEASE_TOKEN != '' }}
+        env:
+          GH_TOKEN: ${{ env.RELEASE_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          sha="$(awk '{print $1}' dist/*.dmg.sha256)"
+
+          git clone --depth 1 \
+            "https://x-access-token:$RELEASE_TOKEN@github.com/Vallykrie/homebrew-tap.git" tap
+          cask="tap/Casks/the-notch.rb"
+
+          # Only the two generated lines change; everything else in the cask is hand-written.
+          /usr/bin/sed -i '' -E \
+            -e "s|^  version \".*\"$|  version \"$VERSION\"|" \
+            -e "s|^  sha256 \".*\"$|  sha256 \"$sha\"|" \
+            "$cask"
+
+          grep -E '^  (version|sha256) ' "$cask"
+
+          cd tap
+          if git diff --quiet; then
+            echo "Cask already at $VERSION; nothing to do."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -aqm "the-notch $VERSION"
+          git push -q origin HEAD
+
+      - name: Warn when the cask bump was skipped
+        if: ${{ github.event_name == 'push' && env.RELEASE_TOKEN == '' }}
+        run: |
+          echo "::warning::RELEASE_REPO_TOKEN is not set, so the Homebrew cask was not bumped." \
+               "brew install will keep serving the previous version."
