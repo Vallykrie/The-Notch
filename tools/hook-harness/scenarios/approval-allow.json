@@ -16,7 +16,7 @@
       "expect": {
         "exit_code": 0,
         "timed_out": false,
-        "stdout": "{\"permissionDecision\":\"allow\"}\n"
+        "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PermissionRequest\",\"decision\":{\"behavior\":\"allow\"}}}\n"
       },
       "envelope": {
         "event_name": "PermissionRequest",

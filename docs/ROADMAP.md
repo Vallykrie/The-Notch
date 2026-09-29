@@ -136,16 +136,22 @@ The backbone of the AI feature. Headless — testable without any UI.
 - [x] Integration test: `tools/hook-harness` (fake server + fake agent) with 6 scenarios —
       happy path, allow, deny, timeout, concurrent sessions, malformed input. `run-all.sh`
       passes 6/6, touching neither the real socket nor the real agent configs.
-- [x] Permission-decision stdout shape — **resolved for Codex, still open for Claude Code.**
+- [x] Permission-decision stdout shape — **resolved for Codex and Claude Code.**
       Established from the installed binaries' embedded schemas; see `tools/notch-hook/PROTOCOL.md`.
       This found a real bug: the client emitted a shape Codex rejects, so approve-from-the-notch
       silently never worked there. Fixed per-source.
-- [ ] **Claude Code's `PermissionRequest` stdout contract is UNVERIFIED.** Local evidence labels
-      `permissionDecision` as "PreToolUse only" and does not establish the PermissionRequest
-      shape. Left as-is deliberately rather than changed on a guess. Needs upstream docs or a
-      live test against a real `claude` session.
+- [x] Claude Code's `PermissionRequest` stdout contract — established from the 2.1.252 binary's
+      schema: `hookSpecificOutput.decision.behavior` (+ `updatedInput` on allow), the same shape as
+      Codex. The old top-level `permissionDecision` was silently ignored, so approving or answering
+      from the notch never reached Claude and the terminal prompt stayed up. Fixed.
 - [ ] End-to-end against a real `claude` / `codex` session driving it (the harness proves the
       protocol, not the CLIs' real behaviour)
+
+- [x] **Approve/answer from the notch removed (2026-09-29).** Even with the corrected output
+      shape, decisions made in the notch did not reliably land in Claude Code. The notch now
+      announces permission prompts and questions only: the server replies `defer` at once so the
+      terminal prompt appears immediately, and the notice clears when the session moves on or
+      is clicked.
 
 **Exit criteria:** `claude` and `codex` sessions appear, update, and can be approved from a
 CLI harness with no UI attached.
@@ -199,7 +205,7 @@ approval fixed; Claude's decision shape remains the one unresolved protocol ques
       states and a *static* oversized ring on `needsApproval`.
 - [x] Previews for the states that matter: empty, one session, concurrent, very long tool
       summary, done
-- [x] **Question card** — the agent's own options as one-tap buttons, numbered `1`…`9` exactly
+- [x] **Question card** *(since made read-only — see Phase 2's removal note)* — the agent's own options as one-tap buttons, numbered `1`…`9` exactly
       as the CLI numbers them, with an "Other" field for anything it did not think to offer and
       *Ask in terminal* (`⎋`) to hand the question back untouched. `AskUserQuestion` arrives
       through the permission hook like a shell command does, and answering it *Allow Once* only

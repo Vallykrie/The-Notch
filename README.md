@@ -19,14 +19,14 @@
 </p>
 
 The Notch lives in the notch at the top of your screen. When a coding agent is working, a small
-pixel mascot shows what it is doing. Hover over the notch to see every session, approve a
-command without switching windows, answer an agent's question, and keep an eye on your music and
-crypto prices.
+pixel mascot shows what it is doing. Hover over the notch to see every session, get a
+heads-up the moment an agent needs your permission or asks a question, and keep an eye on your
+music and crypto prices.
 
 - **See every agent at a glance.** Claude Code, Codex, Gemini CLI, Cursor, OpenCode, Antigravity
   and Kiro sessions show up automatically, including subagents.
-- **Approve from the notch.** When an agent asks for permission, the notch lights up. Choose
-  Allow Once, Always Allow or Deny without leaving what you are doing.
+- **Know when an agent needs you.** When an agent asks for permission or asks a question, the
+  notch pops open and shows what it wants. You answer in the agent's terminal as usual.
 - **A mascot that is alive.** Each state has its own motion and colour. It startles when it needs
   you, celebrates when it is done, and falls asleep when it has been idle for a while.
 - **Media, HUD and crypto.** Now playing with controls, a volume and brightness HUD that replaces
@@ -101,8 +101,8 @@ file, and saves a backup next to it (`*.the-notch-backup.<date>`) before the fir
 starts. To check the connection, go to **Settings → Connections…**. Each agent shows
 *Receiving activity*, *Waiting for session*, *Not connected* or *Not detected*.
 
-> **Codex:** to approve Codex commands from the notch, open `/hooks` in Codex and trust The
-> Notch's hook. Codex asks again whenever a hook changes.
+> **Codex:** to see Codex prompts in the notch, open `/hooks` in Codex and trust The Notch's
+> hook. Codex asks again whenever a hook changes.
 
 If the app is not running, agents behave exactly as before. The hook never blocks them.
 
@@ -122,17 +122,12 @@ agents are running. The colour tells you the situation from across the room:
 
 When an agent is blocked on you, an orange ring also travels around the notch.
 
-### 4. Approve commands and answer questions
+### 4. Permission prompts and questions
 
-When an agent asks for permission, open the notch. You will see the tool, the command and how
-long it has been waiting:
-
-- **Allow Once** runs this one command.
-- **Always Allow** runs it and stops asking for this kind of command.
-- **Deny** refuses it, and the agent carries on without it.
-
-When an agent asks a question, pick an answer or type your own and press **Send**. If you would
-rather reply in the terminal, choose **Ask in terminal**.
+When an agent asks for permission or asks a question, the notch pops open and shows the tool,
+the command or question (with its numbered answers) and how long it has been waiting. Answer in
+the agent's terminal as usual; the notice clears itself once the agent moves on, or click it to
+dismiss.
 
 ### 5. Keep the list tidy
 

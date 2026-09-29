@@ -1,7 +1,7 @@
 # The Notch
 
 macOS notch app: a notch shell (media, HUD, crypto) plus a live control surface for AI coding
-agents (session status, approve-from-the-notch, plan review, jump-back, usage/cost).
+agents (session status, permission/question alerts, plan review, jump-back, usage/cost).
 Open source under the MIT licence.
 
 ## Read first

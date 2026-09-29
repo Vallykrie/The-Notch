@@ -69,3 +69,33 @@ func TestMalformedPayloadDoesNotDial(t *testing.T) {
         runWithDial([]string{"--source","custom","--event","Stop"},strings.NewReader(input), &bytes.Buffer{},func(string,string,time.Duration)(net.Conn,error){ t.Fatalf("dialed for invalid input %s",input);return nil,nil })
     }
 }
+
+func decide(t *testing.T, source, reply string) string {
+    t.Helper()
+    client, server := net.Pipe()
+    go func() {
+        defer server.Close()
+        line, _ := bufio.NewReader(server).ReadBytes('\n')
+        var e envelope
+        _ = json.Unmarshal(line, &e)
+        _, _ = server.Write([]byte(strings.Replace(reply, "ID", e.ID, 1) + "\n"))
+    }()
+    var out bytes.Buffer
+    runWithDial([]string{"--source", source, "--event", "PermissionRequest"}, strings.NewReader(`{"session_id":"s1","tool_name":"AskUserQuestion"}`), &out, func(string, string, time.Duration) (net.Conn, error) { return client, nil })
+    return strings.TrimSpace(out.String())
+}
+
+func TestPermissionOutputShape(t *testing.T) {
+    answered := `{"id":"ID","decision":"allow","reason":"ok","updated_input":{"answers":{"Ship?":"Yes"}}}`
+    cases := []struct{ source, reply, want string }{
+        {"claude", answered, `{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow","message":"ok","updatedInput":{"answers":{"Ship?":"Yes"}}}}}`},
+        {"codex", answered, `{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow","message":"ok"}}}`},
+        {"claude", `{"id":"ID","decision":"deny","reason":"no","updated_input":{"a":1}}`, `{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"deny","message":"no"}}}`},
+        {"claude", `{"id":"ID","decision":"allow_always"}`, `{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}`},
+        {"claude", `{"id":"ID","decision":"defer"}`, ``},
+        {"claude", `{"id":"other","decision":"allow"}`, ``},
+    }
+    for _, c := range cases {
+        if got := decide(t, c.source, c.reply); got != c.want { t.Errorf("%s %s\n got %s\nwant %s", c.source, c.reply, got, c.want) }
+    }
+}

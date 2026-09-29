@@ -16,18 +16,15 @@ import SwiftUI
 ///   tool name — the only part that differs between one of these and the next — sat below it a
 ///   size down. Whether approval is needed is answered by the ring, the mascot and three
 ///   buttons; *what* is being approved is answered by nothing else, so it takes the headline.
-/// - **The actions can never be pushed off.** The detail line is the only flexible row, so a
-///   long summary loses a line rather than pushing the buttons past the bottom curve.
+/// - **It is a notice, not a form.** The notch announces the prompt; the answer is given in the
+///   agent's own terminal, which the hook hands the decision straight back to. Tapping the card
+///   dismisses it, for a prompt answered in a way that emitted no event to clear it.
 @MainActor
 struct ApprovalCardView: View {
     @ObservedObject var store: AgentSessionStore
     let approval: PendingApproval
     let namespace: Namespace.ID
 
-    /// What the user typed into the free-text answer. Local view state: an answer that has not
-    /// been sent yet is not part of the approval, and it must not survive the card.
-    @State private var typedAnswer = ""
-    @FocusState private var isTypingAnswer: Bool
 
     private var question: ApprovalQuestion? { approval.question }
 
@@ -41,12 +38,17 @@ struct ApprovalCardView: View {
                     answerChoices
                 } else {
                     summary
-                    actions
                 }
+                terminalHint
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .contentShape(Rectangle())
+        .onTapGesture { store.dismissApproval(approvalID: approval.approvalID) }
         .accessibilityElement(children: .contain)
+        .accessibilityAction(named: "Dismiss") {
+            store.dismissApproval(approvalID: approval.approvalID)
+        }
     }
 
     /// What the bordered card's stroke used to say, in a shape that spends no height.
@@ -153,7 +155,7 @@ struct ApprovalCardView: View {
 
     /// The only row that flexes. A negative layout priority hands the fixed rows their height
     /// first, so this is what gives when the summary is long — losing a line of detail, rather
-    /// than pushing the buttons past the panel's bottom curve, which is what used to happen.
+    /// than pushing the hint past the panel's bottom curve.
     @ViewBuilder
     private var summary: some View {
         Group {
@@ -172,157 +174,57 @@ struct ApprovalCardView: View {
         .layoutPriority(-1)
     }
 
-    /// Wording follows the vocabulary these agents already use in the terminal, so the notch
-    /// and the CLI do not disagree about what a button means.
-    private var actions: some View {
-        HStack(spacing: Theme.Metrics.collapsedContentSpacing) {
-            Button("Deny", role: .destructive) {
-                resolve(.deny)
-            }
-            .buttonStyle(.notch)
-            .keyboardShortcut(.escape, modifiers: [])
-
-            Spacer(minLength: Theme.Metrics.collapsedContentSpacing)
-
-            Button("Always Allow") {
-                resolve(.allowAlways)
-            }
-            .buttonStyle(.notch)
-
-            Button("Allow Once") {
-                resolve(.allow)
-            }
-            .buttonStyle(.notch)
-            .tint(Theme.Colors.Status.working)
-            .keyboardShortcut(.return, modifiers: [])
-        }
+    /// Where the answer goes. The notch only announces; the agent's own prompt decides.
+    private var terminalHint: some View {
+        Text("Respond in the terminal · click to dismiss")
+            .font(Theme.Text.caption)
+            .foregroundStyle(Theme.Colors.textTertiary)
+            .lineLimit(1)
     }
 
-    /// The question's own answers, which is the whole point of the surface.
-    ///
-    /// Everything about this row is sized by the fact that the panel is 190pt tall and the
-    /// header has already taken a third of it. The options are one line each, the free-text
-    /// field is one more, and the list scrolls only if the agent offered more answers than fit
-    /// — `ViewThatFits` so the common case pays no scroll gutter, the same trick and the same
-    /// reason as `AgentsExpandedView`.
+    /// The answers the agent is offering, read-only — they are picked in the terminal.
     @ViewBuilder
     private var answerChoices: some View {
         if let question {
+            // Not scrollable: nothing here is interactive, and the tail options the panel has no
+            // room for are still listed in the terminal where they are picked.
             VStack(alignment: .leading, spacing: Theme.Metrics.Agents.optionSpacing) {
-                // The options scroll and the field does not, which is the only split that
-                // survives every question an agent can ask. Four options and a text field do
-                // not fit in a 190pt panel at a legible size — the panel is one notch tall and
-                // that is not negotiable — and of the two, the field is the one that must never
-                // be the thing you have to scroll to find: it is how you answer anything the
-                // agent did not think to offer. So the list gives, and it gives from the end,
-                // where the least likely answers are.
-                ScrollView {
-                    VStack(alignment: .leading, spacing: Theme.Metrics.Agents.optionSpacing) {
-                        ForEach(question.options) { option in
-                            optionRow(option)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                ForEach(question.options) { option in
+                    optionRow(option)
                 }
-                .scrollIndicators(.hidden)
-                .scrollBounceBehavior(.basedOnSize)
-                .frame(maxHeight: .infinity)
-
-                freeTextRow
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .clipped()
+            .layoutPriority(-1)
         }
     }
 
-    /// One answer. The number on the right is the key that picks it, mirroring the numbered
-    /// list the CLI prints — the notch should not teach a second set of shortcuts for the same
-    /// question. Only the first nine are bound, because there is no tenth key.
+    /// One answer, numbered as the CLI numbers it so the key to press there is obvious.
     private func optionRow(_ option: ApprovalQuestion.Option) -> some View {
-        Button {
-            answer(option.label)
-        } label: {
-            HStack(alignment: .firstTextBaseline, spacing: Theme.Metrics.expandedContentSpacing) {
-                Text(option.label)
+        HStack(alignment: .firstTextBaseline, spacing: Theme.Metrics.expandedContentSpacing) {
+            Text("\(option.id + 1).")
+                .font(Theme.Text.caption)
+                .foregroundStyle(Theme.Colors.textTertiary)
+
+            Text(option.label)
+                .font(Theme.Text.body)
+                .foregroundStyle(Theme.Colors.textPrimary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+
+            if let detail = nonEmpty(option.detail) {
+                Text(detail)
                     .font(Theme.Text.body)
-                    .foregroundStyle(Theme.Colors.textPrimary)
+                    .foregroundStyle(Theme.Colors.textTertiary)
                     .lineLimit(1)
                     .truncationMode(.tail)
-
-                if let detail = nonEmpty(option.detail) {
-                    Text(detail)
-                        .font(Theme.Text.body)
-                        .foregroundStyle(Theme.Colors.textTertiary)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                }
-
-                Spacer(minLength: Theme.Metrics.collapsedContentSpacing)
-
-                Text("\(option.id + 1)")
-                    .font(Theme.Text.caption)
-                    .foregroundStyle(Theme.Colors.textTertiary)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .buttonStyle(.notchCompact)
-        .modifier(OptionShortcut(index: option.id))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel(
             [option.label, option.detail].compactMap { $0 }.joined(separator: ": ")
         )
-    }
-
-    /// The "Other" field. Present even when the agent offered good options, because the CLI's
-    /// own question UI has one and a notch that could only pick from a list would be a reason
-    /// to go back to the terminal — which is the single thing this surface exists to avoid.
-    private var freeTextRow: some View {
-        HStack(spacing: Theme.Metrics.collapsedContentSpacing) {
-            TextField("Type your own answer", text: $typedAnswer)
-                .textFieldStyle(.plain)
-                .font(Theme.Text.body)
-                .foregroundStyle(Theme.Colors.textPrimary)
-                // The caret and the selection, which otherwise take the system accent colour —
-                // whatever the user has chosen in System Settings, painted across a field on a
-                // pure-black panel that owns its whole palette.
-                .tint(Theme.Colors.textPrimary)
-                .focused($isTypingAnswer)
-                .onSubmit { answer(typedAnswer) }
-                .padding(.horizontal, Theme.Metrics.Control.horizontalPadding)
-                .padding(.vertical, Theme.Metrics.Control.verticalPadding)
-                .background(
-                    RoundedRectangle(
-                        cornerRadius: Theme.Metrics.Control.cornerRadius,
-                        style: .continuous
-                    )
-                    .fill(.white.opacity(Theme.Metrics.Control.fillOpacity))
-                )
-                .overlay(
-                    RoundedRectangle(
-                        cornerRadius: Theme.Metrics.Control.cornerRadius,
-                        style: .continuous
-                    )
-                    .strokeBorder(
-                        .white.opacity(Theme.Metrics.Control.borderOpacity),
-                        lineWidth: Theme.Metrics.Control.borderWidth
-                    )
-                )
-
-            // Deliberately not "Cancel". Deferring hands the question back to the CLI, which
-            // asks it there exactly as it would have without the notch — nothing is refused
-            // and the agent keeps its turn.
-            Button("Ask in terminal") {
-                resolve(.defer)
-            }
-            .buttonStyle(.notch)
-            .keyboardShortcut(.escape, modifiers: [])
-
-            Button("Send") {
-                answer(typedAnswer)
-            }
-            .buttonStyle(.notch)
-            .tint(Theme.Colors.Status.working)
-            .keyboardShortcut(.return, modifiers: [])
-            .disabled(nonEmpty(typedAnswer) == nil)
-        }
     }
 
     private var headline: String {
@@ -347,15 +249,6 @@ struct ApprovalCardView: View {
             : Theme.Colors.Status.question
     }
 
-    private func answer(_ text: String) {
-        guard let text = nonEmpty(text) else { return }
-        store.answer(approvalID: approval.approvalID, with: text)
-    }
-
-    private func resolve(_ decision: Decision) {
-        store.resolve(approvalID: approval.approvalID, decision: decision)
-    }
-
     private func nonEmpty(_ value: String?) -> String? {
         guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines),
               !value.isEmpty else {
@@ -374,22 +267,5 @@ struct ApprovalCardView: View {
         let hours = minutes / 60
         guard hours >= 24 else { return "\(hours)h\(minutes % 60)m" }
         return "\(hours / 24)d"
-    }
-}
-
-/// Binds `1`…`9` to the first nine options, and nothing to any beyond them.
-///
-/// A separate modifier rather than an inline `if` at the call site: `keyboardShortcut` returns
-/// a different view type than the view it is applied to, so branching around it in the row
-/// builder would give the button two identities and drop its press state as the list changed.
-private struct OptionShortcut: ViewModifier {
-    let index: Int
-
-    func body(content: Content) -> some View {
-        if index < 9, let key = "123456789".dropFirst(index).first {
-            content.keyboardShortcut(KeyEquivalent(key), modifiers: [])
-        } else {
-            content
-        }
     }
 }

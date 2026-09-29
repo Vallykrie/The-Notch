@@ -29,25 +29,8 @@ actor NotchHookServer {
         var task: Task<Void, Never>?
     }
 
-    /// What the notch decided, in the shape the hook client needs to speak to its CLI.
-    nonisolated struct PermissionOutcome: Sendable {
-        let decision: Decision
-        let reason: String?
-        /// The tool input to run instead of the proposed one — set when the notch answered a
-        /// question rather than approving a call. See `ApprovalQuestion`.
-        let updatedInput: JSONValue?
-
-        static let deferred = PermissionOutcome(decision: .defer, reason: nil, updatedInput: nil)
-    }
-
-    private struct PermissionWait: Sendable {
-        let continuation: CheckedContinuation<PermissionOutcome, Never>
-        var timeoutTask: Task<Void, Never>?
-    }
-
     static let defaultSocketPath = "/tmp/the-notch.sock"
     static let maximumLineBytes = 1_048_576
-    static let defaultPermissionTimeout: TimeInterval = 7_200
 
     private let store: AgentSessionStore
     private let socketPath: String
@@ -55,7 +38,6 @@ actor NotchHookServer {
     private var listenerTask: Task<Void, Never>?
     private var socketIdentity: SocketIdentity?
     private var connections: [UUID: ClientConnection] = [:]
-    private var permissionWaits: [UUID: PermissionWait] = [:]
     private(set) var isRunning = false
 
     init(store: AgentSessionStore, socketPath: String? = nil) {
@@ -126,10 +108,7 @@ actor NotchHookServer {
     }
 
     func stop() async {
-        guard isRunning || listenerDescriptor != nil else {
-            await deferAllPermissionWaits()
-            return
-        }
+        guard isRunning || listenerDescriptor != nil else { return }
         isRunning = false
 
         if let descriptor = listenerDescriptor {
@@ -140,9 +119,6 @@ actor NotchHookServer {
         listenerTask?.cancel()
         let acceptTask = listenerTask
         listenerTask = nil
-
-        // Resolving before shutting down clients lets every blocked line handler unwind.
-        await deferAllPermissionWaits()
 
         let clientTasks = connections.values.compactMap(\.task)
         for connection in connections.values {
@@ -265,87 +241,14 @@ actor NotchHookServer {
             return nil
         }
 
-        let outcome = await waitForPermission(request)
-        let response = HookResponse(
-            id: request.id,
-            decision: outcome.decision,
-            reason: outcome.reason,
-            updatedInput: outcome.updatedInput
-        )
+        // The notch only *announces* a permission prompt; it never answers one. The agent is
+        // told to defer at once, so its own terminal prompt appears immediately and is where
+        // the user decides. The panel shows the request until the session moves on.
+        await store.registerPermissionNotice(request)
+        let response = HookResponse(id: request.id, decision: .defer)
         guard var data = try? JSONEncoder().encode(response) else { return nil }
         data.append(0x0A)
         return data
-    }
-
-    private func waitForPermission(_ request: HookRequest) async -> PermissionOutcome {
-        await withTaskCancellationHandler {
-            await withCheckedContinuation { continuation in
-                guard permissionWaits[request.id] == nil else {
-                    continuation.resume(returning: .deferred)
-                    return
-                }
-
-                permissionWaits[request.id] = PermissionWait(
-                    continuation: continuation,
-                    timeoutTask: nil
-                )
-                let approvalID = request.id
-                Task { @MainActor [store, weak self] in
-                    store.registerPermissionRequest(request) {
-                        [weak self] decision, reason, updatedInput in
-                        let outcome = PermissionOutcome(
-                            decision: decision,
-                            reason: reason,
-                            updatedInput: updatedInput
-                        )
-                        Task { await self?.resolvePermission(approvalID, with: outcome) }
-                    }
-                    await self?.permissionRegistrationDidFinish(
-                        approvalID,
-                        timeout: request.timeout
-                    )
-                }
-            }
-        } onCancel: { [self] in
-            let approvalID = request.id
-            Task { await resolvePermission(approvalID, with: .deferred) }
-        }
-    }
-
-    private func permissionRegistrationDidFinish(_ approvalID: UUID, timeout: TimeInterval?) async {
-        guard var wait = permissionWaits[approvalID] else {
-            await store.cancelPendingApproval(approvalID: approvalID)
-            return
-        }
-        let nanoseconds = Self.timeoutNanoseconds(timeout)
-        wait.timeoutTask = Task { [weak self] in
-            do {
-                try await Task.sleep(nanoseconds: nanoseconds)
-            } catch {
-                return
-            }
-            await self?.resolvePermission(approvalID, with: .deferred)
-        }
-        permissionWaits[approvalID] = wait
-    }
-
-    private func resolvePermission(
-        _ approvalID: UUID,
-        with outcome: PermissionOutcome
-    ) async {
-        // Exactly-once invariant: every terminal path must remove first. Whichever of UI,
-        // timeout, cancellation, or shutdown wins gets the continuation; later paths no-op.
-        guard let wait = permissionWaits.removeValue(forKey: approvalID) else { return }
-        wait.timeoutTask?.cancel()
-        wait.continuation.resume(returning: outcome)
-        await store.cancelPendingApproval(approvalID: approvalID)
-    }
-
-    private func deferAllPermissionWaits() async {
-        let approvalIDs = Array(permissionWaits.keys)
-        for approvalID in approvalIDs {
-            await resolvePermission(approvalID, with: .deferred)
-        }
     }
 
     private func connectionEnded(_ connectionID: UUID) {
@@ -383,14 +286,6 @@ actor NotchHookServer {
             }
             return true
         }
-    }
-
-    private nonisolated static func timeoutNanoseconds(_ timeout: TimeInterval?) -> UInt64 {
-        let seconds = max(0, timeout ?? defaultPermissionTimeout)
-        guard seconds.isFinite else { return UInt64.max }
-        let maximumSeconds = Double(UInt64.max) / 1_000_000_000
-        if seconds >= maximumSeconds { return UInt64.max }
-        return UInt64(min(seconds, maximumSeconds) * 1_000_000_000)
     }
 
     private nonisolated static func pathExists(_ path: String) -> Bool {

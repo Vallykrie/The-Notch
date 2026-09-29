@@ -57,24 +57,24 @@ type serverResponse struct {
 	UpdatedInput json.RawMessage `json:"updated_input,omitempty"`
 }
 
+// Claude Code and Codex share one PermissionRequest output shape. A top-level
+// `permissionDecision` is the PreToolUse vocabulary: Claude silently ignores it on this event
+// and falls back to its own terminal prompt, so the answer given in the notch never lands.
 type cliResponse struct {
-	PermissionDecision       string          `json:"permissionDecision"`
-	PermissionDecisionReason string          `json:"permissionDecisionReason,omitempty"`
-	UpdatedInput             json.RawMessage `json:"updatedInput,omitempty"`
+	HookSpecificOutput hookSpecificOutput `json:"hookSpecificOutput"`
 }
 
-type codexCLIResponse struct {
-	HookSpecificOutput codexHookSpecificOutput `json:"hookSpecificOutput"`
+type hookSpecificOutput struct {
+	HookEventName string             `json:"hookEventName"`
+	Decision      permissionDecision `json:"decision"`
 }
 
-type codexHookSpecificOutput struct {
-	HookEventName string                  `json:"hookEventName"`
-	Decision      codexPermissionDecision `json:"decision"`
-}
-
-type codexPermissionDecision struct {
+type permissionDecision struct {
 	Behavior string `json:"behavior"`
 	Message  string `json:"message,omitempty"`
+	// Claude only: the tool input to run instead, e.g. AskUserQuestion with its answers filled
+	// in. Codex's schema rejects unknown keys, so it is never set on that path.
+	UpdatedInput json.RawMessage `json:"updatedInput,omitempty"`
 }
 
 func main() {
@@ -204,28 +204,13 @@ func runWithDial(
 	default:
 		return
 	}
-	var encoded []byte
-	if *source == "codex" {
-		encoded, err = json.Marshal(codexCLIResponse{
-			HookSpecificOutput: codexHookSpecificOutput{
-				HookEventName: "PermissionRequest",
-				Decision: codexPermissionDecision{
-					Behavior: decision,
-					Message:  response.Reason,
-				},
-			},
-		})
-	} else {
-		// Codex's schema rejects unknown keys, so an answered input is only ever offered on
-		// the Claude/default shape. `updatedInput` is the field the CLI documents for a hook
-		// that supplies what an interactive prompt would have collected; a CLI that does not
-		// understand it still sees a plain allow and prompts as it always did.
-		encoded, err = json.Marshal(cliResponse{
-			PermissionDecision:       decision,
-			PermissionDecisionReason: response.Reason,
-			UpdatedInput:             validJSONObject(response.UpdatedInput),
-		})
+	output := permissionDecision{Behavior: decision, Message: response.Reason}
+	if *source != "codex" && decision == "allow" {
+		output.UpdatedInput = validJSONObject(response.UpdatedInput)
 	}
+	encoded, err := json.Marshal(cliResponse{
+		HookSpecificOutput: hookSpecificOutput{HookEventName: "PermissionRequest", Decision: output},
+	})
 	if err == nil {
 		_, _ = stdout.Write(append(encoded, '\n'))
 	}

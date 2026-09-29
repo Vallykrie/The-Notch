@@ -10,7 +10,7 @@ notch-hook --source codex < hook-with-event-field.json
 When `--event` is omitted, the client reads `hook_event_name` or `event` from the payload. Non-permission events are sent with short socket deadlines and produce no output. `PermissionRequest` waits for the server response for the envelope's timeout (7200 seconds by default), then writes:
 
 ```json
-{"permissionDecision":"allow","permissionDecisionReason":"Approved in The Notch"}
+{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow","message":"Approved in The Notch"}}}
 ```
 
 Server decisions `allow` and `allow_always` currently map to `allow`, `deny` maps to `deny`, and `defer` produces no output so the CLI can use its normal interactive prompt. This stdout mapping is the integration point most likely to require adjustment as Claude Code or Codex hook schemas change between CLI versions.

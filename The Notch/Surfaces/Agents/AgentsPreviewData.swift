@@ -165,7 +165,7 @@ enum AgentsPreviewData {
 
     static func approvalStore(now: Date = .now) -> AgentSessionStore {
         let store = concurrentStore(now: now)
-        store.registerPermissionRequest(
+        store.registerPermissionNotice(
             request(
                 id: "claude-approval",
                 source: "claude-code",
@@ -175,7 +175,7 @@ enum AgentsPreviewData {
                 toolInput: longToolInput
             ),
             at: now.addingTimeInterval(-154)
-        ) { @Sendable _, _, _ in }
+        )
         return store
     }
 
@@ -183,7 +183,7 @@ enum AgentsPreviewData {
     /// agent that has been blocked long enough for the elapsed label to have rolled over.
     static func questionApprovalStore(now: Date = .now) -> AgentSessionStore {
         let store = AgentSessionStore()
-        store.registerPermissionRequest(
+        store.registerPermissionNotice(
             request(
                 id: "claude-question",
                 source: "claude-code",
@@ -193,7 +193,7 @@ enum AgentsPreviewData {
                 toolInput: questionToolInput
             ),
             at: now.addingTimeInterval(-1_267)
-        ) { @Sendable _, _, _ in }
+        )
         return store
     }
 

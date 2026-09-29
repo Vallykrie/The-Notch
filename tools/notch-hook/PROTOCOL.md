@@ -76,48 +76,38 @@ This behavior follows the implementation in `tools/notch-hook/main.go`. In parti
 
 ### Current `notch-hook` output
 
-The client selects its permission stdout contract from the `--source` value. For `claude` and any other non-empty source except `codex`, it preserves the existing top-level output:
-
-```json
-{"permissionDecision":"allow"}
-```
-
-When the server supplies `updated_input`, the Claude/default object carries it as `updatedInput` beside the decision:
-
-```json
-{"permissionDecision":"allow","permissionDecisionReason":"Answered from The Notch: Yes","updatedInput":{"questions":[{"question":"Ship it?"}],"answers":{"Ship it?":"Yes"}}}
-```
-
-`updatedInput` is the field Claude Code documents for a hook that supplies what an interactive prompt would have collected; the installed 2.1.227 binary carries both that field and the log line `Hook satisfied user interaction for <tool> via updatedInput, bypassing permission prompt`. **UNVERIFIED** against an interactive session — a print-mode run never reaches a `PermissionRequest` hook, so this could not be exercised headlessly. The failure mode is benign: a CLI that ignores the field sees a plain `allow` and collects the answer in the terminal, exactly as it did before.
-
-For `codex`, it emits the event-specific shape verified against the locally installed Codex version:
+Claude Code and Codex take the same event-specific shape, so the client emits it for every source:
 
 ```json
 {"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}
 ```
 
+A top-level `{"permissionDecision":"allow"}` — what earlier versions of the client wrote for Claude — is PreToolUse vocabulary. Claude Code accepts the JSON, finds no `hookSpecificOutput.decision`, and falls back to its own terminal prompt, so a decision made in the notch never reached the agent.
+
+When the server supplies `updated_input` and the decision is `allow`, the Claude/default decision carries it as `updatedInput`:
+
+```json
+{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow","message":"Answered from The Notch: Yes","updatedInput":{"questions":[{"question":"Ship it?"}],"answers":{"Ship it?":"Yes"}}}}}
+```
+
 The mappings are:
 
-| Wire decision | Claude and default stdout | Codex stdout |
-| --- | --- | --- |
-| `allow` | `permissionDecision: "allow"` | `decision.behavior: "allow"` |
-| `allow_always` | `permissionDecision: "allow"` | `decision.behavior: "allow"` |
-| `deny` | `permissionDecision: "deny"` | `decision.behavior: "deny"` |
-| `defer` | no output | no output |
+| Wire decision | `decision.behavior` |
+| --- | --- |
+| `allow` | `allow` |
+| `allow_always` | `allow` (one-shot; persistence is an app concern) |
+| `deny` | `deny` |
+| `defer` | no output |
 
-Each actionable result is one compact JSON object followed by a newline. When the server supplies a non-empty reason, the Claude/default object includes `permissionDecisionReason`, while the Codex `decision` object includes `message`. The Codex object never includes `interrupt`, `updatedInput`, `updatedPermissions`, `continue`, `stopReason`, or `suppressOutput`.
+Each actionable result is one compact JSON object followed by a newline. A non-empty server reason becomes `decision.message`. `updatedInput` is never emitted for `--source codex` or on a deny.
 
 ### Claude Code
 
-**UNVERIFIED:** the exact `PermissionRequest` stdout contract for the locally installed Claude Code 2.1.224 could not be established without ambiguity.
+Verified against the installed Claude Code 2.1.252 binary. Its hook-output schema defines the `PermissionRequest` variant of `hookSpecificOutput` as `{hookEventName: "PermissionRequest", decision: {behavior: "allow", updatedInput?, updatedPermissions?} | {behavior: "deny", message?, interrupt?}}`, and its parser reads `hookSpecificOutput.decision.behavior` and, on allow, `decision.updatedInput`. Its validation error text reads: `PermissionRequest decision must be {"behavior": "allow"} or {"behavior": "deny", "message": "..."}`. To inspect it locally:
 
-Local evidence:
-
-- `claude --help` establishes CLI and hook-related options but does not document the `PermissionRequest` output schema.
-- `strings ~/.local/share/claude/versions/2.1.224 | rg -n -C 40 'permissionDecisionReason'` exposes embedded help that requires `hookSpecificOutput.hookEventName` for event-specific output and lists `permissionDecision` / `permissionDecisionReason`, but labels those fields “PreToolUse only.” It therefore does not establish their `PermissionRequest` shape.
-- `~/.claude/settings.json` contains configured `PermissionRequest` hooks, but configuration does not establish accepted stdout.
-
-Accordingly, the preserved top-level `permissionDecision` object must not be assumed Claude-compatible from available local evidence.
+```sh
+strings ~/.local/share/claude/versions/2.1.252 | grep -o 'case"PermissionRequest":if(e.hookSpecificOutput.decision).\{0,400\}'
+```
 
 ### Codex
 

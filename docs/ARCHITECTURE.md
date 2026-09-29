@@ -23,7 +23,7 @@ A macOS notch app with two halves:
 | Half | What it does |
 |---|---|
 | **Notch shell** | The window over the physical notch, expand/collapse motion, and system surfaces (media, HUD, crypto) |
-| **Agent surface** | Live AI-agent session status, approve-from-the-notch, plan review, jump-back, usage/cost |
+| **Agent surface** | Live AI-agent session status, permission/question alerts, plan review, jump-back, usage/cost |
 
 The result: **the notch is both a media/system HUD and a live control surface for AI coding agents.**
 
@@ -95,11 +95,11 @@ agent CLI's own config, pointing at the bundled `notch-hook` binary. For Codex, 
 }}
 ```
 
-**The `timeout: 7200` on `PermissionRequest` versus `timeout: 5` on everything else is the
-whole trick.** Telemetry events are fire-and-forget. The permission hook *blocks the agent for
-up to two hours* while `notch-hook` waits for the user to tap Allow/Deny in the notch, then
-writes the decision to stdout for the CLI to consume. That is how "approve from the notch"
-works with zero patching of the agent.
+Telemetry events are fire-and-forget. `PermissionRequest` is the one event that reads a reply,
+and the app always replies `defer` at once: the notch pops open and announces the prompt, and
+the agent's own terminal prompt is where the user answers. The notice clears when the session
+moves on (the tool finishes, the turn stops, the user prompts again) or when it is clicked.
+Approving from the notch was removed — it never reliably reached Claude Code.
 
 ### Transport
 `notch-hook` talks to the app over a Unix socket (`/tmp/the-notch.sock`, overridable with

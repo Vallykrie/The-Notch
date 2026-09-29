@@ -129,7 +129,6 @@ final class AgentSessionStore: ObservableObject {
     @Published private(set) var sessionsByID: [String: AgentSession] = [:]
     @Published private(set) var pendingApprovals: [PendingApproval] = []
 
-    private var approvalResolvers: [UUID: ApprovalResolver] = [:]
     private let usageReader = TranscriptUsageReader()
     /// One transcript read per session at a time. Events arrive faster than a read completes
     /// during a tool loop, and queueing them would only re-read the same tail.
@@ -212,6 +211,10 @@ final class AgentSessionStore: ObservableObject {
             }
         }
 
+        pendingApprovals.removeAll {
+            $0.sessionID == sessionID && Self.clearsPermissionNotice($0, after: request)
+        }
+
         // A blocked approval outranks whatever telemetry arrives while the agent waits. Codex
         // and Claude both keep emitting events from other threads during a permission prompt,
         // and letting one of those quietly repaint the session as "working" would hide the very
@@ -275,27 +278,16 @@ final class AgentSessionStore: ObservableObject {
         }
     }
 
-    /// What the server hands the store to unblock a waiting agent. It takes a reason and an
-    /// answered tool input as well as a verdict, because "the user picked option 2" is a
-    /// decision that cannot be expressed as allow or deny alone.
-    typealias ApprovalResolver = @Sendable (Decision, String?, JSONValue?) -> Void
-
-    func registerPermissionRequest(
-        _ request: HookRequest,
-        at date: Date = Date(),
-        onDecision: @escaping ApprovalResolver
-    ) {
+    /// Shows a permission prompt or question in the panel. Announcement only: the server has
+    /// already told the agent to defer, so the answer is given in the agent's own terminal and
+    /// the notice clears itself when the session moves on — see `clearsPermissionNotice`.
+    func registerPermissionNotice(_ request: HookRequest, at date: Date = Date()) {
         handle(request, at: date)
         let sessionID = Self.sessionID(for: request)
         let projectName = sessionsByID[sessionID]?.projectDisplayName
             ?? Self.projectDisplayName(for: request.cwd)
 
-        if let oldResolver = approvalResolvers.removeValue(forKey: request.id) {
-            pendingApprovals.removeAll { $0.approvalID == request.id }
-            oldResolver(.defer, nil, nil)
-        }
-
-        approvalResolvers[request.id] = onDecision
+        pendingApprovals.removeAll { $0.approvalID == request.id }
         pendingApprovals.append(
             PendingApproval(
                 approvalID: request.id,
@@ -312,57 +304,36 @@ final class AgentSessionStore: ObservableObject {
         )
     }
 
-    func resolve(approvalID: UUID, decision: Decision) {
-        resolve(approvalID: approvalID, decision: decision, reason: nil, updatedInput: nil)
+    /// Dismisses a notice by hand, for a prompt answered in a way that emitted no event.
+    func dismissApproval(approvalID: UUID) {
+        let sessionID = removePendingApprovalFromUI(approvalID: approvalID)
+        restoreSessionAfterApprovalIfNeeded(sessionID)
     }
 
-    /// Answers a question from the notch.
-    ///
-    /// The verdict is `allow` and the answer rides in `updatedInput`: the agent is being told to
-    /// go ahead with the call it proposed, having had the one thing it was missing filled in.
-    /// Denying instead would be the wrong word for it — the user did not refuse anything — and
-    /// would cost the agent its turn.
-    func answer(approvalID: UUID, with answer: String) {
-        let trimmed = answer.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty,
-              let question = pendingApprovals.first(where: { $0.approvalID == approvalID })?
-                  .question else {
-            return
+    /// Whether an event means the user has answered the terminal prompt a notice stands for.
+    /// A tool finishing counts only when it is the tool the notice was about, so a parallel
+    /// call completing does not take down the notice for the one still waiting.
+    private static func clearsPermissionNotice(
+        _ approval: PendingApproval,
+        after request: HookRequest
+    ) -> Bool {
+        switch request.eventName {
+        case .postToolUse, .postToolUseFailure:
+            guard let finished = request.toolName, let waiting = approval.toolName else {
+                return true
+            }
+            return finished == waiting
+        case .userPromptSubmit, .stop, .sessionStart, .sessionEnd, .permissionDenied, .preCompact:
+            return true
+        default:
+            return false
         }
-        resolve(
-            approvalID: approvalID,
-            decision: .allow,
-            reason: "Answered from The Notch: \(trimmed)",
-            updatedInput: question.answeredInput(with: trimmed)
-        )
-    }
-
-    func resolve(
-        approvalID: UUID,
-        decision: Decision,
-        reason: String?,
-        updatedInput: JSONValue?
-    ) {
-        guard let resolver = approvalResolvers.removeValue(forKey: approvalID) else { return }
-        let sessionID = removePendingApprovalFromUI(approvalID: approvalID)
-        restoreSessionAfterApprovalIfNeeded(sessionID)
-        resolver(decision, reason, updatedInput)
-    }
-
-    /// Removes UI state without calling its resolver. The server uses this after it has
-    /// already won the timeout/shutdown race and resumed the waiting continuation itself.
-    func cancelPendingApproval(approvalID: UUID) {
-        guard approvalResolvers.removeValue(forKey: approvalID) != nil else { return }
-        let sessionID = removePendingApprovalFromUI(approvalID: approvalID)
-        restoreSessionAfterApprovalIfNeeded(sessionID)
     }
 
     /// Whether the panel may offer a hide control for this session.
     ///
-    /// A session with a pending approval is the one thing that must not be removable. The
-    /// approval's resolver is what is holding the agent's hook open; dropping the session out of
-    /// the panel would leave the resolver unreachable and the agent blocked until it times out,
-    /// which is a hang the user caused with a button that looked like tidying up.
+    /// A session with a pending approval must not be removable: its notice would be left
+    /// pointing at a row that is no longer in the panel. Dismiss the notice first.
     func canHide(sessionID: String) -> Bool {
         guard sessionsByID[sessionID] != nil,
               !pendingApprovals.contains(where: { $0.sessionID == sessionID }) else {
