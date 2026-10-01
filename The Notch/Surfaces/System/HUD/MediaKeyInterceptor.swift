@@ -12,11 +12,14 @@ final class MediaKeyInterceptor: ObservableObject {
         case stopped = "Off"
         case active = "Keyboard connected"
         case permissionRequired = "Enable Accessibility"
+        /// An earlier build held the grant and this one does not — see `AccessibilityGrant`.
+        case permissionLost = "Re-add to Accessibility"
         case unavailable = "Check Accessibility"
     }
     @Published private(set) var status: Status = .stopped
     var onHandledEvent: ((SystemHUDEvent) -> Void)?
     private var keyRoutes: [Int32: Bool] = [:]
+    private let grant = AccessibilityGrant()
 
     func openPermissionSettings() {
         requestPermissionIfNeeded()
@@ -107,28 +110,34 @@ final class MediaKeyInterceptor: ObservableObject {
 
     // MARK: Installing
 
-    /// Asks for the grant once per machine, not once per launch.
+    /// Asks for the grant at most once per build, not once per launch.
     ///
     /// `AXIsProcessTrustedWithOptions` with the prompt option opens System Settings every time
     /// it is called while untrusted, so calling it on every launch means an app that hijacks the
-    /// foreground each morning until the user relents. One prompt, recorded, and after that the
-    /// feature simply stays off until they grant it themselves.
+    /// foreground each morning until the user relents. Once per *machine* was the old rule, and
+    /// it was too few: an update that lost the grant never asked again, and the HUD replacement
+    /// went dark with nothing but a grey settings label to say why. `AccessibilityGrant` decides.
     func requestPermissionIfNeeded() {
-        guard !AXIsProcessTrusted() else { return }
-
-        let key = "HasPromptedForAccessibility"
-        guard !UserDefaults.standard.bool(forKey: key) else { return }
-        UserDefaults.standard.set(true, forKey: key)
+        let isTrusted = AXIsProcessTrusted()
+        if isTrusted { grant.recordTrusted() }
+        guard grant.shouldPrompt(isTrusted: isTrusted) else { return }
+        grant.recordPrompted()
 
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
         _ = AXIsProcessTrustedWithOptions(options)
     }
 
+    /// What to show while the tap is not running for want of the grant.
+    private var untrustedStatus: Status {
+        grant.isLost(isTrusted: false) ? .permissionLost : .permissionRequired
+    }
+
     private func install() -> Bool {
         guard AXIsProcessTrusted() else {
-            status = .permissionRequired
+            status = untrustedStatus
             return false
         }
+        grant.recordTrusted()
         let mask = CGEventMask(1) << Self.systemDefinedEventType
         // `.headInsertEventTap` and not `.tailAppendEventTap`: the whole point is to be ahead of
         // whatever handles the key and requests the banner. `.defaultTap` rather than
@@ -179,11 +188,14 @@ final class MediaKeyInterceptor: ObservableObject {
                 guard let self, !Task.isCancelled else { return }
                 if let tap {
                     let trusted = AXIsProcessTrusted()
-                    if trusted && !CGEvent.tapIsEnabled(tap: tap) {
-                        CGEvent.tapEnable(tap: tap, enable: true)
+                    if trusted {
+                        grant.recordTrusted()
+                        if !CGEvent.tapIsEnabled(tap: tap) {
+                            CGEvent.tapEnable(tap: tap, enable: true)
+                        }
                     }
                     isIntercepting = trusted && CGEvent.tapIsEnabled(tap: tap)
-                    let next: Status = isIntercepting ? .active : (trusted ? .unavailable : .permissionRequired)
+                    let next: Status = isIntercepting ? .active : (trusted ? .unavailable : untrustedStatus)
                     if status != next { status = next }
                 } else {
                     _ = install()

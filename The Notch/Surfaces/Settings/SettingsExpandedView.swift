@@ -65,7 +65,9 @@ struct SettingsExpandedView: View {
                     .font(Theme.Text.micro)
                     .buttonStyle(.plain)
                     .foregroundStyle(Theme.Colors.textSecondary)
-                    .help("Accessibility permission lets The Notch replace the system brightness and volume indicators.")
+                    .help(mediaKeys.status == .permissionLost
+                        ? "macOS tied the permission to an earlier build of The Notch. Remove The Notch from the Accessibility list and add it again."
+                        : "Accessibility permission lets The Notch replace the system brightness and volume indicators.")
             }
 
             column("Behaviour") {

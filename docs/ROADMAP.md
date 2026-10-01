@@ -317,10 +317,11 @@ surfaces are now exactly two — media and agents — and the notch shows both a
       now lives in `NotchSettings.showsMedia(_:)` (`isActive && isPlaying`), which is also what
       `FrameDump` seeds from, and it is a preference: "Hide when paused", on by default.
 - [ ] Shelf: drag-drop file stash with AirDrop
-- [x] **Volume/Brightness HUD replacement.** `SystemHUDMonitor` observes volume through a
-      CoreAudio listener on the default output device and brightness through a `dlopen`'d
-      `DisplayServicesGetBrightness` polled at 20 Hz; the readout takes the collapsed shoulders
-      and outranks both live activities.
+- [x] **Volume/Brightness HUD replacement.** `SystemHUDMonitor` presents only key presses that
+      `MediaKeyInterceptor` consumed and applied, so the readout always matches a level The
+      Notch itself set. It no longer listens to CoreAudio or polls brightness: observing levels
+      also observed keys Control Center handled, which drew both HUDs at once. The readout takes
+      the collapsed shoulders and outranks both live activities.
 - [x] **Suppressing the *native* HUD, which took two attempts.** `NativeOSDSuppressor`
       `SIGSTOP`s `OSDUIHelper` (`launchctl kill` fails under SIP with "Not privileged to signal
       service", and the helper is not running at login, so it is `kickstart`ed first). **On
@@ -328,15 +329,24 @@ surfaces are now exactly two — media and agents — and the notch shows both a
       stopped the same way because it also draws the whole menu bar. `MediaKeyInterceptor` takes
       the five HUD-drawing keys with a `CGEventTap` instead — nothing requests an OSD if nothing
       handles the key — and applies the level itself through CoreAudio and
-      `DisplayServicesSetBrightness`. Needs Accessibility; fails open to the old suppressor
-      without it.
+      `DisplayServicesSetBrightness`. Needs Accessibility. Without it the keys stay with macOS,
+      which draws its own HUD, and the notch draws none. `suppress()` is no longer called;
+      `restore()` remains so a helper stopped by an old build resumes at launch.
+- [x] **An update no longer silently loses the HUD.** An ad-hoc signed build is known to TCC by
+      its code-directory hash, so every release lost the Accessibility grant while System
+      Settings still showed it on — and the old once-per-machine prompt never asked again.
+      `AccessibilityGrant` records which build held the grant and which was last asked: a build
+      that lost a grant is asked once more, and settings shows "Re-add to Accessibility". Someone
+      who never granted is still asked only once. A Developer ID signature would keep the grant
+      across updates; releases without the signing secrets still ship ad-hoc.
 - [ ] Webcam mirror
 - [ ] Heart and repeat in the transport row are drawn but inert — they need real player
       commands or they should be removed rather than shipped as dead controls.
 
-**Last touched:** 2026-08-17 — a paused player no longer earns shoulders; the collapsed notch
-falls back to the bare hardware cutout, or to the agent shoulders alone when an agent is live.
-Before that, 2026-08-16 — collapsed notch narrowed to *pictures only*: the
+**Last touched:** 2026-10-01 — a build that lost its Accessibility grant to an update asks for it
+again, and the HUD entries now describe interception-only presentation. Before that, 2026-08-17 —
+a paused player no longer earns shoulders; the collapsed notch falls back to the bare hardware
+cutout, or to the agent shoulders alone when an agent is live. Before that, 2026-08-16 — collapsed notch narrowed to *pictures only*: the
 media shoulder trades title-over-artist for the playing waveform, shoulders drop 92 → 40pt for
 live activities while the HUD keeps 92, and the silhouette no longer grows taller. The native
 HUD is now suppressed by intercepting the keys rather than by suspending `OSDUIHelper`, which
