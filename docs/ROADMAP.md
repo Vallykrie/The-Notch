@@ -369,13 +369,15 @@ does nothing on macOS 26. Shelf and webcam outstanding.
       the agent surfaces never lit up on a real machine. The onboarding UI and user consent
       before writing to their config are still missing.
 - [ ] Developer ID signing + notarization + Hardened Runtime
-      — the pipeline is wired and waiting on credentials. `scripts/build-release.sh` signs with
-      Hardened Runtime and a secure timestamp, then notarises and staples, whenever
-      `CODESIGN_IDENTITY` and `NOTARY_KEYCHAIN_PROFILE` are set; without them it falls back to an
-      ad-hoc signature so the pipeline still produces an installable build. The Release workflow
-      feeds those from repository secrets (`MACOS_CERTIFICATE`, `MACOS_CERTIFICATE_PASSWORD`,
-      `MACOS_SIGN_IDENTITY`, `NOTARY_KEY`, `NOTARY_KEY_ID`, `NOTARY_ISSUER_ID`). Adding the
-      secrets is the only remaining step.
+      — credentials are in place; the first signed build has not been verified yet.
+      `scripts/build-release.sh` signs with Hardened Runtime and a secure timestamp, then
+      notarises and staples, whenever `CODESIGN_IDENTITY` and `NOTARY_KEYCHAIN_PROFILE` are set;
+      without them it falls back to an ad-hoc signature so the pipeline still produces an
+      installable build. The Release workflow feeds those from repository secrets
+      (`MACOS_CERTIFICATE`, `MACOS_CERTIFICATE_PASSWORD`, `MACOS_SIGN_IDENTITY`, `NOTARY_KEY`,
+      `NOTARY_KEY_ID`, `NOTARY_ISSUER_ID`), all set on 2026-10-02. The bundle is signed with
+      `The Notch.entitlements` (`automation.apple-events` only): the hardened runtime refuses
+      Apple Events from an app without it, which would break Now Playing and jump-back.
 - [x] GitHub Releases — `.github/workflows/release.yml` builds a universal DMG on any `v*` tag
       and publishes it with generated notes and a SHA-256. `scripts/build-release.sh` archives
       `arm64 + x86_64`, replaces the checked-in arm64-only `notch-hook` with a `lipo`'d universal

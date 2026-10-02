@@ -93,8 +93,12 @@ else
 fi
 
 # Nested code first, then the bundle, or the outer signature seals a stale hash.
+# Entitlements go on the bundle only. The archive above is built with them stripped, and
+# under the hardened runtime an app without `automation.apple-events` is refused every Apple
+# Event without a prompt — Now Playing and jump-back both talk to other apps through
+# `osascript`, which is attributed to this app.
 codesign "${SIGN_ARGS[@]}" "$APP/Contents/Resources/notch-hook"
-codesign "${SIGN_ARGS[@]}" "$APP"
+codesign "${SIGN_ARGS[@]}" --entitlements "$ROOT/$APP_NAME/$APP_NAME.entitlements" "$APP"
 codesign --verify --deep --strict --verbose=2 "$APP"
 
 # --- 4. Package as a DMG -------------------------------------------------------------

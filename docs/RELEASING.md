@@ -10,7 +10,9 @@
    arm64-only copy checked into `The Notch/Resources/Hooks/`. Without this an Intel Mac gets an
    app that runs but whose agent hooks do not.
 3. Signs the nested hook first, then the bundle. Nested code must be signed before the outer
-   bundle or the outer signature seals a stale hash.
+   bundle or the outer signature seals a stale hash. The bundle is signed with
+   `The Notch/The Notch.entitlements`, whose `automation.apple-events` entitlement the hardened
+   runtime requires before it lets Now Playing and jump-back send Apple Events.
 4. Packages a DMG with an `/Applications` symlink.
 5. Notarises and staples, if credentials are present.
 6. Writes a SHA-256 next to the DMG.
