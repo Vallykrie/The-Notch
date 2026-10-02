@@ -368,9 +368,12 @@ does nothing on macOS 26. Shelf and webcam outstanding.
       only for CLIs actually present). Nothing called `HookInstaller` before that, which is why
       the agent surfaces never lit up on a real machine. The onboarding UI and user consent
       before writing to their config are still missing.
-- [ ] Developer ID signing + notarization + Hardened Runtime
-      — credentials are in place; the first signed build has not been verified yet.
-      `scripts/build-release.sh` signs with Hardened Runtime and a secure timestamp, then
+- [x] Developer ID signing + notarization + Hardened Runtime
+      — verified on 2026-10-02 with a `workflow_dispatch` build of 1.0.0-beta.6: notarisation
+      Accepted, DMG stapled, Gatekeeper reports "Notarized Developer ID" for the DMG and the app,
+      and the designated requirement is now identifier + team rather than a cdhash, so the
+      Accessibility grant survives updates. The first submission took ~40 minutes in Apple's
+      queue. `scripts/build-release.sh` signs with Hardened Runtime and a secure timestamp, then
       notarises and staples, whenever `CODESIGN_IDENTITY` and `NOTARY_KEYCHAIN_PROFILE` are set;
       without them it falls back to an ad-hoc signature so the pipeline still produces an
       installable build. The Release workflow feeds those from repository secrets
@@ -401,8 +404,9 @@ does nothing on macOS 26. Shelf and webcam outstanding.
 > process-ancestry lookup are each blocked by it. Direct sale + Homebrew is the path, and is what
 > comparable commercial apps in this category do. Full reasoning in ARCHITECTURE §4a.
 
-**Last touched:** 2026-08-17 — settings surface, Restore Defaults, and Quit. Everything else in
-this phase is untouched.
+**Last touched:** 2026-10-02 — releases are Developer ID signed, hardened, notarised and
+stapled, with the Apple Events entitlement. Before that, 2026-08-17 — settings surface, Restore
+Defaults, and Quit.
 
 ---
 
