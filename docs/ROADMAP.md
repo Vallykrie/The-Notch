@@ -303,6 +303,11 @@ surfaces are now exactly two — media and agents — and the notch shows both a
       `artwork url` and one URLSession call (the app's only network request); Music by writing
       `data of artwork 1` to a temp file, since `osascript` cannot return binary on stdout.
       `NowPlayingStatus` compares artwork by identity, never by bytes.
+- [x] **Media: lyrics** — synced lyrics from LRCLIB (`LyricsProvider`), fetched only while the
+      user has lyrics on, cached per track. The panel switches to a stage layout (reel of wrapped
+      lines, transport folded into a strip, one `lyricsMode` spring), and the collapsed notch
+      shows the sung line split across the camera housing, its shoulders sized to the line.
+      Spotify's artwork is therefore no longer the app's only network request.
 - [x] **Both live activities are on screen at once, collapsed**, with the camera housing
       reserved as a real gap between them. Expanded, a `NotchTabBar` selects which one the
       panel elaborates.

@@ -140,8 +140,14 @@ Subagents appear indented under the session that started them.
 
 ### 6. Media, volume and brightness
 
-The **Media** tab shows what is playing, with play/pause, skip, a progress bar, and like, shuffle
-and repeat. While music plays, the closed notch shows the artwork and a live waveform.
+The **Media** tab shows what is playing from Spotify or Apple Music, with play/pause, skip and a
+progress bar. While music plays, the closed notch shows the artwork and a live waveform. When
+nothing is playing, the tab links straight to each installed player.
+
+Press the lyrics button (the three lines in the controls) to follow the song's lyrics, synced to
+playback. The controls move to a slim strip and the lyrics take the panel, and the closed notch
+shows the line being sung, split across the camera. Lyrics come from [LRCLIB](https://lrclib.net),
+a free lyrics database: the track's title and artist are sent there only while lyrics are on.
 
 Turn on **Settings → Replace OS HUD** to see volume and brightness changes in the notch instead of
 the macOS overlay. The app asks for the permission it needs to read the media keys.

@@ -303,6 +303,19 @@ nonisolated struct PixelGlyph: Equatable, Sendable {
         0b0000_0010,
     ])
 
+    /// Three lines of text, shortening — lyrics. Drawn as text rather than as a note because
+    /// the note already means "a player" on the source badge and the launch buttons.
+    static let lyrics = PixelGlyph(rows: [
+        0b0000_0000,
+        0b0111_1110,
+        0b0000_0000,
+        0b0111_1100,
+        0b0000_0000,
+        0b0111_0000,
+        0b0000_0000,
+        0b0000_0000,
+    ])
+
     /// Looping track path with a corner arrow.
     static let repeatTrack = PixelGlyph(rows: [
         0b0000_0000,

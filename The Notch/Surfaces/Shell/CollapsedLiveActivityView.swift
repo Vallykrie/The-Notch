@@ -16,6 +16,7 @@ import SwiftUI
 /// | `.agentsOnly`| one status sprite | live session count  |
 /// | `.both`      | artwork           | one status sprite   |
 /// | `.systemHUD` | icon and label    | level bar           |
+/// | `.lyrics`    | first half of the sung line | second half |
 ///
 /// Each surface previously rendered its *full* collapsed presentation on its shoulder — media
 /// drew artwork and title and artist, agents drew three sprites and a status word — which
@@ -27,6 +28,7 @@ struct CollapsedLiveActivityView: View {
     @ObservedObject var nowPlaying: NowPlayingMonitor
     @ObservedObject var store: AgentSessionStore
     @ObservedObject var trading: TradingStore
+    @ObservedObject var lyrics: LyricsController
     let hudEvent: SystemHUDEvent?
 
     @Environment(\.notchLayout) private var notchLayout
@@ -90,7 +92,7 @@ struct CollapsedLiveActivityView: View {
     /// notch have no hardware to avoid, so the faux pill simply holds its two shoulders apart.
     @ViewBuilder
     private var housingReservation: some View {
-        if notchLayout.hasPhysicalNotch || layout == .trading {
+        if notchLayout.hasPhysicalNotch || layout == .trading || layout.isLyrics {
             Color.clear
                 .frame(width: layout.housingWidth(physicalWidth: notchLayout.physicalNotchSize.width, hasPhysicalNotch: notchLayout.hasPhysicalNotch))
         } else {
@@ -110,6 +112,9 @@ struct CollapsedLiveActivityView: View {
         switch layout {
         case .trading:
             TradingCollapsedView(store: trading, leading: true)
+        case .lyrics:
+            LyricsCollapsedView(lyrics: lyrics, half: .leading)
+                .transition(.opacity)
         case .mediaOnly, .both:
             NowPlayingArtworkView(status: nowPlaying.status)
                 .transition(.opacity)
@@ -131,6 +136,9 @@ struct CollapsedLiveActivityView: View {
         switch layout {
         case .trading:
             TradingCollapsedView(store: trading, leading: false)
+        case .lyrics:
+            LyricsCollapsedView(lyrics: lyrics, half: .trailing)
+                .transition(.opacity)
         case .mediaOnly:
             // The waveform, not the title and artist that used to live here. Two lines of 8pt
             // text truncated mid-word are not information — they are the reason the silhouette

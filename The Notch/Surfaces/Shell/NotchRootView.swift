@@ -10,6 +10,7 @@ struct NotchRootView: View {
     @ObservedObject private var systemHUD: SystemHUDMonitor
     @ObservedObject private var settings: NotchSettings
     @ObservedObject private var trading: TradingStore
+    @ObservedObject private var lyrics: LyricsController
     private let services: SystemServices
     @Namespace private var contentNamespace
     @Environment(\.displayScale) private var displayScale
@@ -51,6 +52,7 @@ struct NotchRootView: View {
         _systemHUD = ObservedObject(wrappedValue: services.systemHUD)
         _settings = ObservedObject(wrappedValue: services.settings)
         _trading = ObservedObject(wrappedValue: services.trading)
+        _lyrics = ObservedObject(wrappedValue: services.lyrics)
         _animatedCollapsedSize = State(initialValue: coordinator.collapsedSize)
         _isShowingSettings = State(initialValue: debugShowsSettings)
     }
@@ -156,6 +158,8 @@ struct NotchRootView: View {
         .onChange(of: systemHUD.event) { _, _ in refreshActivity() }
         .onChange(of: settings.revision) { _, _ in refreshActivity() }
         .onChange(of: trading.wantsShoulder) { _, _ in refreshActivity() }
+        .onChange(of: lyrics.showsOnNotch) { _, _ in refreshActivity() }
+        .onChange(of: lyrics.currentLineIndex) { _, _ in refreshActivity() }
         .onChange(of: attentionFlags) { _, _ in refreshActivity() }
         .onChange(of: store.pendingApprovals.count) { _, _ in refreshActivity() }
         .onChange(of: tradingPanelVisible) { _, value in trading.setPanelVisible(value) }
@@ -333,6 +337,7 @@ struct NotchRootView: View {
             nowPlaying: nowPlaying,
             store: store,
             trading: trading,
+            lyrics: lyrics,
             hudEvent: systemHUD.event
         )
     }
@@ -352,7 +357,7 @@ struct NotchRootView: View {
                 } else {
                     switch coordinator.currentSurface {
                     case .media:
-                        MediaExpandedView(nowPlaying: nowPlaying)
+                        MediaExpandedView(nowPlaying: nowPlaying, lyrics: services.lyrics)
                     case .agents:
                         AgentsExpandedView(store: store, integrations: services.integrations, namespace: contentNamespace, showsModel: settings.showAgentModel)
                     case .trading:
@@ -476,6 +481,8 @@ struct NotchRootView: View {
             )
             coordinator.hasSystemHUD = settings.replaceSystemHUD && systemHUD.event != nil
             coordinator.hasTradingActivity = trading.wantsShoulder
+            coordinator.hasLyricsActivity = settings.showsMedia(nowPlaying.status) && lyrics.showsOnNotch
+            coordinator.lyricsShoulderWidth = LyricsCollapsedView.shoulderWidth(for: lyrics.currentLine)
             coordinator.agentNeedsAttention = !store.pendingApprovals.isEmpty || store.sessions.contains { $0.status.demandsAttention }
             animatedCollapsedSize = coordinator.collapsedSize
         }

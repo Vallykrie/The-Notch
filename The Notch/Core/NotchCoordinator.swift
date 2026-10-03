@@ -41,6 +41,14 @@ final class NotchCoordinator: ObservableObject {
     @Published var hasTradingActivity = false {
         didSet { if oldValue != hasTradingActivity { stateDidChange?(state) } }
     }
+    /// Whether the sung line is on the collapsed notch — see `LyricsController.showsOnNotch`.
+    @Published var hasLyricsActivity = false {
+        didSet { if oldValue != hasLyricsActivity { stateDidChange?(state) } }
+    }
+    /// How wide each shoulder is while the sung line is on the notch; it follows the line.
+    @Published var lyricsShoulderWidth = Theme.Metrics.LiveActivity.lyricsShoulderWidth {
+        didSet { if oldValue != lyricsShoulderWidth { stateDidChange?(state) } }
+    }
     @Published var agentNeedsAttention = false {
         didSet { if oldValue != agentNeedsAttention { stateDidChange?(state) } }
     }
@@ -85,7 +93,9 @@ final class NotchCoordinator: ObservableObject {
             hasAgents: hasAgentActivity,
             hasHUD: hasSystemHUD,
             hasTrading: hasTradingActivity,
-            agentNeedsAttention: agentNeedsAttention
+            agentNeedsAttention: agentNeedsAttention,
+            hasLyrics: hasLyricsActivity,
+            lyricsShoulderWidth: lyricsShoulderWidth
         )
     }
 

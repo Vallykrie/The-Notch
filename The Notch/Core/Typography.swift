@@ -12,7 +12,7 @@ enum Typography {
     /// PostScript name, not the file name. `NSFont(name:)` will silently return nil for the
     /// family name ("Departure Mono"), which is how a missing font degrades into system San
     /// Francisco without anything logging.
-    private static let postScriptName = "DepartureMono-Regular"
+    static let postScriptName = "DepartureMono-Regular"
 
     private static var didRegister = false
 
@@ -54,7 +54,10 @@ enum Typography {
     /// 8pt — badge counts and unit suffixes riding next to a number.
     static let micro = mono(8)
     /// 9pt — the collapsed pill's shoulder text. Small enough to clear the camera housing.
-    static let caption = mono(9)
+    static let caption = mono(captionSize)
+    /// The caption's size as a number, for measuring caption text with AppKit — the collapsed
+    /// notch sizes its lyrics shoulders from the line's real width.
+    static let captionSize: CGFloat = 9
     /// 11pt — the workhorse. Session rows, tool lines, secondary detail.
     static let body = mono(11)
     /// 13pt — row titles and the agent name on an approval card.

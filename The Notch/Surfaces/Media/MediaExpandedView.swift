@@ -4,6 +4,8 @@ import SwiftUI
 @MainActor
 struct MediaExpandedView: View {
     @ObservedObject var nowPlaying: NowPlayingMonitor
+    /// Shared with the collapsed notch, which shows the sung line while lyrics are on.
+    @ObservedObject var lyrics: LyricsController
 
     @State private var decodedArtwork: NSImage?
     @State private var draggedProgress: Double?
@@ -42,27 +44,65 @@ struct MediaExpandedView: View {
         }
     }
 
+    /// The playing panel and its lyrics mode are one layout, not two.
+    ///
+    /// The scrubber and the transport buttons are the *same views* in both: what changes is
+    /// the container around them — stacked under the title, or laid in one strip along the
+    /// bottom — and their size. Because their identity survives the switch, SwiftUI moves them
+    /// rather than swapping them, so turning lyrics on reads as the controls sliding down and
+    /// shrinking out of the way while the words take their place. The title rows and the
+    /// lyrics are the only things that genuinely appear and disappear, and they cross-fade.
     private var activeContent: some View {
-        HStack(spacing: Theme.Metrics.MediaPanel.columnSpacing) {
+        let stage = lyrics.isEnabled
+        return HStack(spacing: Theme.Metrics.MediaPanel.columnSpacing) {
             artwork
 
-            VStack(alignment: .leading, spacing: Theme.Metrics.MediaPanel.rowSpacing) {
-                Text(nowPlaying.status.title)
-                    .font(Theme.Text.title)
-                    .foregroundStyle(Theme.Colors.textPrimary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+            VStack(
+                alignment: .leading,
+                spacing: stage ? Theme.Metrics.MediaPanel.stageSpacing : Theme.Metrics.MediaPanel.rowSpacing
+            ) {
+                if stage {
+                    Text("\(nowPlaying.status.title) · \(nowPlaying.status.artist)")
+                        .font(Theme.Text.caption)
+                        .foregroundStyle(Theme.Colors.textTertiary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .transition(.opacity)
 
-                Text(nowPlaying.status.artist)
-                    .font(Theme.Text.body)
-                    .foregroundStyle(Theme.Colors.textSecondary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+                    lyricsBody
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                        .transition(.opacity)
+                } else {
+                    Text(nowPlaying.status.title)
+                        .font(Theme.Text.title)
+                        .foregroundStyle(Theme.Colors.textPrimary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .transition(.opacity)
 
-                scrubber
-                transportControls
+                    Text(nowPlaying.status.artist)
+                        .font(Theme.Text.body)
+                        .foregroundStyle(Theme.Colors.textSecondary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .transition(.opacity)
+                }
+
+                controls(stage: stage)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, maxHeight: stage ? .infinity : nil, alignment: .topLeading)
+        }
+    }
+
+    /// Scrubber over buttons, or scrubber beside buttons. `AnyLayout` keeps both children's
+    /// identity across the switch, which is what makes the move animatable.
+    private func controls(stage: Bool) -> some View {
+        let layout = stage
+            ? AnyLayout(HStackLayout(spacing: Theme.Metrics.MediaPanel.miniSpacing))
+            : AnyLayout(VStackLayout(alignment: .leading, spacing: Theme.Metrics.MediaPanel.rowSpacing))
+        return layout {
+            scrubber
+            transportControls(stage: stage)
         }
     }
 
@@ -177,83 +217,153 @@ struct MediaExpandedView: View {
         }
     }
 
-    private var transportControls: some View {
-        HStack(spacing: Theme.Metrics.MediaPanel.transportSpacing) {
-            decorativeControl(glyph: .heart, label: "Favorite")
-
-            Button {
-                nowPlaying.previousTrack()
-            } label: {
-                PixelGlyphView(
-                    glyph: .skipBack,
-                    side: Theme.Metrics.MediaPanel.transportGlyphSize
-                )
-                .foregroundStyle(Theme.Colors.textSecondary)
-                .frame(
-                    width: Theme.Metrics.MediaPanel.transportHitSize,
-                    height: Theme.Metrics.MediaPanel.transportHitSize
-                )
-                .contentShape(Rectangle())
+    /// The transport row, at full size under the scrubber or folded beside it. The favourite
+    /// mark only exists at full size; it is decorative, and the strip has no room for it.
+    private func transportControls(stage: Bool) -> some View {
+        HStack(spacing: stage ? Theme.Metrics.MediaPanel.miniSpacing : Theme.Metrics.MediaPanel.transportSpacing) {
+            if !stage {
+                decorativeControl(glyph: .heart, label: "Favorite")
+                    .transition(.opacity)
             }
-            .accessibilityLabel("Previous track")
-            .transportButtonStyle()
 
-            Button {
-                nowPlaying.playPause()
-            } label: {
-                ZStack {
-                    Circle()
-                        .fill(
-                            Theme.Colors.textPrimary.opacity(
-                                Theme.Metrics.MediaPanel.primaryFillOpacity
-                            )
-                        )
+            transportButton(.skipBack, label: "Previous track", stage: stage) {
+                nowPlaying.previousTrack()
+            }
 
+            playPauseButton(stage: stage)
+
+            transportButton(.skipForward, label: "Next track", stage: stage) {
+                nowPlaying.nextTrack()
+            }
+
+            transportButton(
+                .lyrics,
+                label: stage ? "Hide lyrics" : "Show lyrics",
+                stage: stage,
+                tint: stage ? Theme.Colors.Status.playing : Theme.Colors.textSecondary,
+                action: toggleLyrics
+            )
+        }
+        .frame(maxWidth: stage ? nil : .infinity, alignment: .center)
+    }
+
+    /// The glyph is always drawn at full size and *scaled* into the strip. Pixel glyphs are
+    /// rendered for a given side and do not animate between sizes; a scale does, so the
+    /// buttons shrink on the same spring that moves them.
+    private func transportButton(
+        _ glyph: PixelGlyph,
+        label: String,
+        stage: Bool,
+        tint: Color = Theme.Colors.textSecondary,
+        action: @escaping () -> Void
+    ) -> some View {
+        let metrics = Theme.Metrics.MediaPanel.self
+        let hit = stage ? metrics.miniHitSize : metrics.transportHitSize
+        return Button(action: action) {
+            PixelGlyphView(glyph: glyph, side: metrics.transportGlyphSize)
+                .scaleEffect(stage ? metrics.miniGlyphSize / metrics.transportGlyphSize : 1)
+                .foregroundStyle(stage && tint == Theme.Colors.textSecondary ? Theme.Colors.textPrimary : tint)
+                .frame(width: hit, height: hit)
+                .contentShape(Rectangle())
+        }
+        .help(label)
+        .accessibilityLabel(label)
+        .transportButtonStyle()
+    }
+
+    /// The round play button. In the strip its disc fades out and its glyph shrinks to the
+    /// size of the others, so the four buttons read as one row.
+    private func playPauseButton(stage: Bool) -> some View {
+        let metrics = Theme.Metrics.MediaPanel.self
+        let hit = stage ? metrics.miniHitSize : metrics.primaryTransportHitSize
+        return Button {
+            nowPlaying.playPause()
+        } label: {
+            ZStack {
+                Circle()
+                    .fill(Theme.Colors.textPrimary.opacity(metrics.primaryFillOpacity))
+                    .opacity(stage ? 0 : 1)
+
+                Group {
                     if nowPlaying.status.isPlaying {
-                        PixelGlyphView(
-                            glyph: .pause,
-                            side: Theme.Metrics.MediaPanel.primaryTransportGlyphSize
-                        )
-                        .transition(.opacity)
+                        PixelGlyphView(glyph: .pause, side: metrics.primaryTransportGlyphSize)
+                            .transition(.opacity)
                     } else {
-                        PixelGlyphView(
-                            glyph: .play,
-                            side: Theme.Metrics.MediaPanel.primaryTransportGlyphSize
-                        )
-                        .transition(.opacity)
+                        PixelGlyphView(glyph: .play, side: metrics.primaryTransportGlyphSize)
+                            .transition(.opacity)
                     }
                 }
-                .foregroundStyle(Theme.Colors.textPrimary)
-                .frame(
-                    width: Theme.Metrics.MediaPanel.primaryTransportHitSize,
-                    height: Theme.Metrics.MediaPanel.primaryTransportHitSize
-                )
-                .contentShape(Circle())
-                .animation(Theme.Motion.content, value: nowPlaying.status.isPlaying)
+                .scaleEffect(stage ? metrics.miniGlyphSize / metrics.primaryTransportGlyphSize : 1)
             }
-            .accessibilityLabel(nowPlaying.status.isPlaying ? "Pause" : "Play")
-            .transportButtonStyle()
-
-            Button {
-                nowPlaying.nextTrack()
-            } label: {
-                PixelGlyphView(
-                    glyph: .skipForward,
-                    side: Theme.Metrics.MediaPanel.transportGlyphSize
-                )
-                .foregroundStyle(Theme.Colors.textSecondary)
-                .frame(
-                    width: Theme.Metrics.MediaPanel.transportHitSize,
-                    height: Theme.Metrics.MediaPanel.transportHitSize
-                )
-                .contentShape(Rectangle())
-            }
-            .accessibilityLabel("Next track")
-            .transportButtonStyle()
-
-            decorativeControl(glyph: .repeatTrack, label: "Repeat")
+            .foregroundStyle(Theme.Colors.textPrimary)
+            .frame(width: hit, height: hit)
+            .contentShape(Circle())
+            .animation(Theme.Motion.content, value: nowPlaying.status.isPlaying)
         }
-        .frame(maxWidth: .infinity, alignment: .center)
+        .accessibilityLabel(nowPlaying.status.isPlaying ? "Pause" : "Play")
+        .transportButtonStyle()
+    }
+
+    // MARK: Lyrics
+
+    private func toggleLyrics() {
+        withAnimation(Theme.Motion.lyricsMode) { lyrics.isEnabled.toggle() }
+    }
+
+    @ViewBuilder
+    private var lyricsBody: some View {
+        switch lyrics.lookup {
+        case nil:
+            lyricsMessage("Looking up lyrics…")
+        case .notFound:
+            lyricsMessage("No lyrics found for this track.")
+        case .failed:
+            lyricsMessage("Couldn't reach the lyrics service.")
+        case let .found(found) where found.isSynced:
+            syncedLyrics(found)
+        case let .found(found) where found.isInstrumental && found.plain.isEmpty:
+            lyricsMessage("♪ Instrumental")
+        case let .found(found):
+            plainLyrics(found)
+        }
+    }
+
+    private func lyricsMessage(_ text: String) -> some View {
+        Text(text)
+            .font(Theme.Text.body)
+            .foregroundStyle(Theme.Colors.textSecondary)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+    }
+
+    /// Re-reads the position a few times a second while playing — only to notice the next
+    /// line starting; nothing moves between line changes — and stops when the track pauses.
+    private func syncedLyrics(_ found: Lyrics) -> some View {
+        TimelineView(.animation(
+            minimumInterval: Theme.Metrics.MediaPanel.lyricsTick,
+            paused: !nowPlaying.status.isPlaying
+        )) { context in
+            LyricsReel(lyrics: found, focus: found.lineIndex(at: lyrics.position(at: context.date)) ?? -1)
+        }
+    }
+
+    /// Lyrics without timestamps cannot follow the song, so they are shown as text to read,
+    /// scrolled by hand, with a note saying why they do not move.
+    private func plainLyrics(_ found: Lyrics) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Not synced to the song")
+                    .font(Theme.Text.micro)
+                    .foregroundStyle(Theme.Colors.textTertiary)
+                ForEach(Array(found.plain.enumerated()), id: \.offset) { _, line in
+                    Text(line.isEmpty ? " " : line)
+                        .font(Theme.Text.body)
+                        .foregroundStyle(Theme.Colors.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .scrollIndicators(.hidden)
     }
 
     /// The playing state itself, drawn as a skeleton: the same artwork slot (holding the
@@ -288,11 +398,7 @@ struct MediaExpandedView: View {
                     .foregroundStyle(Theme.Colors.textPrimary)
                     .lineLimit(1)
 
-                Text(emptySubtitle)
-                    .font(Theme.Text.body)
-                    .foregroundStyle(Theme.Colors.textSecondary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+                playerLinks
 
                 emptyScrubber
                 emptyTransportControls
@@ -306,9 +412,40 @@ struct MediaExpandedView: View {
         Self.installedPlayers.first
     }
 
-    private var emptySubtitle: String {
-        guard let preferredPlayer else { return "Spotify or Music shows up here when it plays." }
-        return "Press play to open \(sourceBadgeLabel(for: preferredPlayer.player))."
+    /// The artist row's slot, holding a way to each player instead: `Open ↗ Spotify ↗ Apple
+    /// Music`. Only the players installed on this Mac; a link to an app that is not here would
+    /// do nothing.
+    @ViewBuilder
+    private var playerLinks: some View {
+        let players = Self.installedPlayers
+        HStack(spacing: Theme.Metrics.collapsedContentSpacing * 2) {
+            if players.isEmpty {
+                Text("Spotify or Apple Music shows up here when it plays.")
+                    .foregroundStyle(Theme.Colors.textSecondary)
+            } else {
+                Text("Open")
+                    .foregroundStyle(Theme.Colors.textTertiary)
+                ForEach(players, id: \.player) { entry in
+                    Button {
+                        let configuration = NSWorkspace.OpenConfiguration()
+                        configuration.activates = true
+                        NSWorkspace.shared.openApplication(at: entry.url, configuration: configuration)
+                    } label: {
+                        HStack(spacing: 4) {
+                            PixelGlyphView(glyph: .openWindow, side: Theme.Metrics.glyphCollapsedSize)
+                                .foregroundStyle(sourceBadgeTint(for: entry.player))
+                            Text(sourceBadgeLabel(for: entry.player))
+                                .foregroundStyle(Theme.Colors.textPrimary)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Open \(sourceBadgeLabel(for: entry.player))")
+                }
+            }
+        }
+        .font(Theme.Text.body)
+        .lineLimit(1)
     }
 
     /// The scrubber at zero: a bare track between two `0:00`s, the shape it has the instant a
@@ -463,7 +600,7 @@ struct MediaExpandedView: View {
         case .spotify:
             "Spotify"
         case .music:
-            "Music"
+            "Apple Music"
         }
     }
 
@@ -588,4 +725,97 @@ private struct PixelVinylView: View {
     private static let glintSteps = 8
     /// Same hairline as the mascot's cells, so the two read as one pixel language.
     private static let cellGap: CGFloat = 0.5
+}
+
+/// The synced lyrics as a reel: every line in a column, the sung one centred in white, the
+/// rest scaled down and fading with distance from it.
+///
+/// Lines wrap onto a second row rather than truncating, so they are not one height. The
+/// placement is a `Layout` rather than a fixed pitch for that reason: it measures each line at
+/// the column's width and offsets the column so the sung line's own centre is the reel's
+/// centre. Being a layout, it is also synchronous — the first frame is already placed, which a
+/// preference-and-state round trip is not (and `ImageRenderer` never runs the second pass).
+///
+/// Lines keep their identity across steps, so when the sung line changes SwiftUI moves the
+/// same views: the column glides up, the new line grows as the old one shrinks. All of it
+/// rides the one `lyricsAdvance` spring, keyed to the line index.
+struct LyricsReel: View {
+    let lyrics: Lyrics
+    /// The sung line, or -1 during the intro, when a note holds the centre.
+    let focus: Int
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private typealias Metrics = Theme.Metrics.MediaPanel
+
+    var body: some View {
+        ReelLayout(focus: focus + 1, spacing: Metrics.lyricsLineSpacing) {
+            ForEach(-1 ..< lyrics.synced.count, id: \.self) { index in
+                line(index)
+            }
+        }
+        .clipped()
+        .mask {
+            VStack(spacing: 0) {
+                LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
+                    .frame(height: Metrics.lyricsEdgeFade)
+                Color.black
+                LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
+                    .frame(height: Metrics.lyricsEdgeFade)
+            }
+        }
+        .animation(reduceMotion ? nil : Theme.Motion.lyricsAdvance, value: focus)
+    }
+
+    private func text(_ index: Int) -> String {
+        guard lyrics.synced.indices.contains(index) else { return "♪" }
+        let text = lyrics.synced[index].text
+        return text.isEmpty ? "♪" : text
+    }
+
+    private func line(_ index: Int) -> some View {
+        let distance = abs(index - focus)
+        let fades = Metrics.lyricsFadeByDistance
+        let isSung = distance == 0
+        return Text(text(index))
+            .font(Theme.Text.title)
+            .foregroundStyle(isSung ? Theme.Colors.textPrimary : Theme.Colors.textSecondary)
+            .lineLimit(2)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .scaleEffect(isSung ? 1 : Metrics.lyricsNeighbourScale, anchor: .leading)
+            .opacity(fades[min(distance, fades.count - 1)])
+    }
+}
+
+/// Stacks its children top to bottom at their wrapped heights, then shifts the whole stack so
+/// the `focus` child is centred in the bounds. Children outside the bounds are still placed —
+/// that is what lets them glide in rather than appear.
+struct ReelLayout: Layout {
+    var focus: Int
+    var spacing: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        proposal.replacingUnspecifiedDimensions()
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        guard !subviews.isEmpty else { return }
+        let width = ProposedViewSize(width: bounds.width, height: nil)
+        let heights = subviews.map { $0.sizeThatFits(width).height }
+        var tops: [CGFloat] = []
+        var y: CGFloat = 0
+        for height in heights {
+            tops.append(y)
+            y += height + spacing
+        }
+        let focused = min(max(focus, 0), subviews.count - 1)
+        let offset = bounds.height / 2 - (tops[focused] + heights[focused] / 2)
+        for (index, subview) in subviews.enumerated() {
+            subview.place(
+                at: CGPoint(x: bounds.minX, y: bounds.minY + tops[index] + offset),
+                proposal: ProposedViewSize(width: bounds.width, height: heights[index])
+            )
+        }
+    }
 }

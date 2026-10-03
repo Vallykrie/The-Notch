@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lyrics options v1</title>
+<style>
+@font-face{font-family:'Departure';src:url('../../The%20Notch/Resources/Fonts/DepartureMono-Regular.otf') format('opentype')}
+:root{
+  --bg:#0d0d0e;--panel:#161618;--line:#2a2a2d;--text:#ececec;--muted:#8a8a8e;
+  --px:'Departure',ui-monospace,Menlo,monospace;
+  --t1:#fff;--t2:rgba(255,255,255,.62);--t3:rgba(255,255,255,.38);--div:rgba(255,255,255,.1);
+  --play:#ff7a50;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:13px/1.55 var(--px)}
+main{max-width:1180px;margin:0 auto;padding:40px 16px 80px}
+h1{font:400 24px/1.1 var(--px);margin:0 0 8px}
+.lede{color:var(--muted);max-width:780px;margin:0 0 10px}
+.fixed{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px 14px;max-width:780px;margin:0 0 34px;color:var(--muted)}
+.fixed b{color:var(--text);font-weight:400}
+section{border-top:1px solid var(--line);padding:28px 0 8px}
+h2{font:400 17px var(--px);margin:0 0 4px}
+h2 .k{display:inline-block;background:#2f6fd6;color:#fff;border-radius:4px;padding:0 8px;margin-right:8px}
+.sub{color:var(--muted);margin:0 0 14px}
+.stage{background:#3a3a3c;border-radius:14px;padding:22px;overflow-x:auto}
+ul{color:var(--muted);max-width:900px;padding-left:20px}
+ul b{color:var(--text);font-weight:400}
+
+/* ——— panel, in app points, zoomed ——— */
+.panel{zoom:1.5;width:640px;height:190px;margin:0 auto;background:#000;border-radius:0 0 22px 22px;padding:6px 10px 18px 28px;color:var(--t1);font-family:var(--px);position:relative;overflow:hidden}
+.bar{display:flex;align-items:center;justify-content:space-between;height:28px;margin:0 0 6px -18px}
+.tabs{display:flex;background:#141414;border-radius:6px;padding:3px}
+.tabs span{font-size:8px;padding:0 10px;line-height:20px;border-radius:4px;color:var(--t3)}
+.tabs span.sel{background:#2a2a2a;color:var(--t1)}
+.gear{width:8px;height:8px;border-radius:50%;background:var(--t2);margin-right:8px}
+.body{display:flex;gap:18px;margin-left:-18px}
+.art{width:128px;height:128px;border-radius:6px;flex:none;position:relative;overflow:hidden;
+  background:linear-gradient(160deg,#9cc3d8 0 34%,#5f8a5a 34% 60%,#3f6b3a 60%)}
+.art::after{content:"";position:absolute;left:52px;top:30px;width:22px;height:70px;border-radius:10px 10px 4px 4px;background:#efe9dc}
+.badge{position:absolute;right:4px;bottom:4px;width:18px;height:18px;border-radius:50%;background:#000;z-index:2;display:flex;align-items:center;justify-content:center;color:var(--play);font-size:9px}
+.col{flex:1;min-width:0;display:flex;flex-direction:column}
+.cap{font-size:9px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.transport{display:flex;align-items:center;justify-content:center;gap:22px;margin-top:auto;height:38px}
+.transport i{font-style:normal;color:var(--t2);font-size:13px}
+.transport .pp{width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;color:var(--t1);font-size:13px}
+.transport .on{color:var(--play)}
+.transport .dim{opacity:.28}
+
+/* A — focus line */
+.focus{position:relative;height:66px;margin-top:6px}
+.focus .ln{position:absolute;left:0;right:0;top:50%;font-size:13px;line-height:17px;color:var(--t1);
+  transform:translateY(-50%);transition:transform .5s cubic-bezier(.3,1.25,.5,1),opacity .35s}
+.focus .ln.out{transform:translateY(calc(-50% - 16px));opacity:0}
+.focus .ln.in{transform:translateY(calc(-50% + 16px));opacity:0;transition:none}
+.focus .hint{position:absolute;left:0;bottom:0;font-size:9px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:clip;max-width:100%}
+
+/* B — reel */
+.reelwin{position:relative;height:72px;margin-top:6px;overflow:hidden;
+  -webkit-mask:linear-gradient(transparent,#000 12px,#000 calc(100% - 12px),transparent);mask:linear-gradient(transparent,#000 12px,#000 calc(100% - 12px),transparent)}
+.reel{position:absolute;left:0;right:0;top:0;transition:transform .5s cubic-bezier(.3,1.2,.5,1)}
+.reel div{font-size:13px;line-height:17px;padding:2px 0;color:var(--t2);opacity:.32;transform:scale(.82);transform-origin:left center;transition:transform .5s cubic-bezier(.3,1.2,.5,1),opacity .4s,color .4s}
+.reel div.cur{opacity:1;color:var(--t1);transform:none}
+
+/* C — stage */
+.stagecol .reelwin{height:118px;margin-top:4px}
+.mini{display:flex;align-items:center;gap:10px;height:18px;margin-top:auto}
+.mini .t{font-size:8px;color:var(--t3);width:24px}
+.mini .bar2{flex:1;height:3px;background:rgba(255,255,255,.22);border-radius:2px;position:relative}
+.mini .bar2 b{position:absolute;left:0;top:0;bottom:0;width:38%;background:var(--play);border-radius:2px}
+.mini i{font-style:normal;font-size:10px;color:var(--t2)}
+.mini .on{color:var(--play)}
+
+/* D — terminal */
+.term{position:relative;height:72px;margin-top:6px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;
+  -webkit-mask:linear-gradient(transparent,#000 18px);mask:linear-gradient(transparent,#000 18px)}
+.term div{font-size:11px;line-height:15px;color:var(--t3);padding-left:14px;text-indent:-14px}
+.term div.cur{color:var(--t1);font-size:12px}
+.term div.cur::before{content:"└ ";color:var(--t3)}
+.term div:not(.cur)::before{content:"  "}
+.caret{display:inline-block;width:6px;height:11px;background:var(--t2);vertical-align:-1px;margin-left:2px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+
+/* E — collapsed ticker add-on */
+.pill{zoom:1.5;width:440px;height:32px;margin:0 auto;background:#000;border-radius:0 0 10px 10px;display:flex;align-items:center;gap:10px;padding:0 12px;font-family:var(--px)}
+.pill .mini-art{width:18px;height:18px;border-radius:3px;background:linear-gradient(160deg,#9cc3d8 0 34%,#5f8a5a 34%)}
+.pill .tick{flex:1;font-size:9px;color:var(--t1);white-space:nowrap;overflow:hidden;position:relative;height:13px}
+.pill .tick span{position:absolute;left:0;top:0;transition:transform .45s cubic-bezier(.3,1.2,.5,1),opacity .3s}
+.pill .eq{font-size:9px;color:var(--play)}
+</style>
+</head>
+<body>
+<main>
+<h1>Lyrics: pick a direction</h1>
+<p class="lede">Four directions for the lyrics view, animated live with placeholder lines. Each one keeps the panel's size, the artwork and the pixel font. They differ in how much room lyrics get and how a line arrives.</p>
+<div class="fixed"><b>In every option:</b> no karaoke fill (the sung line is plain white), and a long line wraps onto a second row instead of ending in “…”. Lines wrap at word boundaries, and the layout makes room for the second row.</div>
+
+<section>
+  <h2><span class="k">A</span>Focus: one line, nothing else</h2>
+  <p class="sub">Only the line being sung, large and centred in the space the title, artist and scrubber used. A dim preview of the next line sits at the bottom.</p>
+  <div class="stage"><div class="panel">
+    <div class="bar"><div class="tabs"><span class="sel">Media</span><span>Agents</span><span>Crypto</span></div><span class="gear"></span></div>
+    <div class="body"><div class="art"><span class="badge">♪</span></div>
+      <div class="col"><div class="cap">Paper Boats · The Placeholders</div>
+        <div class="focus" id="A"><div class="ln"></div><div class="hint"></div></div>
+        <div class="transport"><i class="dim">♡</i><i>⏮</i><span class="pp">❚❚</span><i>⏭</i><i class="on">≡</i></div>
+      </div></div>
+  </div></div>
+  <ul>
+    <li><b>Calmest and easiest to read.</b> One thing to look at, and a two-row line always fits.</li>
+    <li><b>Motion:</b> the old line lifts and fades, and the new one rises from below on one spring.</li>
+    <li>You lose context: you can't glance back at the line you just missed.</li>
+  </ul>
+</section>
+
+<section>
+  <h2><span class="k">B</span>Reel, refined: the current design, fixed</h2>
+  <p class="sub">Today's layout without the fill: the sung line in white, with the lines before and after it dim and smaller. Every line can wrap, and the reel moves by each line's real height.</p>
+  <div class="stage"><div class="panel">
+    <div class="bar"><div class="tabs"><span class="sel">Media</span><span>Agents</span><span>Crypto</span></div><span class="gear"></span></div>
+    <div class="body"><div class="art"><span class="badge">♪</span></div>
+      <div class="col"><div class="cap">Paper Boats · The Placeholders</div>
+        <div class="reelwin"><div class="reel" id="B"></div></div>
+        <div class="transport" style="height:34px"><i class="dim">♡</i><i>⏮</i><span class="pp">❚❚</span><i>⏭</i><i class="on">≡</i></div>
+      </div></div>
+  </div></div>
+  <ul>
+    <li><b>Keeps the flow</b> of a lyrics app: you see what's coming and what just passed.</li>
+    <li>The space is tight. A two-row line pushes its neighbours mostly behind the edge fade, so sometimes you see only the current line.</li>
+  </ul>
+</section>
+
+<section>
+  <h2><span class="k">C</span>Stage: lyrics take the column, controls shrink</h2>
+  <p class="sub">While lyrics are open, the big transport row folds into a slim strip (time, progress, small controls), and lyrics get almost the whole right column: about five rows of text.</p>
+  <div class="stage"><div class="panel">
+    <div class="bar"><div class="tabs"><span class="sel">Media</span><span>Agents</span><span>Crypto</span></div><span class="gear"></span></div>
+    <div class="body"><div class="art"><span class="badge">♪</span></div>
+      <div class="col stagecol">
+        <div class="reelwin"><div class="reel" id="C"></div></div>
+        <div class="mini"><span class="t">1:44</span><span class="bar2"><b></b></span><span class="t" style="text-align:right">5:06</span><i>⏮</i><i>❚❚</i><i>⏭</i><i class="on">≡</i></div>
+      </div></div>
+  </div></div>
+  <ul>
+    <li><b>The most room:</b> two-row lines never crowd out the next one, and you get real context above and below.</li>
+    <li><b>It feels like a mode:</b> the panel visibly becomes a lyrics view, and closing it brings the big controls back.</li>
+    <li>The controls get small. Playing and pausing still works, but it's a 16pt target instead of 38pt.</li>
+  </ul>
+</section>
+
+<section>
+  <h2><span class="k">D</span>Terminal: lyrics as a transcript</h2>
+  <p class="sub">Lyrics scroll like terminal output, in the same <code>└</code> transcript style as the Agents panel. Past lines stack above in dim text, and the current line types in quickly with a caret.</p>
+  <div class="stage"><div class="panel">
+    <div class="bar"><div class="tabs"><span class="sel">Media</span><span>Agents</span><span>Crypto</span></div><span class="gear"></span></div>
+    <div class="body"><div class="art"><span class="badge">♪</span></div>
+      <div class="col"><div class="cap">♪ Paper Boats · The Placeholders</div>
+        <div class="term" id="D"></div>
+        <div class="transport" style="height:34px"><i class="dim">♡</i><i>⏮</i><span class="pp">❚❚</span><i>⏭</i><i class="on">≡</i></div>
+      </div></div>
+  </div></div>
+  <ul>
+    <li><b>The most “The Notch”.</b> It reuses the app's own vocabulary, so Media and Agents feel like one product.</li>
+    <li>The type-in is a fixed, quick reveal (about 18ms a character) when each line starts. It doesn't claim to follow the singing, so it can't drift the way the fill did.</li>
+    <li>You see history but not what's coming next.</li>
+  </ul>
+</section>
+
+<section>
+  <h2><span class="k">+</span>Add-on (works with any option): the current line on the closed notch</h2>
+  <p class="sub">With lyrics turned on, the closed notch's media side shows the line being sung instead of the track title.</p>
+  <div class="stage"><div class="pill"><span class="mini-art"></span><span class="tick" id="E"></span><span class="eq">▮▮▮</span></div></div>
+  <ul><li>Lets you follow along without opening the panel. Off unless lyrics are on, so it costs nothing otherwise.</li></ul>
+</section>
+</main>
+
+<script>
+// Placeholder lyrics written for this mock-up.
+const L = [
+  "Morning light across the window",
+  "I keep the kettle on for two, though no one's coming by today",
+  "Paper boats along the gutter",
+  "Every street I know still leads me back to where you said goodbye",
+  "♪",
+  "Hum the tune we never finished",
+  "Maybe someday I will learn the second verse without you here",
+  "Fold the letter, let it go",
+];
+const STEP = 2600;
+let i = 0;
+
+// A — focus
+const A = document.getElementById('A');
+function stepA(){
+  const old = A.querySelector('.ln:not(.out)');
+  const ln = document.createElement('div'); ln.className = 'ln in'; ln.textContent = L[i];
+  A.appendChild(ln);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{ ln.className = 'ln'; }));
+  if (old){ old.classList.add('out'); setTimeout(()=>old.remove(), 600); }
+  A.querySelector('.hint').textContent = L[(i+1)%L.length];
+}
+
+// B and C — reels measured by real line heights
+function buildReel(el){ el.innerHTML = L.map(t=>`<div>${t}</div>`).join(''); }
+function stepReel(el, win){
+  const rows = [...el.children];
+  rows.forEach((r,k)=>r.classList.toggle('cur', k===i));
+  const cur = rows[i];
+  const centre = (win.clientHeight - cur.offsetHeight) / 2;
+  el.style.transform = `translateY(${centre - cur.offsetTop}px)`;
+}
+const B = document.getElementById('B'), C = document.getElementById('C');
+buildReel(B); buildReel(C);
+
+// D — terminal
+const D = document.getElementById('D');
+let typer;
+function stepD(){
+  const prev = D.querySelector('.cur'); if (prev){ prev.classList.remove('cur'); prev.textContent = prev.dataset.t; }
+  const row = document.createElement('div'); row.className = 'cur'; row.dataset.t = L[i]; D.appendChild(row);
+  while (D.children.length > 6) D.firstChild.remove();
+  clearInterval(typer); let n = 0; const text = L[i];
+  typer = setInterval(()=>{ n++; row.innerHTML = text.slice(0,n) + '<span class="caret"></span>'; if (n >= text.length) clearInterval(typer); }, 18);
+}
+
+// E — ticker
+const E = document.getElementById('E');
+function stepE(){
+  const old = E.querySelector('span');
+  const s = document.createElement('span'); s.textContent = L[i]; s.style.transform = 'translateY(12px)'; s.style.opacity = 0;
+  E.appendChild(s);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{ s.style.transform = 'none'; s.style.opacity = 1; }));
+  if (old){ old.style.transform = 'translateY(-12px)'; old.style.opacity = 0; setTimeout(()=>old.remove(), 500); }
+}
+
+function tick(){
+  stepA(); stepReel(B, B.parentElement); stepReel(C, C.parentElement); stepD(); stepE();
+  i = (i + 1) % L.length;
+}
+document.fonts.ready.then(()=>{ tick(); setInterval(tick, STEP); });
+</script>
+</body>
+</html>

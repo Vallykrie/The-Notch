@@ -266,7 +266,43 @@ enum FrameDump {
 
         write(ring, to: directory, name: "motion-ring.png")
 
-        return 2
+        // The lyrics reel at the moments that matter: the intro note, a line, a line long
+        // enough to wrap, and an instrumental break. Static frames, so this checks the layout,
+        // not the spring between them.
+        let sample = Lyrics(
+            synced: Lyrics.parseLRC("""
+            [00:01.00] First line of the song
+            [00:04.00] The second line is a good deal longer than the first one, long enough to wrap
+            [00:07.00]
+            [00:10.00] After the break
+            [00:13.00] Last line
+            """),
+            plain: [],
+            isInstrumental: false
+        )
+        let reelStates: [(String, Int)] = [
+            ("intro", -1), ("line 1", 0), ("line 2 (wraps)", 1), ("break", 2), ("last line", 4),
+        ]
+        let reels = VStack(alignment: .leading, spacing: 14) {
+            ForEach(reelStates, id: \.0) { state in
+                HStack(spacing: 16) {
+                    Text(state.0)
+                        .font(Theme.Text.caption)
+                        .foregroundStyle(Theme.Colors.textTertiary)
+                        .frame(width: 90, alignment: .leading)
+                    LyricsReel(lyrics: sample, focus: state.1)
+                        .frame(width: 280, height: 92)
+                        .overlay(Rectangle().stroke(Color.white.opacity(0.08)))
+                }
+            }
+        }
+        .padding(20)
+        .background(Theme.Colors.surface)
+        .environment(\.colorScheme, .dark)
+
+        write(reels, to: directory, name: "motion-lyrics.png")
+
+        return 3
     }
 
     /// The resting states, which the progress sweep above cannot reach: it pins the coordinator
@@ -282,6 +318,24 @@ enum FrameDump {
             services: SystemServices,
             showsSettings: Bool
         )] = [
+            // Lyrics on, mid-way through a line long enough to wrap: the stage layout in the
+            // panel, and the line split across the camera housing on the collapsed notch.
+            (
+                "collapsed-lyrics",
+                .media,
+                .collapsed,
+                AgentsPreviewData.emptyStore(),
+                lyricsServices(),
+                false
+            ),
+            (
+                "expanded-media-lyrics",
+                .media,
+                .expanded,
+                AgentsPreviewData.emptyStore(),
+                lyricsServices(),
+                false
+            ),
             // Nothing live. The silhouette must be exactly the hardware cutout here — this is
             // the frame that catches a resting notch that has quietly grown wider.
             (
@@ -511,6 +565,11 @@ enum FrameDump {
             coordinator.hasSystemHUD = settings.replaceSystemHUD
                 && scenario.services.systemHUD.event != nil
             coordinator.hasTradingActivity = scenario.services.trading.wantsShoulder
+            coordinator.hasLyricsActivity = settings.showsMedia(scenario.services.nowPlaying.status)
+                && scenario.services.lyrics.showsOnNotch
+            coordinator.lyricsShoulderWidth = LyricsCollapsedView.shoulderWidth(
+                for: scenario.services.lyrics.currentLine
+            )
             coordinator.agentNeedsAttention = !scenario.store.pendingApprovals.isEmpty || scenario.store.sessions.contains { $0.status.demandsAttention }
 
             let view = NotchRootView(
@@ -526,6 +585,28 @@ enum FrameDump {
         }
 
         return scenarios.count + tradingScenarios.count
+    }
+
+    /// A playing track with lyrics already loaded, no network.
+    private static func lyricsServices() -> SystemServices {
+        let services = SystemServices(nowPlaying: MediaPreviewData.playingMonitor(), systemHUD: .previewIdle())
+        #if DEBUG
+        services.lyrics.seedPreview(
+            Lyrics(
+                synced: Lyrics.parseLRC("""
+                [00:01.00] Morning light across the window
+                [00:04.00] I keep the kettle on for two, though no one's coming by today
+                [00:08.00] Paper boats along the gutter
+                [00:11.00] Every street I know still leads me back to where you said goodbye
+                [00:15.00] Hum the tune we never finished
+                """),
+                plain: [],
+                isInstrumental: false
+            ),
+            position: 5
+        )
+        #endif
+        return services
     }
 
     private static func aperture(at progress: CGFloat, collapsed: CGSize) -> CGSize {

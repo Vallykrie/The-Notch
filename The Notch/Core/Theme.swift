@@ -86,6 +86,29 @@ enum Theme {
         )
         static let content = Animation.smooth(duration: 0.22)
 
+        /// The media panel turning into its lyrics view and back. One spring for the whole
+        /// change: the scrubber and transport buttons travel from their rows under the title to
+        /// the strip along the bottom (shrinking as they go), the title rows fade out and the
+        /// lyrics fade in. Critically damped — the controls are landing in a tight strip, and an
+        /// overshoot would bounce them past it.
+        static let lyricsMode = Animation.spring(
+            response: 0.42,
+            dampingFraction: 1.0,
+            blendDuration: 0
+        )
+
+        /// The lyrics reel moving to the next line. One spring drives the whole step — the
+        /// column's glide, the sung line growing to full size and its neighbours receding —
+        /// so the line change reads as one object moving, not three things cross-fading.
+        /// Slightly under-damped: the new line settles into place with a little give, which is
+        /// what makes the step feel physical. Long enough to read as a glide, short enough to
+        /// be finished well before the next line, which in fast songs comes ~1s later.
+        static let lyricsAdvance = Animation.spring(
+            response: 0.5,
+            dampingFraction: 0.78,
+            blendDuration: 0
+        )
+
         /// Cross-fading the collapsed and expanded children of the shell. Deliberately much
         /// shorter than the aperture spring: the point is that content is *uncovered*, not
         /// that it dissolves. Without this the collapse deleted the panel's contents on frame
@@ -406,6 +429,18 @@ enum Theme {
             /// that grows when you press a key reads as a response.
             static let hudShoulderWidth: CGFloat = 92
 
+            /// The sung line, split at a word into two halves that sit either side of the
+            /// camera housing and read straight across it. Only while the user has lyrics on and
+            /// the track is playing — they asked for the words to be there.
+            ///
+            /// The shoulders follow the line: each is sized to the longer half, between these
+            /// bounds. 150 holds about 30 characters per half at caption size; longer halves
+            /// scale down rather than widen the notch further. The floor keeps a one-word line
+            /// from shrinking the notch to a sliver that reads as a glitch.
+            static let lyricsShoulderWidth: CGFloat = 150
+            static let lyricsMinimumShoulderWidth: CGFloat = 44
+            static let lyricsMinimumScale: CGFloat = 0.7
+
             /// Outer padding on a compact shoulder. Tighter than
             /// `Metrics.collapsedHorizontalPadding`, which is sized for text: a 40pt shoulder
             /// spends 16pt of its width on padding and inset already, and at 13 the artwork
@@ -620,6 +655,24 @@ enum Theme {
             /// The pixel record that sits in the artwork slot when nothing is playing. A
             /// 21-cell grid at 88pt floors to a 4pt cell — chunky enough to read as the same
             /// pixel art as the glyphs, with an odd count so the spindle hole has a centre cell.
+            /// Lyrics mode: the right column's rows, the gap between them, and the folded
+            /// transport strip — collapsed-size glyphs in a hit box just tall enough to aim at.
+            static let stageSpacing: CGFloat = 6
+            static let miniSpacing: CGFloat = 6
+            static let miniGlyphSize: CGFloat = 10
+            static let miniHitSize: CGFloat = 22
+            /// The reel. Every line is set in `title`; the lines either side of the sung one
+            /// shrink, and fade by distance: one away is readable, two is a hint, three is gone.
+            static let lyricsLineSpacing: CGFloat = 5
+            static let lyricsNeighbourScale: CGFloat = 0.8
+            static let lyricsFadeByDistance: [Double] = [1, 0.4, 0.14, 0]
+            /// The fade at the reel's top and bottom edges, so lines arrive and leave rather
+            /// than being cut by the frame.
+            static let lyricsEdgeFade: CGFloat = 12
+            /// How often the reel re-reads the playback position, to notice the next line
+            /// starting. The player only reports it every 2s; the position in between is
+            /// extrapolated by `LyricsController`.
+            static let lyricsTick: TimeInterval = 0.1
             static let vinylSize: CGFloat = 88
             static let vinylGrid = 21
         }
@@ -822,14 +875,11 @@ enum Theme {
             /// `expandedVerticalPadding` — see `AgentsExpandedView.verticalInset`.
             static let questionVerticalPadding: CGFloat = 4
 
-            /// A compact session row — one line, used once the panel holds three sessions or
-            /// more. The mascot is the collapsed shoulder's size (ten rows at a 2pt cell), the
-            /// smallest at which it is still a figure; the row is just tall enough for it.
-            static let compactGlyphSize: CGFloat = 20
-            static let compactRowHeight: CGFloat = 22
-            /// From this many sessions on, all but the leading row go compact. Two full rows
-            /// fit the 190pt panel; a third was cut through its second line by the curve.
-            static let compactThreshold = 3
+            /// The fade over the bottom of an overflowing session list, and the gap between the
+            /// "more below" pill and the panel's bottom edge. The fade is what says "this
+            /// continues" before the pill is read; the pill says how much and scrolls to it.
+            static let scrollFadeHeight: CGFloat = 26
+            static let scrollHintInset: CGFloat = 2
 
             /// The sleeping mascot that fills the empty panel. 100 is ten rows at a 10pt cell,
             /// which draws the sprite ~120pt wide: big enough to be the panel's subject rather

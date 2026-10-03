@@ -11,8 +11,6 @@ struct SessionRowView: View {
     /// Whether the title line names the model as well as the app — see
     /// `NotchSettings.showAgentModel`.
     var showsModel = false
-    /// One line instead of two — see `AgentsExpandedView.rows` for when a row is compact.
-    var isCompact = false
     /// Removes this row from the panel. `nil` when the session is blocking on an approval —
     /// see `AgentSessionStore.canHide(sessionID:)` for why that one case must not be hideable.
     var onHide: (() -> Void)?
@@ -24,71 +22,10 @@ struct SessionRowView: View {
     /// it. That shape is why the panel scans like a log instead of like a settings pane.
     var body: some View {
         VStack(alignment: .leading, spacing: .zero) {
-            if isCompact {
-                compactLine
-            } else {
-                sessionLine
-                subagentLines
-            }
+            sessionLine
+            subagentLines
         }
         .accessibilityElement(children: .contain)
-    }
-
-    /// The whole row on one line: a smaller mascot in the same gutter, the project, what it is
-    /// doing and where, and a short age. The text starts at the same x as a full row's, so a
-    /// list mixing both still reads as one column.
-    private var compactLine: some View {
-        HStack(spacing: Theme.Metrics.expandedContentSpacing) {
-            StatusIndicator(
-                status: session.status,
-                size: Theme.Metrics.Agents.compactGlyphSize,
-                identity: session.id,
-                lastActivity: session.lastActivity
-            )
-            .frame(width: Theme.Metrics.Agents.rowIconWidth, alignment: .leading)
-            .matchedGeometryEffect(
-                id: AgentSurfaceElement.status(sessionID: session.id),
-                in: namespace
-            )
-            .accessibilityLabel("\(session.kind.displayName): \(session.status.label)")
-
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(session.displayName)
-                    .font(Theme.Text.body)
-                    .foregroundStyle(Theme.Colors.textPrimary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .layoutPriority(1)
-
-                Text(compactSummary)
-                    .font(Theme.Text.body)
-                    .foregroundStyle(Theme.Colors.textSecondary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-            }
-
-            Spacer(minLength: Theme.Metrics.collapsedContentSpacing)
-
-            TimelineView(.periodic(from: .now, by: 1)) { context in
-                Text(ApprovalCardView.elapsedLabel(context.date.timeIntervalSince(session.lastActivity)))
-                    .font(Theme.Text.body)
-                    .foregroundStyle(Theme.Colors.textSecondary)
-                    .lineLimit(1)
-            }
-
-            openControl
-            hideControl
-        }
-        .frame(height: Theme.Metrics.Agents.compactRowHeight)
-        .contentShape(Rectangle())
-        .onHover { isHovered = $0 }
-        .accessibilityElement(children: .contain)
-    }
-
-    /// `Waiting for input · Terminal`: the continuation line and the title's details, folded
-    /// into the one line a compact row has.
-    private var compactSummary: String {
-        [continuationText, details].compactMap { $0 }.joined(separator: " · ")
     }
 
     private var sessionLine: some View {

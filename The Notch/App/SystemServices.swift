@@ -23,6 +23,8 @@ final class SystemServices {
     /// because half the preferences configure the monitors sitting beside it.
     let settings: NotchSettings
     let trading: TradingStore
+    /// Lyrics for the playing track, read by both the media panel and the collapsed notch.
+    let lyrics: LyricsController
 
     /// Built inside the initializer body rather than as a default argument: default arguments
     /// are evaluated in a nonisolated context and the monitors are `@MainActor`.
@@ -31,6 +33,7 @@ final class SystemServices {
         systemHUD = SystemHUDMonitor()
         settings = NotchSettings()
         trading = TradingStore()
+        lyrics = LyricsController(nowPlaying: nowPlaying)
         mediaKeys.onHandledEvent = { [weak systemHUD] event in
             systemHUD?.presentIntercepted(event)
         }
@@ -49,5 +52,6 @@ final class SystemServices {
         // behind — the preferences of whoever is running it.
         settings = NotchSettings.ephemeral()
         self.trading = trading ?? TradingPreviewData.emptyStore()
+        lyrics = LyricsController(nowPlaying: nowPlaying)
     }
 }

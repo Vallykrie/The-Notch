@@ -10,12 +10,8 @@ struct AgentsExpandedView: View {
     var showsModel = false
     /// Where the pointer is over the panel, so each mascot can look at it.
     @State private var pointer = MascotPointer()
-    /// The compact row the user clicked open, if any. One at a time: opening a second closes
-    /// the first, so the list never grows past what the panel holds.
-    @State private var expandedSessionID: String?
-    /// Set by the `+N more` line: the whole list, in a scroll view. Cleared when the panel
-    /// closes, so the next opening starts from the fitted list again.
-    @State private var showsAllSessions = false
+    /// Where each row sits inside the scrolling list, for counting the rows below the fold.
+    @State private var rowFrames: [String: CGRect] = [:]
 
     var body: some View {
         Group {
@@ -39,10 +35,6 @@ struct AgentsExpandedView: View {
         .padding(.bottom, verticalInset)
         .padding(.bottom, Theme.Metrics.expandedBottomContentInset)
         .environment(pointer)
-        .onDisappear {
-            showsAllSessions = false
-            expandedSessionID = nil
-        }
         .onContinuousHover(coordinateSpace: .global) { phase in
             switch phase {
             case let .active(location): pointer.location = location
@@ -61,41 +53,96 @@ struct AgentsExpandedView: View {
         store.pendingApprovals.min { $0.requestedAt < $1.requestedAt }
     }
 
-    /// The rows, as many as fit, with a `+N more` line for the rest.
+    /// Every session as a full two-line row. When they fit, a plain stack; when they do not,
+    /// a scroll view that says so.
     ///
-    /// `ViewThatFits` is handed one candidate per visible count, largest first, and keeps the
-    /// first that fits — so the panel shows every row it has room for and never one cut through
-    /// by the bottom curve, which is what three full rows used to do. The plain stacks are also
-    /// what `FrameDump` can render; `ImageRenderer` draws a `ScrollView` as empty, so the scroll
-    /// view only exists once the user asks for the whole list.
-    @ViewBuilder
+    /// The plain stack comes first because `ImageRenderer` draws a `ScrollView` as empty, so
+    /// it is the only form `FrameDump` can verify, and because a scroll view around two rows
+    /// is a gutter for nothing.
     private var sessionList: some View {
-        let sessions = store.sessions
-        if showsAllSessions {
-            ScrollView { rows(sessions, limit: sessions.count) }
+        ViewThatFits(in: .vertical) {
+            rows
+            scrollingRows
+        }
+    }
+
+    /// The overflow case. A bare scroll view cut its last row through the middle at the
+    /// bottom curve, which read as a rendering bug rather than as "there is more". So the list
+    /// fades out over its last few points, and a pill says how many rows are below the fold
+    /// and scrolls the next one into view.
+    private var scrollingRows: some View {
+        GeometryReader { viewport in
+            ScrollViewReader { proxy in
+                ScrollView {
+                    rows
+                }
                 .scrollIndicators(.hidden)
-        } else {
-            ViewThatFits(in: .vertical) {
-                ForEach(Array(stride(from: sessions.count, through: 1, by: -1)), id: \.self) { limit in
-                    rows(sessions, limit: limit)
+                .coordinateSpace(name: Self.scrollSpace)
+                .onPreferenceChange(RowFramesKey.self) { rowFrames = $0 }
+                .mask(alignment: .bottom) {
+                    VStack(spacing: 0) {
+                        Color.black
+                        if !hiddenSessions(below: viewport.size.height).isEmpty {
+                            LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
+                                .frame(height: Theme.Metrics.Agents.scrollFadeHeight)
+                        }
+                    }
+                }
+                .overlay(alignment: .bottom) {
+                    moreBelowHint(hiddenSessions(below: viewport.size.height), proxy: proxy)
                 }
             }
         }
     }
 
+    private static let scrollSpace = "agents-scroll"
+
+    /// Sessions whose row ends below the visible part of the list, in list order.
+    private func hiddenSessions(below visibleHeight: CGFloat) -> [AgentSession] {
+        store.sessions.filter { session in
+            guard let frame = rowFrames[session.id] else { return false }
+            return frame.maxY > visibleHeight + 1
+        }
+    }
+
+    @ViewBuilder
+    private func moreBelowHint(_ hidden: [AgentSession], proxy: ScrollViewProxy) -> some View {
+        if let next = hidden.first {
+            Button {
+                withAnimation(Theme.Motion.content) {
+                    proxy.scrollTo(next.id, anchor: .bottom)
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Text("↓")
+                    Text("\(hidden.count) more")
+                }
+                .font(Theme.Text.micro)
+                .foregroundStyle(Theme.Colors.textSecondary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(Capsule(style: .continuous).fill(Theme.Colors.surface))
+                .overlay(Capsule(style: .continuous).strokeBorder(Theme.Colors.divider, lineWidth: 1))
+                .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .padding(.bottom, Theme.Metrics.Agents.scrollHintInset)
+            .transition(.opacity)
+            .help("Scroll to see more sessions")
+            .accessibilityLabel("\(hidden.count) more sessions below")
+        }
+    }
+
     /// Not a `LazyVStack`: the panel only ever holds a handful of rows, so laziness buys
     /// nothing and costs offscreen rendering.
-    private func rows(_ sessions: [AgentSession], limit: Int) -> some View {
-        let compactsOthers = sessions.count >= Theme.Metrics.Agents.compactThreshold
-        return VStack(alignment: .leading, spacing: compactsOthers ? 2 : Theme.Metrics.collapsedContentSpacing) {
-            ForEach(Array(sessions.prefix(limit).enumerated()), id: \.element.id) { index, session in
-                let isCompact = compactsOthers && !isFullRow(session, at: index)
+    private var rows: some View {
+        VStack(alignment: .leading, spacing: Theme.Metrics.collapsedContentSpacing) {
+            ForEach(store.sessions) { session in
                 SessionRowView(
                     session: session,
                     namespace: namespace,
                     children: store.children(of: session.id),
                     showsModel: showsModel,
-                    isCompact: isCompact,
                     // Withheld rather than disabled while an approval is blocking. A greyed-out
                     // control invites the user to keep clicking it; no control at all says the
                     // row is not going anywhere until the approval is answered, which is true.
@@ -103,39 +150,18 @@ struct AgentsExpandedView: View {
                         ? { hide(session) }
                         : nil
                 )
-                // A compact row opens into a full one on click, and a row opened that way
-                // closes again the same way. The row's own buttons are `Button`s, so they keep
-                // their clicks; the gesture only gets the rest of the row.
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    guard compactsOthers, index != 0 else { return }
-                    withAnimation(Theme.Motion.content) {
-                        expandedSessionID = expandedSessionID == session.id ? nil : session.id
+                .id(session.id)
+                .background {
+                    GeometryReader { geometry in
+                        Color.clear.preference(
+                            key: RowFramesKey.self,
+                            value: [session.id: geometry.frame(in: .named(Self.scrollSpace))]
+                        )
                     }
                 }
             }
-
-            if limit < sessions.count {
-                Button {
-                    withAnimation(Theme.Motion.content) { showsAllSessions = true }
-                } label: {
-                    Text("+\(sessions.count - limit) more")
-                        .font(Theme.Text.body)
-                        .foregroundStyle(Theme.Colors.textTertiary)
-                        .padding(.leading, Theme.Metrics.Agents.subagentIndent)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    /// Which rows keep both lines once the list goes compact: the session the user last spoke
-    /// to (the list's first), one the user clicked open, and any that is waiting on the user —
-    /// an approval or a question is never folded into a line it might not fit on.
-    private func isFullRow(_ session: AgentSession, at index: Int) -> Bool {
-        index == 0 || session.id == expandedSessionID || session.status.demandsAttention
     }
 
     /// Animated here rather than inside the row: the row is what disappears, so it cannot own
@@ -149,5 +175,13 @@ struct AgentsExpandedView: View {
 
     private var emptyState: some View {
         AgentsEmptyStateView(integrations: integrations, store: store)
+    }
+}
+
+/// Each session row's frame in the scrolling list, keyed by session id.
+private struct RowFramesKey: PreferenceKey {
+    static let defaultValue: [String: CGRect] = [:]
+    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
+        value.merge(nextValue()) { $1 }
     }
 }
