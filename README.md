@@ -148,6 +148,9 @@ Press the lyrics button (the three lines in the controls) to follow the song's l
 playback. The controls move to a slim strip and the lyrics take the panel, and the closed notch
 shows the line being sung, split across the camera. Lyrics come from [LRCLIB](https://lrclib.net),
 a free lyrics database: the track's title and artist are sent there only while lyrics are on.
+If the lookup fails, it retries on its own a couple of times; if lyrics still don't appear, press
+**Try again**. Titles that players decorate (`- Remastered 2009`, `- From "…"`, `(feat. …)`) are
+also searched without the extra part.
 
 Turn on **Settings → Replace OS HUD** to see volume and brightness changes in the notch instead of
 the macOS overlay. The app asks for the permission it needs to read the media keys.

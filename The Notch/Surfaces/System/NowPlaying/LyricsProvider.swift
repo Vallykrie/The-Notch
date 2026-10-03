@@ -85,10 +85,31 @@ actor LyricsProvider {
         session = URLSession(configuration: configuration)
     }
 
-    func lyrics(title: String, artist: String, duration: TimeInterval?) async -> LyricsLookup {
+    /// `ignoringCache` is for an explicit retry: a "not found" is cached, and the user asking
+    /// again is the one reason to believe that answer might have changed.
+    func lyrics(
+        title: String,
+        artist: String,
+        duration: TimeInterval?,
+        ignoringCache: Bool = false
+    ) async -> LyricsLookup {
         let key = "\(title)\u{1F}\(artist)"
-        if let cached = cache[key] { return cached }
+        if !ignoringCache, let cached = cache[key] { return cached }
 
+        var result = await search(title: title, artist: artist, duration: duration)
+        // Players decorate titles that the lyrics database stores bare — Spotify's
+        // `I See the Light - From "Tangled" / Soundtrack Version`, `Song - Remastered 2011`,
+        // `Song (feat. Someone)`. Only tried when the full title finds nothing, so a song
+        // whose real name contains a dash is matched as itself first.
+        if result == .notFound, let bare = Self.bareTitle(title), bare != title {
+            result = await search(title: bare, artist: artist, duration: duration)
+        }
+        // A failure is not cached: a timeout or an offline Mac should be retried.
+        if result != .failed { cache[key] = result }
+        return result
+    }
+
+    private func search(title: String, artist: String, duration: TimeInterval?) async -> LyricsLookup {
         var components = URLComponents(string: "https://lrclib.net/api/search")!
         components.queryItems = [
             URLQueryItem(name: "track_name", value: title),
@@ -96,18 +117,28 @@ actor LyricsProvider {
         ]
         guard let url = components.url else { return .failed }
 
-        let result: LyricsLookup
         do {
             let (data, response) = try await session.data(from: url)
             guard (response as? HTTPURLResponse)?.statusCode == 200 else { return .failed }
             let records = try JSONDecoder().decode([Record].self, from: data)
-            result = Self.best(of: records, duration: duration).map { .found($0) } ?? .notFound
+            return Self.best(of: records, duration: duration).map { .found($0) } ?? .notFound
         } catch {
-            // Not cached: a timeout or an offline Mac should be retried next time.
             return .failed
         }
-        cache[key] = result
-        return result
+    }
+
+    /// The title with a player's decorations removed: anything after ` - `, and any trailing
+    /// `(…)` or `[…]`. `nil` when nothing is left.
+    static func bareTitle(_ title: String) -> String? {
+        var bare = title
+        if let dash = bare.range(of: " - ") { bare = String(bare[..<dash.lowerBound]) }
+        while let last = bare.last, last == ")" || last == "]",
+              let open = bare.lastIndex(of: last == ")" ? "(" : "[") {
+            bare = String(bare[..<open])
+            bare = bare.trimmingCharacters(in: .whitespaces)
+        }
+        bare = bare.trimmingCharacters(in: .whitespaces)
+        return bare.isEmpty ? nil : bare
     }
 
     private struct Record: Decodable {

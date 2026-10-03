@@ -673,6 +673,10 @@ enum Theme {
             /// starting. The player only reports it every 2s; the position in between is
             /// extrapolated by `LyricsController`.
             static let lyricsTick: TimeInterval = 0.1
+            /// Pauses before the quiet retries of a failed lyrics lookup. Two retries over
+            /// eight seconds rides out a dropped request or a slow moment at the service
+            /// without leaving the panel on "Looking up…" for long when it really is down.
+            static let lyricsRetryDelays: [Double] = [2, 6]
             static let vinylSize: CGFloat = 88
             static let vinylGrid = 21
         }

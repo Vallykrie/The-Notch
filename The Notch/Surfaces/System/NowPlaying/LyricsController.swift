@@ -90,19 +90,39 @@ final class LyricsController: ObservableObject {
         }
     }
 
-    private func reconcile() {
+    /// Looks the current track up again, skipping the cache — the panel's "Try again".
+    func retry() {
+        reconcile(ignoringCache: true)
+    }
+
+    /// Fetches lyrics for the current track. A failure is retried quietly before it is shown:
+    /// the service answers in well under a second almost always, and a single dropped request
+    /// is far more often a blip than an outage — showing "couldn't reach" for it read as the
+    /// feature being broken while the song's lyrics were sitting right there in Spotify.
+    private func reconcile(ignoringCache: Bool = false) {
         task?.cancel()
         lookup = nil
         guard isEnabled, trackKey != nil, !isSeeded else { return }
         let status = nowPlaying.status
         task = Task { [weak self] in
-            let result = await LyricsProvider.shared.lyrics(
-                title: status.title,
-                artist: status.artist,
-                duration: status.duration
-            )
-            guard !Task.isCancelled else { return }
-            self?.lookup = result
+            let delays = [0] + Theme.Metrics.MediaPanel.lyricsRetryDelays
+            for (attempt, delay) in delays.enumerated() {
+                if delay > 0 {
+                    try? await Task.sleep(for: .seconds(delay))
+                }
+                guard !Task.isCancelled else { return }
+                let result = await LyricsProvider.shared.lyrics(
+                    title: status.title,
+                    artist: status.artist,
+                    duration: status.duration,
+                    ignoringCache: ignoringCache && attempt == 0
+                )
+                guard !Task.isCancelled else { return }
+                if result != .failed || attempt == delays.count - 1 {
+                    self?.lookup = result
+                    return
+                }
+            }
         }
     }
 

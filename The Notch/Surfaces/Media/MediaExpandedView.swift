@@ -316,9 +316,9 @@ struct MediaExpandedView: View {
         case nil:
             lyricsMessage("Looking up lyrics…")
         case .notFound:
-            lyricsMessage("No lyrics found for this track.")
+            lyricsMessage("No lyrics found for this track.", retry: true)
         case .failed:
-            lyricsMessage("Couldn't reach the lyrics service.")
+            lyricsMessage("Couldn't reach the lyrics service.", retry: true)
         case let .found(found) where found.isSynced:
             syncedLyrics(found)
         case let .found(found) where found.isInstrumental && found.plain.isEmpty:
@@ -328,11 +328,22 @@ struct MediaExpandedView: View {
         }
     }
 
-    private func lyricsMessage(_ text: String) -> some View {
-        Text(text)
-            .font(Theme.Text.body)
-            .foregroundStyle(Theme.Colors.textSecondary)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+    /// A state with nothing to sing. The two that can be wrong — the service was unreachable,
+    /// or it found nothing for a title the player decorated — offer a retry, which skips the
+    /// cache and goes back to the service.
+    private func lyricsMessage(_ text: String, retry: Bool = false) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Metrics.MediaPanel.stageSpacing * 2) {
+            Text(text)
+                .font(Theme.Text.body)
+                .foregroundStyle(Theme.Colors.textSecondary)
+
+            if retry {
+                Button("Try again") { lyrics.retry() }
+                    .buttonStyle(.notchCompact)
+                    .help("Look the lyrics up again")
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
     }
 
     /// Re-reads the position a few times a second while playing — only to notice the next
