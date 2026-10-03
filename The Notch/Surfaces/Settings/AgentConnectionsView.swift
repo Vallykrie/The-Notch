@@ -5,12 +5,14 @@ import SwiftUI
 struct AgentConnectionsView: View {
     @ObservedObject var integrations: AgentIntegrationManager
     @ObservedObject var store: AgentSessionStore
+    /// Where the back button returns to — Settings, or the empty agents panel.
+    var backTitle = "Settings"
     let onBack: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Button("‹ Settings", action: onBack)
+                Button("‹ \(backTitle)", action: onBack)
                 Spacer()
                 Button("Refresh") { Task { await integrations.refresh() } }
                 Button("Copy custom bridge") {

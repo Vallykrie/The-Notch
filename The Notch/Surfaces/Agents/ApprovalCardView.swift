@@ -174,12 +174,35 @@ struct ApprovalCardView: View {
         .layoutPriority(-1)
     }
 
-    /// Where the answer goes. The notch only announces; the agent's own prompt decides.
+    /// Where the answer goes. The notch only announces; the agent's own prompt decides — so
+    /// the hint is also the way there: it brings the agent's window forward. A `Button`, so its
+    /// click is not also taken by the card's tap-to-dismiss.
     private var terminalHint: some View {
-        Text("Respond in the terminal · click to dismiss")
-            .font(Theme.Text.caption)
-            .foregroundStyle(Theme.Colors.textTertiary)
-            .lineLimit(1)
+        HStack(spacing: 4) {
+            if let session = store.session(for: approval.sessionID),
+               SessionWindowOpener.canOpen(session) {
+                Button {
+                    SessionWindowOpener.open(session)
+                } label: {
+                    HStack(spacing: 4) {
+                        PixelGlyphView(glyph: .openWindow, side: Theme.Metrics.Settings.dismissGlyphSize)
+                        Text("Open Agent to answer")
+                    }
+                    .foregroundStyle(Theme.Colors.textPrimary)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(session.host.map { "Open \($0.name)" } ?? "Open \(session.kind.displayName)")
+
+                Text("· click elsewhere to dismiss")
+                    .foregroundStyle(Theme.Colors.textTertiary)
+            } else {
+                Text("Respond in the terminal · click to dismiss")
+                    .foregroundStyle(Theme.Colors.textTertiary)
+            }
+        }
+        .font(Theme.Text.caption)
+        .lineLimit(1)
     }
 
     /// The answers the agent is offering, read-only — they are picked in the terminal.

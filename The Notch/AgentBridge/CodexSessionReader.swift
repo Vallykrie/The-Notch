@@ -15,6 +15,13 @@ actor CodexSessionReader {
         var cwd = ""
         var modified = Date.distantPast
         var fileID: UInt64 = 0
+        /// The model from the latest `turn_context`. Codex states it once per turn there and
+        /// on no other record, so it is carried forward onto every event that follows.
+        var model: String?
+        /// `Codex Desktop`, `codex_cli_rs`, `codex_vscode` — which client started the session,
+        /// from its first record. The only clue to where it runs: these sessions never pass
+        /// through a hook, so there is no process to walk up from.
+        var originator: String?
     }
     private let root: URL
     private var cursors: [URL: Cursor] = [:]
@@ -66,6 +73,7 @@ actor CodexSessionReader {
             guard !(payload["source"] is [String: Any]) else { return [] }
             cursor.id = id
             cursor.cwd = cwd
+            cursor.originator = payload["originator"] as? String
             cursor.offset = max(UInt64(newline + 1), size > 524288 ? size - 524288 : 0)
             if cursor.offset > UInt64(newline + 1) {
                 try? handle.seek(toOffset: cursor.offset)
@@ -83,7 +91,8 @@ actor CodexSessionReader {
         var events: [ObservedAgentEvent] = []
         while let end = cursor.pending.firstIndex(of: 10) {
             let line = cursor.pending.prefix(upTo: end)
-            if let event = Self.decode(line, id: cursor.id, cwd: cursor.cwd, fallbackDate: modified) { events.append(event) }
+            if let model = Self.turnModel(line) { cursor.model = model }
+            if let event = Self.decode(line, id: cursor.id, cwd: cursor.cwd, model: cursor.model, originator: cursor.originator, fallbackDate: modified) { events.append(event) }
             cursor.pending.removeSubrange(...end)
         }
         // A very large tool output is not useful telemetry; retain neither its content nor
@@ -98,12 +107,25 @@ actor CodexSessionReader {
         return events
     }
 
-    nonisolated static func decode(_ data: Data, id: String, cwd: String, fallbackDate: Date) -> ObservedAgentEvent? {
+    /// The model named by a `turn_context` record, or `nil` for any other line. A substring
+    /// check first, so the common case — every other record — skips the JSON parse.
+    nonisolated static func turnModel(_ data: Data) -> String? {
+        guard data.range(of: Data("\"turn_context\"".utf8)) != nil,
+              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              root["type"] as? String == "turn_context",
+              let payload = root["payload"] as? [String: Any],
+              let model = payload["model"] as? String, !model.isEmpty else { return nil }
+        return model
+    }
+
+    nonisolated static func decode(_ data: Data, id: String, cwd: String, model: String? = nil, originator: String? = nil, fallbackDate: Date) -> ObservedAgentEvent? {
         guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let payload = root["payload"] as? [String: Any] else { return nil }
         let type = payload["type"] as? String ?? ""
         let event: EventName
         var fields: [String: JSONValue] = ["_transport": .string("codex-session")]
+        if let model { fields["model"] = .string(model) }
+        if let originator { fields["originator"] = .string(originator) }
         switch root["type"] as? String {
         case "event_msg":
             switch type {

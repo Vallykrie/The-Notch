@@ -243,6 +243,10 @@ Never seen on a real notch.
 - [x] `AppleScriptRunner` with a hard timeout and TCC-denial (`-1743`) surfaced as a distinct,
       actionable error
 - [x] `NSAppleEventsUsageDescription` configured
+- [x] Wired into the panel: a ↗ on every session row, and "Open Agent to answer" on the
+      approval card. The host app (terminal, IDE or desktop app) is found by walking up from
+      the hook's socket peer at accept time, so no hook or agent config changed; Codex sessions
+      seen only through their session files use its `originator` instead
 - [ ] **Ghostty, WezTerm, Kitty, Warp, Zellij — not implemented.** Seams exist; these need
       OSC-2 / title probing. `JUMPBACK.md` says so plainly rather than implying coverage.
 - [ ] First-run Automation-permission flow that explains itself
@@ -251,7 +255,8 @@ Never seen on a real notch.
 - [ ] Latent: `AppleScriptRunner` reads pipes only after exit, so >64KB of output would stall
       until the timeout. Low risk (these scripts return ~nothing) but worth hardening.
 
-**Last touched:** 2026-08-08 — implemented and building; zero runtime verification by design.
+**Last touched:** 2026-10-03 — wired into the panel; host detection verified live for the Claude
+desktop app. No AppleEvent jump has been exercised yet.
 
 ---
 

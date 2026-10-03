@@ -145,7 +145,14 @@ actor NotchHookServer {
         while !Task.isCancelled {
             let clientDescriptor = Darwin.accept(descriptor, nil, nil)
             if clientDescriptor >= 0 {
-                await server.accept(clientDescriptor)
+                // Here, synchronously, before any hop to the actor or another task. A
+                // fire-and-forget hook writes one line and exits within a millisecond or two,
+                // and its process tree can only be walked while it is alive. Missing it costs
+                // nothing — the next event from the session tries again — but each hop before
+                // this point made a miss the usual outcome.
+                let host = peerProcessID(of: clientDescriptor)
+                    .flatMap(AgentHostResolver.resolve(hookProcessID:))
+                await server.accept(clientDescriptor, host: host)
                 continue
             }
             if errno == EINTR { continue }
@@ -154,7 +161,7 @@ actor NotchHookServer {
         }
     }
 
-    private func accept(_ descriptor: Int32) {
+    private func accept(_ descriptor: Int32, host: AgentHost?) {
         guard isRunning else {
             Darwin.close(descriptor)
             return
@@ -180,6 +187,7 @@ actor NotchHookServer {
             }
             await Self.runConnection(
                 descriptor: descriptor,
+                host: host,
                 connectionID: connectionID,
                 server: self
             )
@@ -189,6 +197,7 @@ actor NotchHookServer {
 
     private nonisolated static func runConnection(
         descriptor: Int32,
+        host: AgentHost?,
         connectionID: UUID,
         server: NotchHookServer
     ) async {
@@ -217,7 +226,7 @@ actor NotchHookServer {
                 if line.last == 0x0D { line.removeLast() }
                 if line.isEmpty { continue }
 
-                if let response = await server.handleLine(line),
+                if let response = await server.handleLine(line, host: host),
                    !writeAll(response, to: descriptor) {
                     shouldContinue = false
                     break
@@ -231,10 +240,15 @@ actor NotchHookServer {
         await server.connectionEnded(connectionID)
     }
 
-    private func handleLine(_ line: Data) async -> Data? {
-        guard let request = try? JSONDecoder().decode(HookRequest.self, from: line) else {
+    private func handleLine(_ line: Data, host: AgentHost?) async -> Data? {
+        #if DEBUG
+        Self.logForDebugging(line)
+        Self.logForDebugging(Data("# host: \(host?.name ?? "unresolved")".utf8))
+        #endif
+        guard var request = try? JSONDecoder().decode(HookRequest.self, from: line) else {
             return nil
         }
+        request.host = host
 
         guard request.eventName == .permissionRequest else {
             await store.handle(request)
@@ -263,6 +277,31 @@ actor NotchHookServer {
             return
         }
         Darwin.unlink(socketPath)
+    }
+
+    #if DEBUG
+    /// `NOTCH_HOOK_LOG=<file>` appends every raw hook line to that file — the only way to see
+    /// what an agent actually sends, since none of them document their payloads fully.
+    private nonisolated static func logForDebugging(_ line: Data) {
+        guard let path = ProcessInfo.processInfo.environment["NOTCH_HOOK_LOG"] else { return }
+        if !FileManager.default.fileExists(atPath: path) {
+            FileManager.default.createFile(atPath: path, contents: nil)
+        }
+        guard let handle = FileHandle(forWritingAtPath: path) else { return }
+        defer { try? handle.close() }
+        _ = try? handle.seekToEnd()
+        try? handle.write(contentsOf: line + Data([0x0A]))
+    }
+    #endif
+
+    /// The pid of the process on the other end of a Unix socket.
+    private nonisolated static func peerProcessID(of descriptor: Int32) -> pid_t? {
+        var pid: pid_t = 0
+        var length = socklen_t(MemoryLayout<pid_t>.size)
+        guard getsockopt(descriptor, SOL_LOCAL, LOCAL_PEERPID, &pid, &length) == 0, pid > 0 else {
+            return nil
+        }
+        return pid
     }
 
     private nonisolated static func writeAll(_ data: Data, to descriptor: Int32) -> Bool {

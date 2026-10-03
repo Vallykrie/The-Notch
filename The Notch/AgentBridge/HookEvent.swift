@@ -287,6 +287,9 @@ nonisolated struct HookRequest: Codable, Sendable {
     let threadName: String?
     let timeout: TimeInterval?
     let payload: [String: JSONValue]
+    /// Where the agent that sent this is running. Not on the wire: the server works it out from
+    /// the connecting process — see `AgentHostResolver` — so it is absent from `CodingKeys`.
+    var host: AgentHost? = nil
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -351,10 +354,16 @@ nonisolated struct HookRequest: Codable, Sendable {
     var model: String? {
         payloadValue(
             forKeys: [
-                "codex_model", "resolvedmodel", "resolved_model", "model",
-                "child_model",
+                // `modelname` is Antigravity's `modelName` (keys are matched lowercased).
+                "codex_model", "resolvedmodel", "resolved_model", "model", "modelname",
+                "model_name", "child_model",
             ]
         )?.stringValue
+    }
+
+    /// Which Codex client wrote a session-file record — see `CodexSessionReader`.
+    var codexOriginator: String? {
+        payload["originator"]?.stringValue
     }
 
     var reasoningEffort: String? {
@@ -367,6 +376,12 @@ nonisolated struct HookRequest: Codable, Sendable {
     /// human rather than announcing something in passing.
     var notificationType: String? {
         payloadValue(forKeys: ["notification_type", "notificationtype"])?.stringValue
+    }
+
+    /// Why a `SessionStart` fired: Claude sends `startup`, `resume`, `clear` or `compact`.
+    /// Not the request's own `source`, which names the agent CLI.
+    var sessionStartSource: String? {
+        payloadValue(forKeys: ["source"])?.stringValue
     }
 
     /// Present when the event came from a subagent rather than the main thread.

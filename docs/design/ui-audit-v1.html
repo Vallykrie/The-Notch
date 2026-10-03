@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UI audit v1</title>
+<style>
+@font-face{font-family:'Departure';src:url('../../The%20Notch/Resources/Fonts/DepartureMono-Regular.otf') format('opentype')}
+:root{
+  --bg:#0d0d0e;--panel:#161618;--line:#2a2a2d;--text:#ececec;--muted:#8a8a8e;--dim:#5a5a5e;
+  --p1:#ff6b6b;--p2:#ffb020;--p3:#6f9cff;
+  --px:'Departure',ui-monospace,Menlo,monospace;
+  /* app tokens, from Theme.Colors */
+  --t1:#fff;--t2:rgba(255,255,255,.62);--t3:rgba(255,255,255,.38);--div:rgba(255,255,255,.1);
+  --working:rgb(41,158,255);--wait:rgb(107,214,255);--idle:rgb(77,184,112);--done:rgb(56,255,115);
+  --amber:rgb(255,133,20);--question:rgb(255,204,26);--up:rgb(89,219,158);--down:rgb(255,102,112);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:13px/1.55 var(--px)}
+main{max-width:1180px;margin:0 auto;padding:40px 16px 80px}
+h1{font:400 24px/1.1 var(--px);margin:0 0 8px;letter-spacing:.5px}
+.lede{color:var(--muted);max-width:760px;margin:0 0 28px}
+.summary{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px;margin:0 0 40px;padding:0;list-style:none}
+.summary li{background:var(--panel);border:1px solid var(--line);padding:10px 12px;border-radius:4px}
+.summary a{color:var(--text);text-decoration:none}
+.summary small{display:block;color:var(--muted)}
+.tag{display:inline-block;font-size:11px;padding:1px 6px;border-radius:3px;margin-right:6px;color:#000}
+.tag.p1{background:var(--p1)}.tag.p2{background:var(--p2)}.tag.p3{background:var(--p3)}
+section{border-top:1px solid var(--line);padding:30px 0 10px}
+.head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+h2{font:400 17px var(--px);margin:0;letter-spacing:.5px}
+.toggle{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:3px}
+.toggle button{font:400 13px var(--px);background:transparent;border:0;color:var(--muted);padding:6px 12px;border-radius:4px;cursor:pointer}
+.toggle button.on{background:#2f6fd6;color:#fff}
+.stage{background:#3a3a3c;border-radius:14px;padding:22px;margin:16px 0;overflow-x:auto}
+.stage img{display:block;width:100%;max-width:960px;margin:0 auto;border-radius:0 0 22px 22px}
+.view{display:none}.view.on{display:block}
+ul.why{margin:6px 0 0;padding-left:20px;color:var(--muted);max-width:900px}
+ul.why b{color:var(--text);font-weight:400}
+code{font-family:var(--px);color:var(--text);background:var(--panel);padding:0 4px;border-radius:3px}
+
+/* ——— notch mock, drawn in app points then zoomed ——— */
+.panel{zoom:1.5;width:640px;margin:0 auto;background:#000;border-radius:0 0 22px 22px;padding:6px 10px 14px;color:var(--t1);font-family:var(--px);position:relative;overflow:hidden}
+.panel.h190{height:190px}
+.bar{display:flex;align-items:center;justify-content:space-between;height:28px;margin-bottom:6px}
+.tabs{display:flex;background:#141414;border-radius:6px;padding:3px}
+.tabs span{font-size:8px;padding:0 10px;line-height:20px;border-radius:4px;color:var(--t3)}
+.tabs span.sel{background:#2a2a2a;color:var(--t1)}
+.tabs span.act{color:var(--t2)}
+.tabs span i{display:inline-block;width:3px;height:3px;border-radius:50%;background:var(--t2);margin-left:5px;vertical-align:middle}
+.hbtn{font-size:8px;background:#141414;border-radius:5px;padding:0 9px;line-height:20px;color:var(--t2)}
+.gear{width:8px;height:8px;border-radius:50%;background:var(--t2);display:inline-block;margin-left:10px}
+.right{display:flex;align-items:center}
+.row{display:flex;align-items:flex-start;gap:10px;padding:4px 0}
+.row .txt{flex:1;min-width:0}
+.t13{font-size:13px}.t11{font-size:11px}.t9{font-size:9px}.t8{font-size:8px}.t24{font-size:24px}
+.c2{color:var(--t2)}.c3{color:var(--t3)}
+.meta{text-align:right;white-space:nowrap}
+.ctl{width:18px;text-align:center;color:var(--t3);font-size:9px}
+.compact{display:flex;align-items:center;gap:8px;height:22px}
+.compact .name{font-size:11px}
+.compact .state{font-size:11px;color:var(--t2);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.more{font-size:9px;color:var(--t3);padding-left:30px;margin-top:2px}
+.clip{position:absolute;left:0;right:0;bottom:0;height:22px;background:linear-gradient(transparent,#000)}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:8px;border:1px solid var(--div);background:rgba(255,255,255,.08);border-radius:6px;padding:4px 8px}
+.btnx{display:inline-flex;align-items:center;gap:6px;font-size:11px;border:1px solid var(--div);background:#141414;border-radius:6px;padding:5px 10px}
+.prog{height:3px;background:#2a2a2a;border-radius:2px;position:relative}
+.prog b{position:absolute;inset:0 auto 0 0;background:#ff7a50;border-radius:2px}
+.art{width:128px;height:128px;border-radius:8px;background:#1c1c1c;display:flex;align-items:center;justify-content:center;flex:none}
+.split{display:flex;gap:18px}
+.split>.l{flex:1}.split>.r{flex:1;border-left:1px solid var(--div);padding-left:18px}
+.wrow{display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:5px}
+.wrow.sel{background:rgba(255,255,255,.08)}
+.dot{display:inline-block;width:5px;height:5px;border-radius:50%}
+svg.g{display:inline-block;vertical-align:middle;shape-rendering:crispEdges}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:760px;margin:0 auto}
+.pair>div{background:#000;border-radius:10px;padding:16px;text-align:center}
+.pair p{margin:10px 0 0;color:var(--muted);font-size:12px}
+</style>
+</head>
+<body>
+<main>
+<h1>The Notch: UI audit v1</h1>
+<p class="lede">Every state the app can render, reviewed from <code>FrameDump</code> and the live app. These nine things look broken, inconsistent, or out of place. Each one has a proposal that stays inside the current look: Departure Mono, black panel, 8×8 pixel glyphs, colour only for state. Toggle each one between <b>Current</b> and <b>Proposed</b>.</p>
+
+<ul class="summary">
+  <li><a href="#s1"><span class="tag p1">high</span>Session rows clip at the bottom</a><small>3+ sessions cut the last row in half</small></li>
+  <li><a href="#s2"><span class="tag p1">high</span>Play & skip glyphs misdrawn</a><small>play reads as a flag, skip as a bow-tie</small></li>
+  <li><a href="#s3"><span class="tag p1">high</span>Crypto uses SF Symbols + stray dashes</a><small>the only non-pixel icons in the app</small></li>
+  <li><a href="#s4"><span class="tag p2">mid</span>Empty media shows a dead progress bar</a><small>looks like a broken player</small></li>
+  <li><a href="#s5"><span class="tag p2">mid</span>“Clear Idle” over an approval</a><small>an unrelated action above a blocking card</small></li>
+  <li><a href="#s6"><span class="tag p2">mid</span>Tabs look disabled</a><small>dim text reads as “off”, not “nothing happening”</small></li>
+  <li><a href="#s7"><span class="tag p2">mid</span>Crypto empty: “— +” and misalignment</a><small>dash next to plus, halves on different baselines</small></li>
+  <li><a href="#s8"><span class="tag p3">low</span>Subagent line runs together</a><small>“Explore Grep” reads as one name</small></li>
+  <li><a href="#s9"><span class="tag p3">low</span>Usage column formats disagree</a><small>“US$0,42” beside “221K ctx”</small></li>
+</ul>
+
+<!-- 1 ─────────────────────────────────────────── -->
+<section id="s1">
+  <div class="head"><h2>1 · Session rows clip at the bottom</h2>
+    <div class="toggle"><button class="on" data-v="cur">Current</button><button data-v="new">Proposed</button></div></div>
+  <div class="stage">
+    <div class="view cur on">
+      <div class="panel h190">
+        <div class="bar"><div class="tabs"><span>Media</span><span class="sel">Agents</span><span class="act">Crypto</span></div><div class="right"><span class="hbtn">Clear Idle</span><span class="gear"></span></div></div>
+        <div class="row"><span data-m="working"></span><div class="txt"><div class="t13">my-app <span class="t11 c3">Claude app</span></div><div class="t11 c2">└ Working</div></div><div class="meta"><div class="t11 c2">0 secs</div></div><span class="ctl">↗</span><span class="ctl">–</span></div>
+        <div class="row"><span data-m="wait"></span><div class="txt"><div class="t13">api <span class="t11 c3">ChatGPT app</span></div><div class="t11 c2">└ Waiting for input</div></div><div class="meta"><div class="t11 c2">27 secs</div></div><span class="ctl">↗</span><span class="ctl">–</span></div>
+        <div class="row"><span data-m="wait"></span><div class="txt"><div class="t13">The Notch <span class="t11 c3">Terminal</span></div><div class="t11 c2">└ Waiting for input</div></div><div class="meta"><div class="t11 c2">6 min</div><div class="t11 c3">221K ctx · 140K out</div></div><span class="ctl">↗</span><span class="ctl">–</span></div>
+      </div>
+    </div>
+    <div class="view new">
+      <div class="panel h190">
+        <div class="bar"><div class="tabs"><span>Media</span><span class="sel">Agents</span><span>Crypto</span></div><div class="right"><span class="hbtn">Clear Idle</span><span class="gear"></span></div></div>
+        <div class="row"><span data-m="working"></span><div class="txt"><div class="t13">my-app <span class="t11 c3">Claude app</span></div><div class="t11 c2">└ Edit(src/theme.css)</div></div><div class="meta"><div class="t11 c2">0 secs</div><div class="t11 c3">48K ctx · 2K out</div></div><span class="ctl">↗</span><span class="ctl">–</span></div>
+        <div class="compact"><span data-m="wait" data-s="18"></span><span class="name">api</span><span class="state">Waiting for input · ChatGPT app</span><span class="t11 c2">27s</span><span class="ctl">↗</span><span class="ctl">–</span></div>
+        <div class="compact"><span data-m="idle" data-s="18"></span><span class="name">The Notch</span><span class="state">Idle · Terminal</span><span class="t11 c2">6m</span><span class="ctl">↗</span><span class="ctl">–</span></div>
+        <div class="compact"><span data-m="idle" data-s="18"></span><span class="name">thesis</span><span class="state">Idle · VS Code</span><span class="t11 c2">14m</span><span class="ctl">↗</span><span class="ctl">–</span></div>
+        <div class="more">+2 more · scroll</div>
+      </div>
+    </div>
+  </div>
+  <ul class="why">
+    <li><b>What's wrong:</b> the panel fits two full rows. The third is cut through its second line by the bottom curve, so it looks like a rendering bug, not something you can scroll. <code>FrameDump</code> can't catch it either, because the overflow path is a <code>ScrollView</code>, which <code>ImageRenderer</code> draws as empty. The <code>expanded-agents</code> frame is blank.</li>
+    <li><b>Proposal:</b> once there are 3 or more sessions, only the session you last spoke to keeps the full two-line row. The rest become one line each: a small mascot, the project, then state and app, then age. Five sessions fit with no clipping. Anything past that becomes a dim <code>+N more</code> line, the same pattern subagents already use.</li>
+    <li>A session that needs you (approval or question) always gets the full row, wherever it sorts.</li>
+  </ul>
+</section>
+
+<!-- 2 ─────────────────────────────────────────── -->
+<section id="s2">
+  <div class="head"><h2>2 · Play and skip glyphs are misdrawn</h2>
+    <div class="toggle"><button class="on" data-v="cur">Current</button><button data-v="new">Proposed</button></div></div>
+  <div class="stage">
+    <div class="view cur on"><img src="ui-audit-v1/expanded-media-paused.png" alt="Paused media panel, current"></div>
+    <div class="view new">
+      <div class="pair">
+        <div><span data-g="playOld" data-s="64"></span> <span data-g="playNew" data-s="64"></span><p>play: current → proposed</p></div>
+        <div><span data-g="skipFOld" data-s="64"></span> <span data-g="skipFNew" data-s="64"></span><p>skip forward: current → proposed</p></div>
+        <div><span data-g="skipBOld" data-s="64"></span> <span data-g="skipBNew" data-s="64"></span><p>skip back: current → proposed</p></div>
+        <div><span data-g="pause" data-s="64"></span> <span data-g="playNew" data-s="64"></span><p>pause / play now share a silhouette</p></div>
+      </div>
+    </div>
+  </div>
+  <ul class="why">
+    <li><b>Play</b> steps 2 → 4 → 5 pixels wide, so the triangle has a square shoulder and reads as a flag, or a “P”, in the big round button and on the paused artwork.</li>
+    <li><b>Skip</b> glyphs are hollow triangles, which at 8×8 turn into crossed lines (⋈). Every other control glyph in the app is solid.</li>
+    <li><b>Proposal:</b> a play triangle that grows one pixel per row, and solid double triangles with a bar for skip. Same 8×8 grid, same weight as <code>pause</code>.</li>
+  </ul>
+</section>
+
+<!-- 3 ─────────────────────────────────────────── -->
+<section id="s3">
+  <div class="head"><h2>3 · Crypto watchlist: SF Symbols and stray dashes</h2>
+    <div class="toggle"><button class="on" data-v="cur">Current</button><button data-v="new">Proposed</button></div></div>
+  <div class="stage">
+    <div class="view cur on"><img src="ui-audit-v1/expanded-trading-watchlist.png" alt="Crypto watchlist, current"></div>
+    <div class="view new">
+      <div class="panel h190">
+        <div class="bar"><div class="tabs"><span>Media</span><span>Agents</span><span class="sel">Crypto</span></div><div class="right"><span class="gear"></span></div></div>
+        <div class="split">
+          <div class="l">
+            <div class="t9 c2" style="margin-bottom:6px">BTC/USDT <span class="c3">· pinned</span> <span data-g="pin" data-s="8"></span></div>
+            <div class="t24">64,250.50 <span class="t8 c3">USDT</span></div>
+            <div class="t9" style="margin-top:4px;color:var(--up)">▲ 1.84% <span class="c3">24h</span></div>
+            <div class="t8 c3" style="margin-top:14px"><span class="dot" style="background:var(--up)"></span> Live · Binance Spot · updated 16:11</div>
+          </div>
+          <div class="r">
+            <div class="t8 c3" style="display:flex;justify-content:space-between;margin-bottom:4px"><span>Watchlist · 2</span><span class="c2">+ Add pair</span></div>
+            <div class="wrow sel"><div style="flex:1"><div class="t9">BTC/USDT</div><div class="t8 c3">Binance Spot</div></div><div style="text-align:right"><div class="t9">64,250.50</div><div class="t8" style="color:var(--up)">+1.84%</div></div><span data-g="pin" data-s="8"></span><span data-g="cross" data-s="8" data-c="var(--t3)"></span></div>
+            <div class="wrow"><div style="flex:1"><div class="t9">ETH/USDT</div><div class="t8 c3">Binance Spot</div></div><div style="text-align:right"><div class="t9">3,420.35</div><div class="t8 c3">loading…</div></div><span style="width:8px"></span><span data-g="cross" data-s="8" data-c="var(--t3)"></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <ul class="why">
+    <li><b>Icons:</b> the pin and the remove × are SF Symbols (<code>pin.fill</code>, <code>xmark</code>), the only vector icons in an app that is otherwise all 8×8 pixel glyphs. Swap in a pixel pin and the existing <code>PixelGlyph.cross</code>.</li>
+    <li><b>Lone dashes:</b> a missing 24h change shows as a bare <code>–</code> under each price, which reads as a minus sign or a rendering glitch. Show <code>loading…</code> until a quote arrives, then the signed change in up or down colour.</li>
+    <li><b>Status line:</b> the dot next to “Binance live” is grey, the colour for <i>not</i> live, and “Binance Spot 16.11” is a bare time with no label. One line instead: <code>● Live · Binance Spot · updated 16:11</code>.</li>
+    <li>The big pin beside the pair repeats the one in the list. A dim “· pinned” label carries the same information without a second icon.</li>
+  </ul>
+</section>
+
+<!-- 4 ─────────────────────────────────────────── -->
+<section id="s4">
+  <div class="head"><h2>4 · Empty media shows a dead progress bar</h2>
+    <div class="toggle"><button class="on" data-v="cur">Current</button><button data-v="new">Proposed</button></div></div>
+  <div class="stage">
+    <div class="view cur on"><img src="ui-audit-v1/expanded-media-empty.png" alt="Empty media panel, current"></div>
+    <div class="view new">
+      <div class="panel h190">
+        <div class="bar"><div class="tabs"><span class="sel">Media</span><span>Agents</span><span>Crypto</span></div><div class="right"><span class="gear"></span></div></div>
+        <div style="display:flex;gap:18px">
+          <div class="art"><span data-g="vinyl" data-s="88"></span></div>
+          <div style="padding-top:14px">
+            <div class="t13">Nothing playing</div>
+            <div class="t11 c2" style="margin:10px 0 18px">Hit play in Spotify or Music and it shows up here.</div>
+            <div style="display:flex;gap:6px"><span class="btnx"><span data-g="note" data-s="8" data-c="#ff7a50"></span>Open Spotify</span><span class="btnx"><span data-g="note" data-s="8"></span>Open Music</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <ul class="why">
+    <li>The empty track bar under the copy has nothing to show and no handle, so it reads as a player that failed to load, which undercuts the “nothing is wrong” the spinning record is saying.</li>
+    <li><b>Proposal:</b> drop the bar and let the buttons move up under the copy. The block then sits level with the record, the same way the agents empty state sits beside its mascot.</li>
+  </ul>
+</section>
+
+<!-- 5 ─────────────────────────────────────────── -->
+<section id="s5">
+  <div class="head"><h2>5 · “Clear Idle” shows above an approval</h2>
+    <div class="toggle"><button class="on" data-v="cur">Current</button><button data-v="new">Proposed</button></div></div>
+  <div class="stage">
+    <div class="view cur on"><img src="ui-audit-v1/expanded-approval.png" alt="Approval card, current"></div>
+    <div class="view new">
+      <div class="panel h190">
+        <div class="bar"><div class="tabs"><span>Media</span><span class="sel">Agents</span><span>Crypto</span></div><div class="right"><span class="t8" style="color:var(--amber);margin-right:8px">1 waiting</span><span class="gear"></span></div></div>
+        <div style="display:flex;gap:10px;border-left:2px solid var(--amber);padding-left:12px">
+          <span data-m="amber"></span>
+          <div style="flex:1">
+            <div style="display:flex;justify-content:space-between"><span class="t13">Bash</span><span class="t11" style="color:var(--amber)">blocked 2m</span></div>
+            <div class="t11"><span style="color:var(--amber)">Approval needed</span> <span class="c2">· The Notch · Terminal</span></div>
+            <div class="t11 c2" style="margin-top:8px">xcodebuild -project 'The Notch.xcodeproj' -scheme 'The Notch' -configuration Debug -destination 'platform=macOS' build test 2&gt;&amp;1 | grep -E 'error:'</div>
+            <div class="t8 c3" style="margin-top:12px"><span style="color:var(--t1)">↗ Open Terminal to answer</span> · click elsewhere to dismiss</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <ul class="why">
+    <li>While a permission card covers the panel, the header still offers <b>Clear Idle</b>, an action on rows you can't see. Swap it for a status line in the approval colour (<code>1 waiting</code>), or nothing at all.</li>
+    <li>The footer says “Respond in the terminal” but gives no way to get there. Now that rows know their host app, make that line the ↗ action: <code>↗ Open Terminal to answer</code>.</li>
+  </ul>
+</section>
+
+<!-- 6 ─────────────────────────────────────────── -->
+<section id="s6">
+  <div class="head"><h2>6 · Unselected tabs look disabled</h2>
+    <div class="toggle"><button class="on" data-v="cur">Current</button><button data-v="new">Proposed</button></div></div>
+  <div class="stage">
+    <div class="view cur on">
+      <div class="panel" style="padding-bottom:6px"><div class="bar"><div class="tabs"><span>Media</span><span class="sel">Agents</span><span class="act">Crypto</span></div><div class="right"><span class="gear"></span></div></div></div>
+    </div>
+    <div class="view new">
+      <div class="panel" style="padding-bottom:6px"><div class="bar"><div class="tabs"><span class="act">Media</span><span class="sel">Agents</span><span class="act">Crypto<i></i></span></div><div class="right"><span class="gear"></span></div></div></div>
+    </div>
+  </div>
+  <ul class="why">
+    <li>Unselected tabs use two different greys: brighter when that surface has activity, dimmer when it doesn't. The dimmer one reads as <i>disabled</i>, but it still works. “Media” looks switched off whenever nothing is playing.</li>
+    <li><b>Proposal:</b> every unselected tab uses the same secondary grey. Activity becomes a 3px dot after the label, which still says “something is happening there” without suggesting the tab can't be clicked.</li>
+  </ul>
+</section>
+
+<!-- 7 ─────────────────────────────────────────── -->
+<section id="s7">
+  <div class="head"><h2>7 · Crypto empty state: “— +” and two baselines</h2>
+    <div class="toggle"><button class="on" data-v="cur">Current</button><button data-v="new">Proposed</button></div></div>
+  <div class="stage">
+    <div class="view cur on"><img src="ui-audit-v1/expanded-trading-empty.png" alt="Crypto empty state, current"></div>
+    <div class="view new">
+      <div class="panel h190">
+        <div class="bar"><div class="tabs"><span>Media</span><span>Agents</span><span class="sel">Crypto</span></div><div class="right"><span class="gear"></span></div></div>
+        <div class="split">
+          <div class="l" style="padding-top:4px">
+            <div class="t13">Keep a price in sight.</div>
+            <div class="t11 c2" style="margin:10px 0 16px">Live Binance Spot prices.<br>No account, no API key.</div>
+            <span class="btnx">+ Add a pair</span>
+          </div>
+          <div class="r">
+            <div class="t8 c3" style="margin-bottom:4px">Popular</div>
+            <div class="wrow"><div style="flex:1"><div class="t9 c2">BTC/USDT</div><div class="t8 c3">Bitcoin</div></div><span class="t8 c2">+ Add</span></div>
+            <div class="wrow"><div style="flex:1"><div class="t9 c2">ETH/USDT</div><div class="t8 c3">Ethereum</div></div><span class="t8 c2">+ Add</span></div>
+            <div class="wrow"><div style="flex:1"><div class="t9 c2">SOL/USDT</div><div class="t8 c3">Solana</div></div><span class="t8 c2">+ Add</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <ul class="why">
+    <li>Each suggestion ends in <code>— +</code>. The dash is a price placeholder, but next to a plus it reads as <i>remove / add</i>, as if there were a stepper.</li>
+    <li>The left half is vertically centred and the right is top-aligned, so “Keep a price in sight.” floats below “Popular”. Top-align both, as every other two-column surface does.</li>
+    <li>“USDT” is repeated on every row although it's already in the pair name. Drop it.</li>
+  </ul>
+</section>
+
+<!-- 8 ─────────────────────────────────────────── -->
+<section id="s8">
+  <div class="head"><h2>8 · Subagent lines run together</h2>
+    <div class="toggle"><button class="on" data-v="cur">Current</button><button data-v="new">Proposed</button></div></div>
+  <div class="stage">
+    <div class="view cur on"><img src="ui-audit-v1/expanded-subagents.png" alt="Subagents, current"></div>
+    <div class="view new">
+      <div class="panel h190">
+        <div class="bar"><div class="tabs"><span>Media</span><span class="sel">Agents</span><span>Crypto</span></div><div class="right"><span class="gear"></span></div></div>
+        <div class="row"><span data-m="working"></span><div class="txt"><div class="t13">The Notch <span class="t11 c3">Claude app</span></div><div class="t11 c2">└ Task · 2 subagents</div></div><div class="meta"><div class="t11 c2">6 secs</div><div class="t11 c3">168K tok</div></div><span class="ctl">↗</span><span class="ctl">–</span></div>
+        <div class="compact" style="padding-left:46px"><span data-m="working" data-s="14"></span><span class="name">Explore</span><span class="state c3">└ Grep</span></div>
+        <div class="compact" style="padding-left:46px"><span data-m="done" data-s="14"></span><span class="name c2">general-purpose</span><span class="state c3">└ Done</span></div>
+      </div>
+    </div>
+  </div>
+  <ul class="why">
+    <li>“Explore Grep” and “general-purpose Done” read as one name each. Reuse the parent row's <code>└</code> continuation mark between the subagent and its tool, so a subagent line reads like a smaller copy of a session line.</li>
+    <li>The parent's continuation says only <code>Task</code>. Adding the count (<code>Task · 2 subagents</code>) explains why lines are hanging under it.</li>
+  </ul>
+</section>
+
+<!-- 9 ─────────────────────────────────────────── -->
+<section id="s9">
+  <div class="head"><h2>9 · Usage column formats disagree</h2>
+    <div class="toggle"><button class="on" data-v="cur">Current</button><button data-v="new">Proposed</button></div></div>
+  <div class="stage">
+    <div class="view cur on"><img src="ui-audit-v1/expanded-working.png" alt="Working session, current"></div>
+    <div class="view new">
+      <div class="panel" style="padding-bottom:10px">
+        <div class="row"><span data-m="working"></span><div class="txt"><div class="t13">The Notch <span class="t11 c3">Codex</span></div><div class="t11 c2">└ xcodebuild</div></div><div class="meta"><div class="t11 c2">12 secs</div><div class="t11 c3">18K tok · $0.42</div></div><span class="ctl">↗</span><span class="ctl">–</span></div>
+        <div class="row"><span data-m="idle"></span><div class="txt"><div class="t13">my-app <span class="t11 c3">Terminal</span></div><div class="t11 c2">└ Idle</div></div><div class="meta"><div class="t11 c2">6 min</div><div class="t11 c3">221K ctx · 140K out</div></div><span class="ctl">↗</span><span class="ctl">–</span></div>
+      </div>
+    </div>
+  </div>
+  <ul class="why">
+    <li>Cost is formatted with the system locale's currency style. On a machine set to a comma-decimal region it renders <code>US$0,42</code> next to <code>18K tok</code> and <code>221K ctx</code>, which use English number formatting. Use a fixed <code>$0.42</code> so the whole column is one style.</li>
+    <li>The timestamp uses SwiftUI's long relative style (<code>6 min, 11 secs</code>), which pushes the column wide and ticks every second. A short form (<code>12s</code>, <code>6m</code>, <code>2h</code>) matches the <code>blocked 2m</code> the approval card already uses.</li>
+  </ul>
+</section>
+
+</main>
+<script>
+// 8x8 glyphs, MSB = left, same encoding as PixelGlyph.swift.
+const G = {
+  playOld:[0x00,0x30,0x3C,0x3E,0x3E,0x3C,0x30,0x00],
+  playNew:[0x20,0x30,0x38,0x3C,0x3C,0x38,0x30,0x20],
+  pause:[0x00,0x66,0x66,0x66,0x66,0x66,0x66,0x00],
+  skipFOld:[0x00,0x49,0x6D,0x5B,0x5B,0x6D,0x49,0x00],
+  skipFNew:[0x00,0x91,0xD9,0xFD,0xFD,0xD9,0x91,0x00],
+  skipBOld:[0x00,0x92,0xB6,0xDA,0xDA,0xB6,0x92,0x00],
+  skipBNew:[0x00,0x89,0x9B,0xBF,0xBF,0x9B,0x89,0x00],
+  pin:[0x3C,0x3C,0x18,0x7E,0x18,0x18,0x18,0x00],
+  cross:[0x00,0x42,0x24,0x18,0x18,0x24,0x42,0x00],
+  note:[0x18,0x1E,0x1A,0x18,0x18,0x38,0x78,0x30],
+};
+// The agents mascot, 12 wide x 10 tall, for the row mocks.
+const MASCOT = ["000100001000","000010010000","000111111000","001101101100","011111111110","010111111010","010100001010","000011011000","000000000000","000000000000"];
+const tint = {working:'var(--working)',wait:'var(--wait)',idle:'var(--idle)',done:'var(--done)',amber:'var(--amber)'};
+function svgFromRows(rows, w, h, size, color){
+  const cell = size / Math.max(w,h);
+  let r = '';
+  rows.forEach((row,y)=>{ for(let x=0;x<w;x++){ if(row(x)) r += `<rect x="${x*cell}" y="${y*cell}" width="${cell}" height="${cell}"/>`; } });
+  return `<svg class="g" width="${w*cell}" height="${h*cell}" fill="${color}">${r}</svg>`;
+}
+document.querySelectorAll('[data-g]').forEach(el=>{
+  const name = el.dataset.g, size = +(el.dataset.s||8), color = el.dataset.c||'currentColor';
+  if(name==='vinyl'){ // simple ring record for the media mock
+    const n=21, c=size/n; let r='';
+    for(let y=0;y<n;y++)for(let x=0;x<n;x++){const d=Math.hypot(x-10,y-10); if(d<=10&&d>1.2){const shade=d<4?'#9a9a9a':(Math.round(d)%2?'#3a3a3a':'#4a4a4a'); r+=`<rect x="${x*c}" y="${y*c}" width="${c}" height="${c}" fill="${shade}"/>`;}}
+    el.outerHTML = `<svg class="g" width="${size}" height="${size}">${r}</svg>`; return;
+  }
+  const rows = G[name].map(b => x => (b >> (7-x)) & 1);
+  el.outerHTML = svgFromRows(rows, 8, 8, size, color);
+});
+document.querySelectorAll('[data-m]').forEach(el=>{
+  const size = +(el.dataset.s||30);
+  const rows = MASCOT.map(s => x => s[x]==='1');
+  el.outerHTML = `<span style="width:${Math.max(size*1.2,20)}px;flex:none;display:inline-flex">${svgFromRows(rows,12,10,size*1.2,tint[el.dataset.m])}</span>`;
+});
+document.querySelectorAll('section').forEach(sec=>{
+  sec.querySelectorAll('.toggle button').forEach(btn=>btn.addEventListener('click',()=>{
+    sec.querySelectorAll('.toggle button').forEach(b=>b.classList.toggle('on',b===btn));
+    sec.querySelectorAll('.view').forEach(v=>v.classList.toggle('on',v.classList.contains(btn.dataset.v)));
+  }));
+});
+</script>
+</body>
+</html>

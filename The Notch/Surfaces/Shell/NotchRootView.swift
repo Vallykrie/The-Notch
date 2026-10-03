@@ -128,13 +128,6 @@ struct NotchRootView: View {
                 isShowingSettings = false
                 coordinator.setPinnedOpen(false)
             }
-            // Re-run the landing-surface choice on the way down. While the panel was open the
-            // selection was left alone on purpose, so an activity that ended mid-glance — the
-            // player quitting, the last session exiting — can leave the selection pointing at
-            // an empty surface. Collapsing is the moment it is safe to move it again.
-            if newState == .collapsed {
-                selectSurfaceWithSomethingToShow(whileState: newState)
-            }
         }
     }
 
@@ -361,7 +354,7 @@ struct NotchRootView: View {
                     case .media:
                         MediaExpandedView(nowPlaying: nowPlaying)
                     case .agents:
-                        AgentsExpandedView(store: store, namespace: contentNamespace)
+                        AgentsExpandedView(store: store, integrations: services.integrations, namespace: contentNamespace, showsModel: settings.showAgentModel)
                     case .trading:
                         TradingExpandedView(store: trading, isVisible: tradingPanelVisible) { editing in
                             if !isShowingSettings { coordinator.setPinnedOpen(editing) }
@@ -428,6 +421,17 @@ struct NotchRootView: View {
             NotchHeaderActionButton(title: "Quit") {
                 NSApp.terminate(nil)
             }
+        } else if coordinator.currentSurface == .agents, !store.pendingApprovals.isEmpty {
+            // An approval card covers the rows, so a bulk action on them would act on things the
+            // user cannot see. The slot says how many prompts are queued behind this one instead.
+            Text("\(store.pendingApprovals.count) waiting")
+                .font(Theme.Text.micro)
+                .foregroundStyle(
+                    store.pendingApprovals.contains { $0.question == nil }
+                        ? Theme.Colors.Status.needsApproval
+                        : Theme.Colors.Status.question
+                )
+                .lineLimit(1)
         } else if coordinator.currentSurface == .agents, hasHideableSessions {
             // The bulk form of the per-row hide control. Only offered when it would actually do
             // something, because a button that is present and inert is worse than an absent one.
@@ -481,39 +485,13 @@ struct NotchRootView: View {
         } else {
             apply()
         }
-
-        selectSurfaceWithSomethingToShow(whileState: coordinator.state)
     }
 
-    /// Moves the tab selection off a surface that has just gone empty, when the other one has
-    /// something. A user who opens the notch because an agent needs them should not land on an
-    /// empty media panel purely because that is the tab they last used.
-    ///
-    /// Deliberately one-way: it never moves the selection *back*, because a tab the user chose
-    /// explicitly must not be overridden by a track starting.
-    ///
-    /// **Only ever while collapsed.** This picks the surface the *next* opening lands on; it is
-    /// not a live re-selection of the panel the user is currently reading. Expanded, it caused a
-    /// plain bug: pausing from the media panel's own transport clears the media activity — a
-    /// paused player earns no shoulder by default, see `NotchSettings.showsMedia` — so pressing
-    /// pause swapped the panel out from under the hand that pressed it and dropped the user on
-    /// the agents surface. An action taken *inside* a surface must never navigate away from it.
-    /// The panel is honest in the meantime: `MediaExpandedView` keeps showing the paused track
-    /// with a play button, and the collapsed shoulder still retires on the same spring as before.
-    /// Takes the state to judge against rather than reading `coordinator.state`, because the
-    /// caller on the collapse transition is driven from the projected publisher — which delivers
-    /// from `willSet`, while the coordinator's own property still holds `.expanded`.
-    private func selectSurfaceWithSomethingToShow(whileState state: NotchState) {
-        guard state == .collapsed else { return }
-        if trading.wantsShoulder && !coordinator.agentNeedsAttention {
-            coordinator.show(.trading)
-            return
-        }
-        let active = activeSurfaces
-        guard !active.isEmpty, !active.contains(coordinator.currentSurface) else { return }
-        guard let surface = NotchSurface.allCases.first(where: active.contains) else { return }
-        coordinator.show(surface)
-    }
+    // The tab is the user's. It used to be re-picked on every collapse — forced to Crypto
+    // whenever the ticker had a shoulder, or moved off a surface that had gone empty — so the
+    // next hover opened somewhere the user had not left it. Every surface now has a real empty
+    // state, so the last tab chosen is always a fine place to reopen. The one exception is an
+    // approval, which `AgentBridgeController` switches to agents because the agent is stalled.
 
     private var tradingPanelVisible: Bool {
         coordinator.state == .expanded && coordinator.currentSurface == .trading && !isShowingSettings

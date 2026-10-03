@@ -82,6 +82,11 @@ nonisolated struct AgentSession: Identifiable, Sendable {
     /// How much context the session is carrying right now — see `TranscriptUsage`.
     var contextTokens: Int64?
     var costUSD: Double?
+    /// The model id as the agent reports it (`claude-opus-4-5-20251101`, `gpt-5.1-codex`) —
+    /// see `ModelName` for what the row shows.
+    var model: String?
+    /// The terminal, IDE or desktop app the session runs in, when it could be worked out.
+    var host: AgentHost?
 
     var isSubagent: Bool { parentID != nil }
 
@@ -122,6 +127,12 @@ final class AgentSessionStore: ObservableObject {
     nonisolated static let waitingForInputIdleDelay: TimeInterval = 5 * 60
     /// UI retention only: retiring an inactive row never ends the underlying agent session.
     nonisolated static let inactiveSessionRetention: TimeInterval = 15 * 60
+    /// How long a session may claim to be busy without a single event before we stop believing
+    /// it. A turn can end with no `Stop` at all — Claude sends none when the user interrupts,
+    /// and a killed process sends nothing — so without this a busy row had no way out. Twice
+    /// the resting retention and three times Claude's longest Bash timeout, so a genuinely long
+    /// tool call is not mistaken for a dead one; if it is, its next event brings the row back.
+    nonisolated static let silentBusySessionRetention: TimeInterval = 30 * 60
     /// How long a finished subagent stays under its parent. Long enough to see what ran and
     /// what it cost, short enough that a swarm does not leave a wall of them.
     nonisolated static let finishedSubagentRetention: TimeInterval = 90
@@ -178,7 +189,17 @@ final class AgentSessionStore: ObservableObject {
     func handleObserved(_ event: ObservedAgentEvent) {
         let id = Self.sessionID(for: event.request)
         // Hooks arrive live; an older transcript record must never rewind that state.
-        if let current = sessionsByID[id], current.lastActivity >= event.date { return }
+        if let current = sessionsByID[id], current.lastActivity >= event.date {
+            // The record is stale as *state*, but the model it names is still news: Codex's
+            // hooks never say which model is running, only its session file does.
+            if let model = event.request.model, !model.isEmpty, current.model != model {
+                sessionsByID[id]?.model = model
+            }
+            if current.host == nil, let originator = event.request.codexOriginator {
+                sessionsByID[id]?.host = AgentHostResolver.codexHost(originator: originator)
+            }
+            return
+        }
         handle(event.request, at: event.date)
     }
 
@@ -201,6 +222,14 @@ final class AgentSessionStore: ObservableObject {
         }
         if session.isSubagent, let agentType = request.agentType, !agentType.isEmpty {
             session.agentType = agentType
+        }
+        if let model = request.model, !model.isEmpty {
+            session.model = model
+        }
+        if let host = request.host {
+            session.host = host
+        } else if session.host == nil, let originator = request.codexOriginator {
+            session.host = AgentHostResolver.codexHost(originator: originator)
         }
         if let transition = Self.transition(for: request, isSubagent: session.isSubagent) {
             session.status = transition.status
@@ -269,6 +298,7 @@ final class AgentSessionStore: ObservableObject {
                 if let output = usage.outputTokens { session.outputTokens = output }
                 if let input = usage.inputTokens { session.inputTokens = input }
                 if let cost = usage.costUSD { session.costUSD = cost }
+                if let model = usage.model { session.model = model }
                 if session.totalTokens == nil,
                    usage.inputTokens != nil || usage.outputTokens != nil {
                     session.totalTokens = (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0)
@@ -416,13 +446,18 @@ final class AgentSessionStore: ObservableObject {
     private func retireInactiveSessions(now: Date) {
         // Snapshot first: removing a parent also removes its children.
         for (id, session) in sessionsByID {
-            guard session.status == .waitingForInput || session.status == .idle,
+            let inactivity = now.timeIntervalSince(session.lastActivity)
+            let isSilentBusy = session.status.isBusy
+                && inactivity >= Self.silentBusySessionRetention
+            guard session.status == .waitingForInput || session.status == .idle || isSilentBusy,
                   canHide(sessionID: id),
-                  !children(of: id).contains(where: {
-                      $0.status.isBusy || $0.status.demandsAttention
+                  !children(of: id).contains(where: { child in
+                      child.status.demandsAttention
+                          || (child.status.isBusy
+                              && now.timeIntervalSince(child.lastActivity)
+                                  < Self.silentBusySessionRetention)
                   }) else { continue }
 
-            let inactivity = now.timeIntervalSince(session.lastActivity)
             if inactivity >= Self.inactiveSessionRetention {
                 _ = hideSession(id: id)
             } else if session.status == .waitingForInput,
@@ -503,7 +538,16 @@ final class AgentSessionStore: ObservableObject {
         isSubagent: Bool
     ) -> (status: SessionStatus, tool: ToolEffect)? {
         switch request.eventName {
-        case .sessionStart, .userPromptSubmit:
+        case .sessionStart:
+            // Opening a session is not starting work. This fires on launch, on `--resume`, on
+            // `/clear`, and whenever the desktop app quietly relaunches a session in the
+            // background — and in every one of those the agent is sitting at an empty prompt.
+            // No `Stop` follows, because no turn ran, so reading it as `working` left the row
+            // busy until something else came along. A compaction fires it mid-turn as well;
+            // `preCompact` and `postCompact` already describe that, so it changes nothing.
+            return request.sessionStartSource == "compact" ? nil : (.idle, .clear)
+
+        case .userPromptSubmit:
             return (.working, .clear)
 
         case .preToolUse:

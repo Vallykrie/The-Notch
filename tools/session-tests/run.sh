@@ -11,6 +11,11 @@ xcrun swiftc -default-isolation MainActor -parse-as-library -o "$test_dir/checks
   'The Notch/AgentBridge/ApprovalQuestion.swift' \
   'The Notch/AgentBridge/TranscriptUsageReader.swift' \
   'The Notch/AgentBridge/CodexSessionReader.swift' \
+  'The Notch/Integrations/AgentHost.swift' \
+  'The Notch/AgentBridge/Install/AgentProvider.swift' \
+  'The Notch/Integrations/ProcessInspector.swift' \
+  'The Notch/Integrations/ProcessAncestryStrategy.swift' \
+  'The Notch/Integrations/JumpTarget.swift' \
   'The Notch/Surfaces/Agents/SessionStatus+Presentation.swift' \
   'The Notch/Surfaces/System/NowPlaying/NowPlayingStatus.swift' \
   'The Notch/Core/Theme.swift' \

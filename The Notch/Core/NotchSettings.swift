@@ -37,6 +37,11 @@ final class NotchSettings: ObservableObject {
     /// The travelling light around the silhouette while an approval is blocking.
     @Published var showAttentionRing: Bool { didSet { commit(showAttentionRing, .showAttentionRing) } }
 
+    /// Whether a session row names its model (`Opus 4.5`) beside the app it runs in. Off by
+    /// default: the app is what tells two sessions apart at a glance, and the model is detail
+    /// most people only want once they run several models side by side.
+    @Published var showAgentModel: Bool { didSet { commit(showAgentModel, .showAgentModel) } }
+
     /// Mirrors `SoundEffects.isEnabled` rather than shadowing it. That object already owns the
     /// key and reads it on every cue; a second copy here would go stale the moment either side
     /// wrote without the other.
@@ -110,6 +115,7 @@ final class NotchSettings: ObservableObject {
         hideMediaWhenPaused = defaults.bool(forKey: Key.hideMediaWhenPaused.rawValue)
         showAgentActivity = defaults.bool(forKey: Key.showAgentActivity.rawValue)
         showAttentionRing = defaults.bool(forKey: Key.showAttentionRing.rawValue)
+        showAgentModel = defaults.bool(forKey: Key.showAgentModel.rawValue)
         soundCuesEnabled = defaults.bool(forKey: SoundEffects.enabledDefaultsKey)
         finishedRetention = FinishedRetention(
             rawValue: defaults.string(forKey: Key.finishedRetention.rawValue) ?? ""
@@ -150,6 +156,7 @@ final class NotchSettings: ObservableObject {
             Key.hideMediaWhenPaused.rawValue: true,
             Key.showAgentActivity.rawValue: true,
             Key.showAttentionRing.rawValue: true,
+            Key.showAgentModel.rawValue: false,
             Key.replaceSystemHUD.rawValue: true,
             Key.expandOnHover.rawValue: true,
             Key.finishedRetention.rawValue: FinishedRetention.default.rawValue,
@@ -166,6 +173,7 @@ final class NotchSettings: ObservableObject {
             && hideMediaWhenPaused
             && showAgentActivity
             && showAttentionRing
+            && !showAgentModel
             && soundCuesEnabled
             && finishedRetention == .default
             && replaceSystemHUD
@@ -188,6 +196,7 @@ final class NotchSettings: ObservableObject {
         hideMediaWhenPaused = true
         showAgentActivity = true
         showAttentionRing = true
+        showAgentModel = false
         soundCuesEnabled = true
         finishedRetention = .default
         replaceSystemHUD = true
@@ -223,6 +232,7 @@ final class NotchSettings: ObservableObject {
         case hideMediaWhenPaused = "NotchHideMediaWhenPaused"
         case showAgentActivity = "NotchShowAgentActivity"
         case showAttentionRing = "NotchShowAttentionRing"
+        case showAgentModel = "NotchShowAgentModel"
         case finishedRetention = "NotchFinishedSessionRetention"
         case replaceSystemHUD = "NotchReplaceSystemHUD"
         case hudDwell = "NotchHUDDwell"

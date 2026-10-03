@@ -53,5 +53,13 @@ final class AgentIntegrationManager: ObservableObject {
         statuses = result
     }
 
+    #if DEBUG
+    /// Previews and `FrameDump` only. Detection reads — and installs into — the real home
+    /// directory, which a preview must never do.
+    func seedPreviewStatuses(_ values: [AgentIntegrationStatus]) {
+        statuses = values
+    }
+    #endif
+
     isolated deinit { task?.cancel() }
 }

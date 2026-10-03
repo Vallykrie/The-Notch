@@ -444,6 +444,22 @@ enum FrameDump {
                 SystemServices(nowPlaying: MediaPreviewData.inactiveMonitor(), systemHUD: .previewIdle()),
                 false
             ),
+            // No sessions, with a mix of connected, failed and missing agents — the provider
+            // lines are what has to fit under the head row without reaching the bottom curve.
+            (
+                "expanded-agents-empty",
+                .agents,
+                .expanded,
+                AgentsPreviewData.emptyStore(),
+                {
+                    let services = SystemServices(nowPlaying: MediaPreviewData.inactiveMonitor(), systemHUD: .previewIdle())
+                    #if DEBUG
+                    services.integrations.seedPreviewStatuses(AgentsPreviewData.detectedIntegrations().statuses)
+                    #endif
+                    return services
+                }(),
+                false
+            ),
             // The tightest vertical budget in the app: every preference the app has, laid out
             // inside the same 190pt panel as everything else, with no scroll view to overflow
             // into. This frame is the check that it still fits — a preference added without

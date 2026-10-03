@@ -235,6 +235,12 @@ enum Theme {
         /// One full cycle of the collapsed now-playing waveform.
         static let waveformPeriod: TimeInterval = 1.15
 
+        /// One step of the record in the empty media panel. The glint jumps an eighth of a
+        /// turn per step rather than rotating smoothly, because a pixel grid that rotates by
+        /// fractions of a cell is a smear; eight steps of 0.225s is one turn in 1.8s, which is
+        /// 33⅓ rpm.
+        static let vinylStep: TimeInterval = 0.225
+
         /// Measured end to end, 60ms of debounce plus ~50ms to the first perceptible frame
         /// put 110ms between the pointer arriving and the notch acknowledging it, which is
         /// past the point where a surface stops feeling directly manipulated. Not zero,
@@ -279,6 +285,10 @@ enum Theme {
             static let shoulderWidth: CGFloat = 72
             static let fauxHousingGap: CGFloat = 8
             static let detailWidth: CGFloat = 250
+            /// Extra inset inside the shared panel padding. The other surfaces open on a filled
+            /// block — artwork, a mascot — that carries the edge; this one opens on bare text,
+            /// which at the same inset looked jammed against the panel's side.
+            static let contentInset: CGFloat = 12
         }
         static let fauxNotchSize = CGSize(width: 188, height: 32)
         /// 190 tall was a guess, and measured against real content it was 35% empty: the
@@ -606,6 +616,12 @@ enum Theme {
             /// on screen at this opacity rather than disappearing — a transport row whose
             /// buttons come and go is harder to use than one with a dimmed button.
             static let disabledOpacity: CGFloat = 0.28
+
+            /// The pixel record that sits in the artwork slot when nothing is playing. A
+            /// 21-cell grid at 88pt floors to a 4pt cell — chunky enough to read as the same
+            /// pixel art as the glyphs, with an odd count so the spindle hole has a centre cell.
+            static let vinylSize: CGFloat = 88
+            static let vinylGrid = 21
         }
 
         /// The segmented switch at the top of the expanded panel. It is the only chrome in the
@@ -805,6 +821,32 @@ enum Theme {
             /// What the question card insets itself by, in place of
             /// `expandedVerticalPadding` — see `AgentsExpandedView.verticalInset`.
             static let questionVerticalPadding: CGFloat = 4
+
+            /// A compact session row — one line, used once the panel holds three sessions or
+            /// more. The mascot is the collapsed shoulder's size (ten rows at a 2pt cell), the
+            /// smallest at which it is still a figure; the row is just tall enough for it.
+            static let compactGlyphSize: CGFloat = 20
+            static let compactRowHeight: CGFloat = 22
+            /// From this many sessions on, all but the leading row go compact. Two full rows
+            /// fit the 190pt panel; a third was cut through its second line by the curve.
+            static let compactThreshold = 3
+
+            /// The sleeping mascot that fills the empty panel. 100 is ten rows at a 10pt cell,
+            /// which draws the sprite ~120pt wide: big enough to be the panel's subject rather
+            /// than a row icon, small enough to leave the provider chips their width.
+            static let emptyMascotSize: CGFloat = 100
+            /// The column the mascot sits in, so the text beside it starts at a fixed x.
+            static let emptyMascotColumnWidth: CGFloat = 136
+            /// One provider chip in the empty panel: a name and a connection dot in a
+            /// hairline-filled capsule-ish rectangle.
+            static let emptyChipHorizontalPadding: CGFloat = 8
+            static let emptyChipVerticalPadding: CGFloat = 4
+            static let emptyChipCornerRadius: CGFloat = 6
+            static let emptyChipSpacing: CGFloat = 6
+            static let emptyChipDotSize: CGFloat = 5
+            /// How often the empty panel re-checks which agents are open. Only while it is on
+            /// screen; a chip lagging a couple of seconds behind an app launch reads as live.
+            static let presenceRefreshInterval: TimeInterval = 2
 
             /// How far a subagent's row is indented under its parent, and how big its mark is.
             ///

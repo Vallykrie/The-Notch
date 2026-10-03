@@ -19,9 +19,13 @@ nonisolated struct TranscriptUsage: Equatable, Sendable {
     /// strictly better than a number we would have to invent from a pricing table that goes
     /// stale the day a model ships.
     var costUSD: Double?
+    /// The model behind the most recent turn. A level like `contextTokens`, not a total: the
+    /// user can switch models mid-session, and the row should say what is answering now.
+    var model: String?
 
     var isEmpty: Bool {
         contextTokens == nil && outputTokens == nil && inputTokens == nil && costUSD == nil
+            && model == nil
     }
 }
 
@@ -124,8 +128,20 @@ actor TranscriptUsageReader {
             usage.costUSD = (usage.costUSD ?? 0) + cost
         }
 
-        guard let message = object["message"] as? [String: Any],
-              let raw = message["usage"] as? [String: Any] else { return }
+        // Codex writes the model once per turn in a `turn_context` record rather than on
+        // each message.
+        if object["type"] as? String == "turn_context",
+           let payload = object["payload"] as? [String: Any],
+           let model = Self.modelName(payload["model"]) {
+            usage.model = model
+        }
+
+        guard let message = object["message"] as? [String: Any] else { return }
+        // Sidechain turns are subagents, which may run a cheaper model than the session.
+        if (object["isSidechain"] as? Bool) != true, let model = Self.modelName(message["model"]) {
+            usage.model = model
+        }
+        guard let raw = message["usage"] as? [String: Any] else { return }
 
         let input = Self.integer(raw["input_tokens"]) ?? 0
         let output = Self.integer(raw["output_tokens"]) ?? 0
@@ -143,6 +159,13 @@ actor TranscriptUsageReader {
         if !isSidechain {
             usage.contextTokens = input + cacheRead + cacheWrite
         }
+    }
+
+    /// Claude Code writes `<synthetic>` as the model of messages it generated itself (an
+    /// interrupted turn, an API error), which is not a model anyone chose.
+    private static func modelName(_ value: Any?) -> String? {
+        guard let model = value as? String, !model.isEmpty, !model.hasPrefix("<") else { return nil }
+        return model
     }
 
     private static func integer(_ value: Any?) -> Int64? {

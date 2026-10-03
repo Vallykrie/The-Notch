@@ -49,6 +49,7 @@ struct SettingsExpandedView: View {
             column("Agents") {
                 SettingsToggleRow(label: "Show agents", isOn: $settings.showAgentActivity)
                 SettingsToggleRow(label: "Attention ring", isOn: $settings.showAttentionRing)
+                SettingsToggleRow(label: "Show model", isOn: $settings.showAgentModel)
                 SettingsToggleRow(label: "Sound cues", isOn: $settings.soundCuesEnabled)
                 // "Keep done", not "Keep finished". The value field beside it is wider than a
                 // switch, so this row has ~14 characters to work in rather than ~18, and the

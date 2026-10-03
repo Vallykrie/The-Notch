@@ -44,26 +44,53 @@ struct SessionTests {
         sleeping.pruneDoneSessions(olderThan: 1e9, now: start.addingTimeInterval(3600))
         check(sleeping.sessions.isEmpty, "one sweep after sleep clears stale waiting even with Keep done")
 
-        for event in [EventName.userPromptSubmit, .preToolUse, .preCompact, .permissionRequest] {
+        for event in [EventName.userPromptSubmit, .preToolUse, .postToolUse, .preCompact] {
             let active = AgentSessionStore()
             active.handle(request(event), at: start)
             let status = active.session(for: "session")?.status
-            active.pruneDoneSessions(now: start.addingTimeInterval(3600))
-            check(active.session(for: "session")?.status == status, "preserves \(event.rawValue)")
+            active.pruneDoneSessions(now: start.addingTimeInterval(1799))
+            check(active.session(for: "session")?.status == status, "preserves \(event.rawValue) through a long silence")
+            // An interrupted turn sends no Stop, so silence is the only end it ever gets.
+            active.pruneDoneSessions(now: start.addingTimeInterval(1800))
+            check(active.session(for: "session") == nil, "retires \(event.rawValue) left busy for thirty minutes")
         }
+
+        let approval = AgentSessionStore()
+        approval.handle(request(.permissionRequest), at: start)
+        approval.pruneDoneSessions(now: start.addingTimeInterval(3600))
+        check(approval.session(for: "session")?.status == .needsApproval, "preserves permissionRequest")
+
+        for source in ["startup", "resume", "clear"] {
+            let opened = AgentSessionStore()
+            opened.handle(request(.sessionStart, payload: ["source": .string(source)]), at: start)
+            check(opened.session(for: "session")?.status == .idle, "session start (\(source)) is not work")
+            opened.pruneDoneSessions(now: start.addingTimeInterval(900))
+            check(opened.session(for: "session") == nil, "untouched \(source) session retires at fifteen minutes")
+        }
+
+        let compacting = AgentSessionStore()
+        compacting.handle(request(.preCompact), at: start)
+        compacting.handle(request(.sessionStart, payload: ["source": .string("compact")]), at: start.addingTimeInterval(1))
+        check(compacting.session(for: "session")?.status == .compacting, "compaction's session start leaves the turn alone")
 
         let parent = AgentSessionStore()
         parent.handle(request(.stop), at: start)
         parent.handle(request(.subagentStart, payload: ["agent_id": .string("child")]), at: start)
-        parent.pruneDoneSessions(now: start.addingTimeInterval(3600))
+        parent.pruneDoneSessions(now: start.addingTimeInterval(1200))
         check(parent.session(for: "session")?.status == .waitingForInput, "busy child protects parent")
-        parent.handle(request(.subagentStop, payload: ["agent_id": .string("child")]), at: start.addingTimeInterval(3601))
-        parent.pruneDoneSessions(now: start.addingTimeInterval(4501))
+        parent.handle(request(.subagentStop, payload: ["agent_id": .string("child")]), at: start.addingTimeInterval(1201))
+        parent.pruneDoneSessions(now: start.addingTimeInterval(2101))
         check(parent.sessionsByID.isEmpty, "inactive parent and finished children clear together")
+
+        let abandoned = AgentSessionStore()
+        abandoned.handle(request(.stop), at: start)
+        abandoned.handle(request(.subagentStart, payload: ["agent_id": .string("child")]), at: start)
+        abandoned.pruneDoneSessions(now: start.addingTimeInterval(1800))
+        check(abandoned.sessionsByID.isEmpty, "child left busy does not pin its parent forever")
 
         let blocked = AgentSessionStore()
         blocked.handle(request(.stop), at: start)
-        blocked.registerPermissionRequest(request(.permissionRequest, payload: ["agent_id": .string("child"), "tool_name": .string("AskUserQuestion")]), at: start) { _, _, _ in }
+        blocked.registerPermissionNotice(request(.permissionRequest, payload: ["agent_id": .string("child"), "tool_name": .string("AskUserQuestion")]), at: start)
         blocked.pruneDoneSessions(now: start.addingTimeInterval(3600))
         check(blocked.session(for: "session") != nil && blocked.pendingApprovals.count == 1, "child approval and parent remain reachable")
 

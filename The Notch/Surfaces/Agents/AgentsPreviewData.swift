@@ -66,6 +66,21 @@ enum AgentsPreviewData {
         AgentSessionStore()
     }
 
+    /// Two agents hooked up, one that could not be, and the rest not installed — the mix the
+    /// empty state has to read well with.
+    static func detectedIntegrations() -> AgentIntegrationManager {
+        let manager = AgentIntegrationManager()
+        #if DEBUG
+        manager.seedPreviewStatuses([
+            AgentIntegrationStatus(provider: .claude, installed: true, configured: true, error: nil),
+            AgentIntegrationStatus(provider: .codex, installed: true, configured: true, error: nil),
+            AgentIntegrationStatus(provider: .gemini, installed: true, configured: false, error: "Preview error"),
+            AgentIntegrationStatus(provider: .cursor, installed: false, configured: false, error: nil),
+        ])
+        #endif
+        return manager
+    }
+
     static func workingStore(now: Date = .now) -> AgentSessionStore {
         let store = AgentSessionStore()
         store.handle(
@@ -339,9 +354,19 @@ enum AgentsPreviewData {
         .background(.black)
 }
 
+#Preview("Expanded — no sessions") {
+    @Previewable @Namespace var namespace
+    AgentsExpandedView(store: AgentsPreviewData.emptyStore(), integrations: AgentsPreviewData.detectedIntegrations(), namespace: namespace)
+        .frame(
+            width: Theme.Metrics.expandedNotchSize.width,
+            height: Theme.Metrics.expandedNotchSize.height
+        )
+        .background(.black)
+}
+
 #Preview("Expanded — concurrent sessions") {
     @Previewable @Namespace var namespace
-    AgentsExpandedView(store: AgentsPreviewData.concurrentStore(), namespace: namespace)
+    AgentsExpandedView(store: AgentsPreviewData.concurrentStore(), integrations: AgentIntegrationManager(), namespace: namespace)
         .frame(
             width: Theme.Metrics.expandedNotchSize.width,
             height: Theme.Metrics.expandedNotchSize.height
@@ -351,7 +376,7 @@ enum AgentsPreviewData {
 
 #Preview("Expanded — approval priority") {
     @Previewable @Namespace var namespace
-    AgentsExpandedView(store: AgentsPreviewData.approvalStore(), namespace: namespace)
+    AgentsExpandedView(store: AgentsPreviewData.approvalStore(), integrations: AgentIntegrationManager(), namespace: namespace)
         .frame(
             width: Theme.Metrics.expandedNotchSize.width,
             height: Theme.Metrics.expandedNotchSize.height
@@ -388,7 +413,7 @@ enum AgentsPreviewData {
 
 #Preview("Approval — nested question input") {
     @Previewable @Namespace var namespace
-    AgentsExpandedView(store: AgentsPreviewData.questionApprovalStore(), namespace: namespace)
+    AgentsExpandedView(store: AgentsPreviewData.questionApprovalStore(), integrations: AgentIntegrationManager(), namespace: namespace)
         .frame(
             width: Theme.Metrics.expandedNotchSize.width,
             height: Theme.Metrics.expandedNotchSize.height

@@ -210,18 +210,35 @@ nonisolated struct PixelGlyph: Equatable, Sendable {
         0b0000_0000,
     ])
 
+    /// An arrow out of the corner — bring this session's window forward. The arrow rather than
+    /// a window outline because at 8x8 a window is a square, and a square says nothing.
+    static let openWindow = PixelGlyph(rows: [
+        0b0000_0000,
+        0b0001_1110,
+        0b0000_0110,
+        0b0000_1010,
+        0b0001_0010,
+        0b0010_0000,
+        0b0100_0000,
+        0b0000_0000,
+    ])
+
     // MARK: Media
 
     /// Right-pointing play mark.
+    // Two pixels wider per row, 1 → 3 → 5 → 6, so the sides keep one slope to the tip. The old
+    // shape stepped 2 → 4 → 5 → 5: a square shoulder that read as a flag, or a "P". It sits a
+    // column right of the grid's centre because a triangle's weight is near its flat side;
+    // centred by bounding box, it looks pushed left inside the round button.
     static let play = PixelGlyph(rows: [
         0b0000_0000,
-        0b0011_0000,
-        0b0011_1100,
+        0b0010_0000,
+        0b0011_1000,
         0b0011_1110,
+        0b0011_1111,
         0b0011_1110,
-        0b0011_1100,
-        0b0011_0000,
-        0b0000_0000,
+        0b0011_1000,
+        0b0010_0000,
     ])
 
     /// Two-column pause mark.
@@ -249,26 +266,28 @@ nonisolated struct PixelGlyph: Equatable, Sendable {
     ])
 
     /// Double left-pointing skip mark.
+    // Solid, like every other transport glyph. The hollow triangles collapsed into crossed
+    // lines at 8x8 and the pair read as bow-ties (⋈) rather than as skip.
     static let skipBack = PixelGlyph(rows: [
         0b0000_0000,
-        0b1001_0010,
-        0b1011_0110,
-        0b1101_1010,
-        0b1101_1010,
-        0b1011_0110,
-        0b1001_0010,
+        0b1000_1001,
+        0b1001_1011,
+        0b1011_1111,
+        0b1011_1111,
+        0b1001_1011,
+        0b1000_1001,
         0b0000_0000,
     ])
 
     /// Double right-pointing skip mark.
     static let skipForward = PixelGlyph(rows: [
         0b0000_0000,
-        0b0100_1001,
-        0b0110_1101,
-        0b0101_1011,
-        0b0101_1011,
-        0b0110_1101,
-        0b0100_1001,
+        0b1001_0001,
+        0b1101_1001,
+        0b1111_1101,
+        0b1111_1101,
+        0b1101_1001,
+        0b1001_0001,
         0b0000_0000,
     ])
 

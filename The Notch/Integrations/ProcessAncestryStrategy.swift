@@ -21,6 +21,12 @@ nonisolated struct ProcessAncestryStrategy: Sendable {
         guard let firstPID = target.processID ?? target.parentProcessID else {
             return ProcessAncestry(processes: [], owningApplicationBundleIdentifier: nil)
         }
+        return resolve(fromProcessID: firstPID)
+    }
+
+    /// The same walk from a bare process, for when there is no session to build a target from —
+    /// the empty agents panel finding which terminal a running CLI lives in.
+    func resolve(fromProcessID firstPID: pid_t) -> ProcessAncestry {
 
         var ancestors: [ProcessAncestor] = []
         var seen: Set<pid_t> = []
@@ -78,7 +84,7 @@ nonisolated struct ProcessAncestryStrategy: Sendable {
         return Bundle(path: bundlePath)?.bundleIdentifier
     }
 
-    private static func isKnownTerminalOrIDE(_ bundleIdentifier: String) -> Bool {
+    static func isKnownTerminalOrIDE(_ bundleIdentifier: String) -> Bool {
         let identifiers: Set<String> = [
             "com.apple.Terminal",
             "com.googlecode.iterm2",

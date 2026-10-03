@@ -84,7 +84,17 @@ final class TerminalJumper {
             .runningApplications(withBundleIdentifier: bundleIdentifier).first else {
             return .failed(.applicationUnavailable(bundleIdentifier: bundleIdentifier))
         }
-        guard application.activate(options: [.activateAllWindows]) else {
+        // `openApplication` rather than `activate(options:)`: since macOS 14, activation requested
+        // by a background accessory app — which the notch always is — is often silently refused.
+        // Asking Launch Services to open an app that is already running brings it forward.
+        guard let url = application.bundleURL else {
+            return .failed(.applicationUnavailable(bundleIdentifier: bundleIdentifier))
+        }
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        do {
+            _ = try await NSWorkspace.shared.openApplication(at: url, configuration: configuration)
+        } catch {
             return .failed(.applicationUnavailable(bundleIdentifier: bundleIdentifier))
         }
         return .applicationOnly(

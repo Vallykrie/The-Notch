@@ -8,6 +8,11 @@ struct SessionRowView: View {
     /// row — subagents do not nest in any CLI we support, and a row that could indent forever
     /// would have to earn that with a real case.
     var children: [AgentSession] = []
+    /// Whether the title line names the model as well as the app — see
+    /// `NotchSettings.showAgentModel`.
+    var showsModel = false
+    /// One line instead of two — see `AgentsExpandedView.rows` for when a row is compact.
+    var isCompact = false
     /// Removes this row from the panel. `nil` when the session is blocking on an approval —
     /// see `AgentSessionStore.canHide(sessionID:)` for why that one case must not be hideable.
     var onHide: (() -> Void)?
@@ -19,10 +24,71 @@ struct SessionRowView: View {
     /// it. That shape is why the panel scans like a log instead of like a settings pane.
     var body: some View {
         VStack(alignment: .leading, spacing: .zero) {
-            sessionLine
-            subagentLines
+            if isCompact {
+                compactLine
+            } else {
+                sessionLine
+                subagentLines
+            }
         }
         .accessibilityElement(children: .contain)
+    }
+
+    /// The whole row on one line: a smaller mascot in the same gutter, the project, what it is
+    /// doing and where, and a short age. The text starts at the same x as a full row's, so a
+    /// list mixing both still reads as one column.
+    private var compactLine: some View {
+        HStack(spacing: Theme.Metrics.expandedContentSpacing) {
+            StatusIndicator(
+                status: session.status,
+                size: Theme.Metrics.Agents.compactGlyphSize,
+                identity: session.id,
+                lastActivity: session.lastActivity
+            )
+            .frame(width: Theme.Metrics.Agents.rowIconWidth, alignment: .leading)
+            .matchedGeometryEffect(
+                id: AgentSurfaceElement.status(sessionID: session.id),
+                in: namespace
+            )
+            .accessibilityLabel("\(session.kind.displayName): \(session.status.label)")
+
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(session.displayName)
+                    .font(Theme.Text.body)
+                    .foregroundStyle(Theme.Colors.textPrimary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .layoutPriority(1)
+
+                Text(compactSummary)
+                    .font(Theme.Text.body)
+                    .foregroundStyle(Theme.Colors.textSecondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+
+            Spacer(minLength: Theme.Metrics.collapsedContentSpacing)
+
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                Text(ApprovalCardView.elapsedLabel(context.date.timeIntervalSince(session.lastActivity)))
+                    .font(Theme.Text.body)
+                    .foregroundStyle(Theme.Colors.textSecondary)
+                    .lineLimit(1)
+            }
+
+            openControl
+            hideControl
+        }
+        .frame(height: Theme.Metrics.Agents.compactRowHeight)
+        .contentShape(Rectangle())
+        .onHover { isHovered = $0 }
+        .accessibilityElement(children: .contain)
+    }
+
+    /// `Waiting for input · Terminal`: the continuation line and the title's details, folded
+    /// into the one line a compact row has.
+    private var compactSummary: String {
+        [continuationText, details].compactMap { $0 }.joined(separator: " · ")
     }
 
     private var sessionLine: some View {
@@ -54,12 +120,7 @@ struct SessionRowView: View {
             // rather than to a baseline; 3pt would only push it out of the top of the row.
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(session.displayName)
-                    .font(Theme.Text.title)
-                    .foregroundStyle(Theme.Colors.textPrimary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-
+                titleLine
                 continuationLine
             }
 
@@ -79,6 +140,7 @@ struct SessionRowView: View {
                 }
             }
 
+            openControl
             hideControl
         }
         .padding(.vertical, Theme.Metrics.Agents.rowVerticalPadding)
@@ -133,11 +195,17 @@ struct SessionRowView: View {
                 .foregroundStyle(Theme.Colors.textSecondary)
                 .lineLimit(1)
 
-            Text(nonEmpty(child.currentTool) ?? child.status.label)
-                .font(Theme.Text.body)
-                .foregroundStyle(Theme.Colors.textTertiary)
-                .lineLimit(1)
-                .truncationMode(.middle)
+            // The parent row's own continuation mark, so a subagent line reads as a smaller
+            // copy of a session line. Without it "Explore Grep" read as one name.
+            HStack(spacing: 4) {
+                Text("└")
+                    .foregroundStyle(Theme.Colors.textTertiary)
+                Text(nonEmpty(child.currentTool) ?? child.status.label)
+                    .foregroundStyle(Theme.Colors.textTertiary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            .font(Theme.Text.body)
 
             Spacer(minLength: Theme.Metrics.collapsedContentSpacing)
 
@@ -149,7 +217,8 @@ struct SessionRowView: View {
             }
         }
         .padding(.leading, Theme.Metrics.Agents.subagentIndent)
-        .padding(.trailing, Theme.Metrics.Settings.dismissHitSize)
+        // Both trailing controls' slots, so a subagent's usage lines up with its parent's.
+        .padding(.trailing, Theme.Metrics.Settings.dismissHitSize * 2)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Subagent \(child.displayName): \(child.status.label)")
     }
@@ -191,6 +260,75 @@ struct SessionRowView: View {
         }
     }
 
+    /// The project, then what tells two sessions in the same project apart: the model answering
+    /// and the app it runs in — `my-app  Opus 4.5 · Terminal`. The project keeps its width and
+    /// the details give way, because the project is what the row is *about*.
+    private var titleLine: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(session.displayName)
+                .font(Theme.Text.title)
+                .foregroundStyle(Theme.Colors.textPrimary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .layoutPriority(1)
+
+            if let details {
+                Text(details)
+                    .font(Theme.Text.body)
+                    .foregroundStyle(Theme.Colors.textTertiary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+        }
+    }
+
+    /// The model (when the setting asks for it and it is known), then the host app. Whatever
+    /// is missing, the agent's own name stands in, so the line is never blank.
+    private var details: String? {
+        var parts: [String] = []
+        if showsModel, let model = nonEmpty(session.model) {
+            parts.append(ModelName.display(model))
+        } else if session.host == nil {
+            parts.append(session.kind.displayName)
+        }
+        // An agent running in its own app would read `Antigravity · Antigravity`.
+        if let host = session.host, !parts.contains(host.name) { parts.append(host.name) }
+        return parts.joined(separator: " · ")
+    }
+
+    /// Brings the session's terminal tab, IDE window or app forward. Same resting treatment
+    /// and reserved slot as the hide control beside it, for the same reasons.
+    @ViewBuilder
+    private var openControl: some View {
+        if SessionWindowOpener.canOpen(session) {
+            Button {
+                SessionWindowOpener.open(session)
+            } label: {
+                PixelGlyphView(
+                    glyph: .openWindow,
+                    side: Theme.Metrics.Settings.dismissGlyphSize
+                )
+                .foregroundStyle(Theme.Colors.textPrimary)
+                .opacity(isHovered ? 1 : Theme.Metrics.Settings.dismissRestingOpacity)
+                .frame(
+                    width: Theme.Metrics.Settings.dismissHitSize,
+                    height: Theme.Metrics.Settings.dismissHitSize
+                )
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .animation(Theme.Motion.content, value: isHovered)
+            .help(session.host.map { "Open in \($0.name)" } ?? "Open \(session.kind.displayName)")
+            .accessibilityLabel("Open \(session.displayName)")
+        } else {
+            Color.clear
+                .frame(
+                    width: Theme.Metrics.Settings.dismissHitSize,
+                    height: Theme.Metrics.Settings.dismissHitSize
+                )
+        }
+    }
+
     /// `└ Edit(src/theme.css)` when a tool is live, otherwise the plain state.
     private var continuationLine: some View {
         HStack(spacing: 4) {
@@ -198,12 +336,20 @@ struct SessionRowView: View {
                 .font(Theme.Text.body)
                 .foregroundStyle(Theme.Colors.textTertiary)
 
-            Text(nonEmpty(session.currentTool) ?? session.status.label)
+            Text(continuationText)
                 .font(Theme.Text.body)
                 .foregroundStyle(Theme.Colors.textSecondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
         }
+    }
+
+    /// What the session is doing, plus — when it has delegated — how many helpers are hanging
+    /// under it, which is what explains the indented lines below.
+    private var continuationText: String {
+        let doing = nonEmpty(session.currentTool) ?? session.status.label
+        guard !children.isEmpty else { return doing }
+        return "\(doing) · \(children.count) subagent\(children.count == 1 ? "" : "s")"
     }
 
     private var usageSummary: String? { Self.usageSummary(for: session) }
