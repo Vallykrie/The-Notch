@@ -29,7 +29,7 @@ music and crypto prices.
   notch pops open and shows what it wants. You answer in the agent's terminal as usual.
 - **A mascot that is alive.** Each state has its own motion and colour. It startles when it needs
   you, celebrates when it is done, and falls asleep when it has been idle for a while.
-- **Media, HUD and crypto.** Now playing with controls, a volume and brightness HUD that replaces
+- **Media, HUD and crypto.** Now playing with controls and synced lyrics, a volume and brightness HUD that replaces
   the macOS one, and pinned Binance prices.
 - **Works on any Mac.** Macs without a notch get a drawn notch in the same place.
 
@@ -37,15 +37,15 @@ music and crypto prices.
 
 **Closed**, the notch shows the most important thing right now:
 
-<p align="center"><img src="docs/images/collapsed.png" width="640" alt="The closed notch in five states"></p>
+<p align="center"><img src="docs/images/collapsed.png" width="640" alt="The closed notch in six states"></p>
 
 **Open** (hover over the notch), it shows the full panel:
 
-| Agents and subagents | Approving a command |
+| Agents and subagents | A permission prompt |
 | --- | --- |
-| <img src="docs/images/agents.png" alt="Agent sessions with subagents"> | <img src="docs/images/approval.png" alt="Approval card with Deny, Always Allow and Allow Once"> |
-| **Now playing** | **Crypto watchlist** |
-| <img src="docs/images/media.png" alt="Media player"> | <img src="docs/images/crypto.png" alt="Crypto watchlist"> |
+| <img src="docs/images/agents.png" alt="An agent session with its host, current tool and two subagents"> | <img src="docs/images/approval.png" alt="Permission card showing the blocked Bash command and a link back to the agent"> |
+| **Now playing, with synced lyrics** | **Crypto watchlist** |
+| <img src="docs/images/media.png" alt="Media player showing the current lyric line"> | <img src="docs/images/crypto.png" alt="Crypto watchlist"> |
 
 ## Install
 
