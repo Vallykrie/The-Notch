@@ -29,8 +29,8 @@ music and crypto prices.
   notch pops open and shows what it wants. You answer in the agent's terminal as usual.
 - **A mascot that is alive.** Each state has its own motion and colour. It startles when it needs
   you, celebrates when it is done, and falls asleep when it has been idle for a while.
-- **Media, HUD and crypto.** Now playing with controls and synced lyrics, a volume and brightness HUD that replaces
-  the macOS one, and pinned Binance prices.
+- **Media, HUD and crypto.** Now playing with controls and synced lyrics, a volume and
+  brightness HUD that replaces the macOS one, and pinned Binance prices.
 - **Works on any Mac.** Macs without a notch get a drawn notch in the same place.
 
 ## What it looks like
