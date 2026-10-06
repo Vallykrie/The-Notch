@@ -14,6 +14,10 @@ nonisolated struct AgentHost: Equatable, Sendable {
     let termProgram: String?
     let termSessionID: String?
     let iTermSessionID: String?
+    /// Every process above the agent, nearest first. When one of them is another session's
+    /// agent, this session was launched by that one — a `claude` running `agy --print` from its
+    /// Bash tool — and belongs under it rather than beside it. See `AgentSessionStore.launcher`.
+    var launcherProcessIDs: [pid_t] = []
 }
 
 /// Works out an `AgentHost` from the process that delivered a hook event.
@@ -67,7 +71,8 @@ nonisolated enum AgentHostResolver {
             tty: agent.flatMap { ProcessInspector.ttyPath(of: $0.processID) },
             termProgram: environment["TERM_PROGRAM"],
             termSessionID: environment["TERM_SESSION_ID"],
-            iTermSessionID: environment["ITERM_SESSION_ID"]
+            iTermSessionID: environment["ITERM_SESSION_ID"],
+            launcherProcessIDs: above.map(\.processID)
         )
     }
 

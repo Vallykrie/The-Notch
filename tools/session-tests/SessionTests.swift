@@ -94,6 +94,39 @@ struct SessionTests {
         blocked.pruneDoneSessions(now: start.addingTimeInterval(3600))
         check(blocked.session(for: "session") != nil && blocked.pendingApprovals.count == 1, "child approval and parent remain reachable")
 
+        func hosted(_ request: HookRequest, agent: pid_t, launchers: [pid_t] = []) -> HookRequest {
+            var request = request
+            request.host = AgentHost(
+                bundleIdentifier: "com.example.terminal", name: "Terminal", agentProcessID: agent,
+                tty: nil, termProgram: nil, termSessionID: nil, iTermSessionID: nil,
+                launcherProcessIDs: launchers
+            )
+            return request
+        }
+        func headless(_ event: EventName, id: String, agent: pid_t, launchers: [pid_t]) -> HookRequest {
+            hosted(
+                HookRequest(id: UUID(), eventName: event, source: "antigravity", cwd: "/tmp/project/img", threadName: id, timeout: nil, payload: [:]),
+                agent: agent, launchers: launchers
+            )
+        }
+        let launching = AgentSessionStore()
+        launching.handle(hosted(request(.preToolUse), agent: 100, launchers: [1]), at: start)
+        launching.handle(hosted(request(.preToolUse, id: "other"), agent: 300, launchers: [1]), at: start)
+        for run in ["run-a", "run-b", "run-c"] {
+            launching.handle(headless(.postToolUse, id: run, agent: 200, launchers: [150, 100, 1]), at: start.addingTimeInterval(1))
+        }
+        check(launching.sessions.map(\.id).sorted() == ["other", "session"], "agents launched from a session are not sessions of their own")
+        check(launching.children(of: "session").count == 3, "launched agents sit under the session that ran them")
+        check(launching.session(for: "run-a")?.displayName == "Antigravity", "a launched agent is titled by what it is")
+        check(launching.children(of: "other").isEmpty, "an unrelated session adopts nothing")
+        launching.handle(headless(.stop, id: "run-a", agent: 200, launchers: [150, 100, 1]), at: start.addingTimeInterval(2))
+        launching.pruneDoneSessions(now: start.addingTimeInterval(3 + AgentSessionStore.finishedSubagentRetention))
+        check(launching.session(for: "run-a") == nil, "a finished launched agent clears like a subagent")
+
+        let unrelated = AgentSessionStore()
+        unrelated.handle(headless(.postToolUse, id: "solo", agent: 200, launchers: [150, 1]), at: start)
+        check(unrelated.sessions.map(\.id) == ["solo"], "an agent with no agent above it stays a session")
+
         let done = AgentSessionStore()
         done.handle(request(.sessionEnd), at: start)
         done.pruneDoneSessions(olderThan: 3600, now: start.addingTimeInterval(1800))

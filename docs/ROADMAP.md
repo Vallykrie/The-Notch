@@ -191,6 +191,12 @@ approval fixed; Claude's decision shape remains the one unresolved protocol ques
       row and fighting over its status and current tool — the panel read as five agents running
       when one had delegated four times. They are now indented under their parent at a smaller
       mark, capped at three with a `+n more`, and cleared 90s after they finish.
+- [x] **Agents launched by an agent are subagents too.** A headless run started from another
+      agent's shell (`agy --print`, `codex exec`, `claude -p`) has a session id of its own and
+      nothing in its payload naming its launcher, so a Claude session fanning out image
+      generations filled the panel with one row per run, each kept 15 minutes. The hook peer's
+      process tree now records every process above the agent; when one is another session's
+      agent, the run goes under that session's row and clears 90s after its `Stop`.
 - [x] Approval card: tool + input summary, Allow / Allow-always / Deny, `⏎` allows and `⎋` denies,
       elapsed-blocked time. Takes priority over the session list — an agent is stalled on it.
 - [x] Plan review: `AttributedString` Markdown + feedback field (no dependency)

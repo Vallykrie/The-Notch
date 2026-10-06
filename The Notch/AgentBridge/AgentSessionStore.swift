@@ -231,6 +231,12 @@ final class AgentSessionStore: ObservableObject {
         } else if session.host == nil, let originator = request.codexOriginator {
             session.host = AgentHostResolver.codexHost(originator: originator)
         }
+        if !session.isSubagent, let launcher = launcher(of: session) {
+            session.parentID = launcher.id
+            if session.agentType?.isEmpty ?? true {
+                session.agentType = session.kind.displayName
+            }
+        }
         if let transition = Self.transition(for: request, isSubagent: session.isSubagent) {
             session.status = transition.status
             switch transition.tool {
@@ -277,6 +283,30 @@ final class AgentSessionStore: ObservableObject {
         }
 
         refreshUsageFromTranscript(sessionID: sessionID)
+    }
+
+    /// The session whose agent started this one, when another agent did.
+    ///
+    /// An agent run headless from another agent's shell — `agy --print`, `codex exec`,
+    /// `claude -p` — sends hooks of its own under a fresh session id, so each run used to arrive
+    /// as a session the user started: a Claude session fanning out a dozen image generations
+    /// filled the panel with a dozen rows. It is the launching session's helper, the same as a
+    /// `Task` subagent, so it goes under that row. The process tree is the only thing that says
+    /// so; nothing in the payload does. The nearest top-level ancestor wins, which also keeps a
+    /// helper's own helpers one level deep.
+    private func launcher(of session: AgentSession) -> AgentSession? {
+        guard let ancestors = session.host?.launcherProcessIDs, !ancestors.isEmpty else { return nil }
+        for processID in ancestors {
+            let candidates = sessionsByID.values.filter {
+                $0.id != session.id && !$0.isSubagent && $0.host?.agentProcessID == processID
+            }
+            // One process can serve several threads (Codex's app server); the one that was
+            // working most recently is the one that ran the command.
+            if let match = candidates.max(by: { $0.lastActivity < $1.lastActivity }) {
+                return match
+            }
+        }
+        return nil
     }
 
     /// Folds token usage read from the session's own transcript into the row.
@@ -591,8 +621,9 @@ final class AgentSessionStore: ObservableObject {
         case .stop:
             // `Stop` ends the *turn*, not the session — the agent is alive and it is the
             // user's move. Inactivity later makes this idle and retires the UI row;
-            // only `SessionEnd` marks the underlying session as done.
-            return (.waitingForInput, .clear)
+            // only `SessionEnd` marks the underlying session as done. A helper has no user to
+            // wait for: a headless run launched by another agent exits at its turn's end.
+            return isSubagent ? (.done, .clear) : (.waitingForInput, .clear)
 
         case .sessionEnd:
             return (.done, .clear)
