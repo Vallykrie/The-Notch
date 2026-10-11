@@ -25,27 +25,37 @@ music and crypto prices.
 
 - **See every agent at a glance.** Claude Code, Codex, Gemini CLI, Cursor, OpenCode, Antigravity
   and Kiro sessions show up automatically, including subagents.
-- **Know when an agent needs you.** When an agent asks for permission or asks a question, the
-  notch pops open and shows what it wants. You answer in the agent's terminal as usual.
+- **Know when an agent needs you.** A permission prompt makes the notch *pop* open with a shock
+  ring; a question *drips* out of it. The card shows exactly what the agent wants, and one click
+  takes you to the agent to answer. A finished run gets a burst of confetti.
 - **A mascot that is alive.** Each state has its own motion and colour. It startles when it needs
   you, celebrates when it is done, and falls asleep when it has been idle for a while.
 - **Media, HUD and crypto.** Now playing with controls and synced lyrics, a volume and
   brightness HUD that replaces the macOS one, and pinned Binance prices.
+- **Asks before it touches anything.** On first launch the notch introduces itself and lists the
+  agents it found; nothing is written to their config until you say yes.
 - **Works on any Mac.** Macs without a notch get a drawn notch in the same place.
 
 ## What it looks like
 
+**When an agent needs you**, the notch comes to you. A permission prompt pops it open, a
+question drips out of it, and a finished run spills confetti:
+
+<p align="center"><img src="docs/images/attention.gif" width="760" alt="A permission prompt popping the notch open, a question dripping out of it, and confetti when a run finishes"></p>
+
 **Closed**, the notch shows the most important thing right now:
 
-<p align="center"><img src="docs/images/collapsed.png" width="640" alt="The closed notch in six states"></p>
+<p align="center"><img src="docs/images/collapsed.png" width="700" alt="The closed notch in five states: agents working, needs approval, now playing, volume and a pinned crypto price"></p>
 
 **Open** (hover over the notch), it shows the full panel:
 
 | Agents and subagents | A permission prompt |
 | --- | --- |
-| <img src="docs/images/agents.png" alt="An agent session with its host, current tool and two subagents"> | <img src="docs/images/approval.png" alt="Permission card showing the blocked Bash command and a link back to the agent"> |
-| **Now playing, with synced lyrics** | **Crypto watchlist** |
-| <img src="docs/images/media.png" alt="Media player showing the current lyric line"> | <img src="docs/images/crypto.png" alt="Crypto watchlist"> |
+| <img src="docs/images/agents.png" alt="An agent session with its host, current tool and two subagents"> | <img src="docs/images/approval.png" alt="Permission card: the mascot and the agent on the left, the blocked command in a code block, and a button to answer in Claude Code"> |
+| **A question, with its answers** | **Now playing, with synced lyrics** |
+| <img src="docs/images/question.png" alt="Question card showing the question and its numbered answers"> | <img src="docs/images/media.png" alt="Media player showing the current lyric line"> |
+| **Crypto watchlist** | **Settings** |
+| <img src="docs/images/crypto.png" alt="Crypto watchlist"> | <img src="docs/images/settings.png" alt="Settings in four columns"> |
 
 ## Install
 
@@ -81,8 +91,10 @@ at the top: **Media**, **Agents** and **Crypto**. The gear on the right opens **
 
 ### 2. Connect your coding agents
 
-There is nothing to configure. The Notch looks for installed agents every 30 seconds and adds its
-hook to each one it finds:
+The first time it runs, the notch introduces itself and asks before touching anything: it lists
+the agents it found, and you can untick any of them. Once you say yes, The Notch looks for
+installed agents every 30 seconds and adds its hook to each one you agreed to. If you said
+"not now", nothing is written; **Settings → Replay intro…** asks again.
 
 | Agent | Where the hook goes |
 | --- | --- |
@@ -124,10 +136,15 @@ When an agent is blocked on you, an orange ring also travels around the notch.
 
 ### 4. Permission prompts and questions
 
-When an agent asks for permission or asks a question, the notch pops open and shows the tool,
-the command or question (with its numbered answers) and how long it has been waiting. Answer in
-the agent's terminal as usual; the notice clears itself once the agent moves on, or click it to
-dismiss.
+When an agent asks for permission, the notch pops open; when it asks a question, a drop forms
+under the notch and the notch swallows it as it opens. The card shows who is asking and for how
+long on the left, and on the right the command, or the question with its numbered answers. Press
+**Answer in …** to jump to the agent, and answer there as usual. The card tells you which key to
+press. It clears itself once the agent moves on, or press **✕ Dismiss**. If you leave a prompt
+unanswered, the notch nudges you again every few seconds.
+
+When a run finishes, the notch breathes out and drops a little confetti onto your desktop. Turn
+that off with **Settings → Celebrate done**.
 
 ### 5. Keep the list tidy
 
@@ -146,7 +163,8 @@ nothing is playing, the tab links straight to each installed player.
 
 Press the lyrics button (the three lines in the controls) to follow the song's lyrics, synced to
 playback. The controls move to a slim strip and the lyrics take the panel, and the closed notch
-shows the line being sung, split across the camera. Lyrics come from [LRCLIB](https://lrclib.net),
+floats the line being sung in a small pill underneath it. Move your pointer near the pill and it
+splashes out of the way, so you can click whatever it was covering. Lyrics come from [LRCLIB](https://lrclib.net),
 a free lyrics database: the track's title and artist are sent there only while lyrics are on.
 If the lookup fails, it retries on its own a couple of times; if lyrics still don't appear, press
 **Try again**. Titles that players decorate (`- Remastered 2009`, `- From "…"`, `(feat. …)`) are
@@ -168,7 +186,7 @@ public feed, so there is no account or API key. See [Crypto feed details](docs/T
 | Media | Show media, Hide when paused |
 | Agents | Show agents, Attention ring, Sound cues, Keep done (how long finished sessions stay), Connections… |
 | System | Replace OS HUD, HUD dwell (how long it stays on screen) |
-| Behaviour | Expand on hover, Hover speed, Launch at login, Donate… |
+| Behaviour | Expand on hover, Hover speed, Launch at login, Celebrate done, Replay intro…, Donate… |
 
 **Quit** is in the top-right corner of Settings.
 
