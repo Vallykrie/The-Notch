@@ -422,12 +422,13 @@ final class NotchFX {
         for _ in 0 ..< Theme.Motion.Attention.sparkCount {
             let side = Double.random(in: 0 ... 1)
             let x: CGFloat = side < 0.2 ? rect.minX + 4 : side > 0.8 ? rect.maxX - 4 : .random(in: rect.minX + 20 ... rect.maxX - 20)
-            let lean = side < 0.2 ? 0.6 : side > 0.8 ? -0.6 : 0
-            let angle = CGFloat.pi / 2 + .random(in: -1.1 ... 1.1) + lean
+            let lean: Double = side < 0.2 ? 0.6 : side > 0.8 ? -0.6 : 0
+            let angle: Double = Double.pi / 2 + Double.random(in: -1.1 ... 1.1) + lean
             let speed = CGFloat.random(in: metrics.sparkSpeed)
+            let direction = CGVector(dx: CGFloat(Foundation.cos(angle)), dy: CGFloat(Foundation.sin(angle)))
             sparks.append(Spark(
                 origin: CGPoint(x: x, y: rect.maxY),
-                velocity: CGVector(dx: cos(angle) * speed, dy: sin(angle) * speed),
+                velocity: CGVector(dx: direction.dx * speed, dy: direction.dy * speed),
                 gravity: 0,
                 drag: 4.2,
                 born: now,
