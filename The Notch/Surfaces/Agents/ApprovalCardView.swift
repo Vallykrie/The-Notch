@@ -1,266 +1,304 @@
 import SwiftUI
 
-/// The panel while an agent is blocked on a permission decision.
+/// The panel while an agent is blocked on a permission decision or a question.
 ///
-/// This is the surface with the tightest vertical budget in the app and the shortest time to
-/// read: the notch is 190pt tall, the card is the only thing in it, and the user is looking at
-/// it because something stopped. Three things follow from that, and all three are why this
-/// stopped being a bordered "card" drawn inside the panel:
+/// It is a notice, not a form: the answer is given in the agent itself, which the hook hands
+/// the decision straight back to (approving from the notch did not land reliably in Claude
+/// Code, so it was removed). The card's job is therefore to make three things obvious at a
+/// glance — what is being asked, what the choices are, and how to get to where you answer.
 ///
-/// - **The panel is the card.** `AgentsExpandedView` shows this *instead of* the session list,
-///   and the shell already draws an amber attention ring around the whole silhouette. A second
-///   amber rounded rectangle 12pt inside the first one was a frame around a frame, and it cost
-///   24pt of height — a quarter of the budget — to say something already said. The accent
-///   survives as a rule down the leading edge, which costs nothing vertically.
-/// - **The heading was the wrong line.** "Approval needed" was set at `headline` while the
-///   tool name — the only part that differs between one of these and the next — sat below it a
-///   size down. Whether approval is needed is answered by the ring, the mascot and three
-///   buttons; *what* is being approved is answered by nothing else, so it takes the headline.
-/// - **It is a notice, not a form.** The notch announces the prompt; the answer is given in the
-///   agent's own terminal, which the hook hands the decision straight back to. Tapping the card
-///   dismisses it, for a prompt answered in a way that emitted no event to clear it.
+/// The layout is two columns (`docs/design/approval-question-layouts-v1.html`, layout A):
+///
+/// - **Who**, on the left: the mascot at a size where its startle reads, what kind of prompt
+///   this is, the agent, the project, and how long it has been waiting. This column sits
+///   beside the camera housing rather than under it, so it can start at the top of the panel.
+/// - **What**, on the right: the tool and its command in a code block, or the question with its
+///   options as a grid of numbered chips — each option's description on a line of its own,
+///   because squeezed beside the label it was always the part that got cut off.
+/// - **The way there**, along the bottom: a real "Answer in …" button that brings the agent's
+///   window forward, the key to press once there, and an explicit dismiss.
+///
+/// The panel's tab bar is hidden while this shows (see `NotchRootView.showsHeader`), so the
+/// card is the whole panel. The right column starts below the camera housing, because with no
+/// tab bar above it the top centre of the panel is hardware.
 @MainActor
 struct ApprovalCardView: View {
     @ObservedObject var store: AgentSessionStore
     let approval: PendingApproval
     let namespace: Namespace.ID
 
+    @Environment(\.notchLayout) private var notchLayout
 
     private var question: ApprovalQuestion? { approval.question }
+    private var metrics: Theme.Metrics.Prompt.Type { Theme.Metrics.Prompt.self }
 
     var body: some View {
-        HStack(alignment: .top, spacing: Theme.Metrics.Agents.cardPadding) {
-            accentRule
+        HStack(alignment: .top, spacing: metrics.columnSpacing) {
+            // The accent down the leading edge: the one stroke of colour that says "blocked"
+            // before anything is read.
+            Capsule(style: .continuous)
+                .fill(accent)
+                .frame(width: metrics.ruleWidth)
+                .frame(maxHeight: .infinity)
+                .padding(.top, metrics.whoTopInset)
+                .padding(.trailing, metrics.ruleGap - metrics.columnSpacing)
+                .accessibilityHidden(true)
+
+            who
+                .frame(width: metrics.whoColumnWidth, alignment: .leading)
+                .padding(.top, metrics.whoTopInset)
 
             VStack(alignment: .leading, spacing: Theme.Metrics.collapsedContentSpacing) {
-                header
                 if question != nil {
-                    answerChoices
+                    questionBody
                 } else {
-                    summary
+                    permissionBody
                 }
-                terminalHint
+                Spacer(minLength: .zero)
+                actions
             }
+            .padding(.top, whatTopInset)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .padding(.bottom, metrics.bottomInset)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .contentShape(Rectangle())
-        .onTapGesture { store.dismissApproval(approvalID: approval.approvalID) }
         .accessibilityElement(children: .contain)
         .accessibilityAction(named: "Dismiss") {
             store.dismissApproval(approvalID: approval.approvalID)
         }
     }
 
-    /// What the bordered card's stroke used to say, in a shape that spends no height.
-    private var accentRule: some View {
-        Capsule(style: .continuous)
-            .fill(accent)
-            .frame(width: Theme.Metrics.Agents.accentRuleWidth)
-            .frame(maxHeight: .infinity)
-            .accessibilityHidden(true)
+    /// Below the camera housing on a notched Mac; the panel's own top inset otherwise.
+    private var whatTopInset: CGFloat {
+        notchLayout.hasPhysicalNotch
+            ? notchLayout.physicalNotchSize.height + metrics.housingClearance
+            : metrics.whoTopInset
     }
 
-    private var header: some View {
-        HStack(spacing: Theme.Metrics.expandedContentSpacing) {
-            // Same reasoning as `SessionRowView`: the agent's own sprite beside the status
-            // mark was two icons doing one job. Here it mattered more — this card is the one
-            // place in the app that has to be understood in a glance from across a desk.
+    // MARK: Who
+
+    private var who: some View {
+        VStack(alignment: .leading, spacing: metrics.whoSpacing) {
             StatusIndicator(
                 status: question == nil ? .needsApproval : .waitingForAnswer,
-                size: question == nil
-                    ? Theme.Metrics.Agents.activityGlyphSize
-                    : Theme.Metrics.Agents.questionGlyphSize
+                size: metrics.mascotSize
             )
-            .accessibilityLabel("\(approval.kind.displayName): \(statusWord.lowercased())")
+            .accessibilityLabel("\(approval.kind.displayName): \(kindLabel.lowercased())")
+            .mascotAnchor(.card)
             .matchedGeometryEffect(
                 id: AgentSurfaceElement.status(sessionID: approval.sessionID),
                 in: namespace
             )
+            .padding(.bottom, metrics.whoSpacing)
 
-            VStack(alignment: .leading, spacing: 2) {
-                // Truncated in the middle, not at the tail: an MCP tool reads
-                // `github: create_pull_request`, and both halves carry meaning.
-                // A question leads with the question itself. The tool's name is the only
-                // thing that differs between one *permission* prompt and the next, but between
-                // one question and the next it is always `AskUserQuestion` — the sentence the
-                // agent is asking is what the user has to read, so it takes the headline.
-                // A question is set a size down from a permission prompt's tool name, and that
-                // is a budget decision rather than a hierarchy one: the answers underneath are
-                // the part that has to fit, and at `headline` a two-line question ate the room
-                // for two of them. It is still the largest thing on the card.
-                Text(headline)
-                    .font(question == nil ? Theme.Text.headline : Theme.Text.title)
-                    .foregroundStyle(Theme.Colors.textPrimary)
-                    .lineLimit(2)
-                    .truncationMode(question == nil ? .middle : .tail)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                // The subtitle survives only on a permission prompt. On a question the same row
-                // would restate the header chip and the project while the answers below are
-                // fighting for height — and the panel is answering a sentence, not filing it.
-                if question == nil {
-                    HStack(spacing: 5) {
-                        Text(statusWord)
-                            .foregroundStyle(accent)
-                        Text("·")
-                            .foregroundStyle(Theme.Colors.textTertiary)
-                        Text(approval.projectDisplayName)
-                            .foregroundStyle(Theme.Colors.textSecondary)
-                            .truncationMode(.middle)
-                    }
-                    .font(Theme.Text.body)
-                    .lineLimit(1)
-                }
-            }
-
-            Spacer(minLength: Theme.Metrics.collapsedContentSpacing)
-
-            // One line, not two. The chip sits beside the clock rather than under it because
-            // the row's height is the answers' height: every point spent stacking two short
-            // labels here is a point the option list does not get.
-            HStack(spacing: 5) {
-                if question != nil {
-                    Text(statusWord)
-                        .font(Theme.Text.body)
-                        .foregroundStyle(Theme.Colors.textTertiary)
-                        .lineLimit(1)
-                    Text("·")
-                        .font(Theme.Text.body)
-                        .foregroundStyle(Theme.Colors.textTertiary)
-                }
-                elapsed
-            }
-        }
-    }
-
-    /// How long the agent has been stopped, at a width that does not move.
-    ///
-    /// `Text(_:style: .relative)` renders "21 min, 7 secs" — eighteen characters that grow and
-    /// shrink every second in a monospace font, next to a project name that is already fighting
-    /// for the same row. The number matters as an order of magnitude, not to the second.
-    private var elapsed: some View {
-        TimelineView(
-            .periodic(
-                from: approval.requestedAt,
-                by: Theme.Metrics.Agents.elapsedRefreshInterval
-            )
-        ) { context in
-            Text("blocked \(Self.elapsedLabel(context.date.timeIntervalSince(approval.requestedAt)))")
-                .font(Theme.Text.body)
+            Text(kindLabel.uppercased())
+                .font(Theme.Text.micro)
                 .foregroundStyle(accent)
                 .lineLimit(1)
-                .accessibilityLabel("Blocked since \(approval.requestedAt.formatted())")
-        }
-    }
 
-    /// The only row that flexes. A negative layout priority hands the fixed rows their height
-    /// first, so this is what gives when the summary is long — losing a line of detail, rather
-    /// than pushing the hint past the panel's bottom curve.
-    @ViewBuilder
-    private var summary: some View {
-        Group {
-            if let text = nonEmpty(approval.toolInputSummary) ?? nonEmpty(approval.message) {
-                Text(text)
-                    .font(Theme.Text.body)
-                    .foregroundStyle(Theme.Colors.textSecondary)
-                    .lineLimit(Theme.Metrics.Agents.summaryLineLimit)
-                    .truncationMode(.tail)
-                    .textSelection(.enabled)
-            } else {
-                Color.clear
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .layoutPriority(-1)
-    }
-
-    /// Where the answer goes. The notch only announces; the agent's own prompt decides — so
-    /// the hint is also the way there: it brings the agent's window forward. A `Button`, so its
-    /// click is not also taken by the card's tap-to-dismiss.
-    private var terminalHint: some View {
-        HStack(spacing: 4) {
-            if let session = store.session(for: approval.sessionID),
-               SessionWindowOpener.canOpen(session) {
-                Button {
-                    SessionWindowOpener.open(session)
-                } label: {
-                    HStack(spacing: 4) {
-                        PixelGlyphView(glyph: .openWindow, side: Theme.Metrics.Settings.dismissGlyphSize)
-                        Text("Open Agent to answer")
-                    }
+            VStack(alignment: .leading, spacing: 1) {
+                Text(approval.kind.displayName)
                     .foregroundStyle(Theme.Colors.textPrimary)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .help(session.host.map { "Open \($0.name)" } ?? "Open \(session.kind.displayName)")
-
-                Text("· click elsewhere to dismiss")
-                    .foregroundStyle(Theme.Colors.textTertiary)
-            } else {
-                Text("Respond in the terminal · click to dismiss")
-                    .foregroundStyle(Theme.Colors.textTertiary)
+                Text(approval.projectDisplayName)
+                    .foregroundStyle(Theme.Colors.textSecondary)
+                    .truncationMode(.middle)
             }
+            .font(Theme.Text.body)
+            .lineLimit(1)
+
+            waiting
         }
-        .font(Theme.Text.caption)
-        .lineLimit(1)
     }
 
-    /// The answers the agent is offering, read-only — they are picked in the terminal.
-    @ViewBuilder
-    private var answerChoices: some View {
-        if let question {
-            // Not scrollable: nothing here is interactive, and the tail options the panel has no
-            // room for are still listed in the terminal where they are picked.
-            VStack(alignment: .leading, spacing: Theme.Metrics.Agents.optionSpacing) {
-                ForEach(question.options) { option in
-                    optionRow(option)
+    private var kindLabel: String {
+        question == nil ? "Needs permission" : "Has a question"
+    }
+
+    /// How long the agent has been stopped, at a width that does not move — see
+    /// `elapsedLabel`.
+    private var waiting: some View {
+        TimelineView(.periodic(from: approval.requestedAt, by: Theme.Metrics.Agents.elapsedRefreshInterval)) { context in
+            Text("waiting \(Self.elapsedLabel(context.date.timeIntervalSince(approval.requestedAt)))")
+                .font(Theme.Text.micro)
+                .foregroundStyle(Theme.Colors.textTertiary)
+                .lineLimit(1)
+                .accessibilityLabel("Waiting since \(approval.requestedAt.formatted())")
+        }
+    }
+
+    // MARK: What
+
+    /// The tool, what it is for, and the command itself in a code block. The tool's name is the
+    /// only part that differs between one of these and the next, so it takes the headline.
+    private var permissionBody: some View {
+        VStack(alignment: .leading, spacing: Theme.Metrics.collapsedContentSpacing) {
+            HStack(alignment: .firstTextBaseline, spacing: Theme.Metrics.collapsedContentSpacing) {
+                Text(nonEmpty(approval.toolName) ?? "Approval needed")
+                    .font(Theme.Text.headline)
+                    .foregroundStyle(Theme.Colors.textPrimary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .layoutPriority(1)
+                if let purpose = purpose {
+                    Text(purpose)
+                        .font(Theme.Text.caption)
+                        .foregroundStyle(Theme.Colors.textTertiary)
+                        .lineLimit(1)
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .clipped()
-            .layoutPriority(-1)
+
+            if let command = nonEmpty(approval.toolInputSummary) {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text("$")
+                        .foregroundStyle(Theme.Colors.textTertiary)
+                    Text(command)
+                        .foregroundStyle(metrics.commandTint)
+                        .lineLimit(metrics.commandLineLimit)
+                        .truncationMode(.tail)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .font(Theme.Text.body)
+                .padding(.horizontal, metrics.blockHorizontalPadding)
+                .padding(.vertical, metrics.blockVerticalPadding)
+                .background(
+                    RoundedRectangle(cornerRadius: metrics.blockCornerRadius, style: .continuous)
+                        .fill(Theme.Colors.textPrimary.opacity(metrics.blockFillOpacity))
+                )
+            }
         }
+    }
+
+    /// The agent's own description of the call, when it gave one that is not just the command
+    /// again.
+    private var purpose: String? {
+        guard let message = nonEmpty(approval.message), message != nonEmpty(approval.toolInputSummary) else { return nil }
+        return message
+    }
+
+    /// The question, then its options as a grid — two columns once there are more than two, so
+    /// four options fit in two rows with room for a description under each label.
+    @ViewBuilder
+    private var questionBody: some View {
+        if let question {
+            VStack(alignment: .leading, spacing: Theme.Metrics.collapsedContentSpacing) {
+                HStack(alignment: .firstTextBaseline, spacing: Theme.Metrics.collapsedContentSpacing) {
+                    if let header = nonEmpty(question.header) {
+                        Text(header)
+                            .font(Theme.Text.micro)
+                            .foregroundStyle(accent)
+                            .padding(.horizontal, metrics.tagHorizontalPadding)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: metrics.tagCornerRadius, style: .continuous)
+                                    .strokeBorder(accent.opacity(0.4), lineWidth: 1)
+                            )
+                    }
+                    Text(question.prompt)
+                        .font(Theme.Text.title)
+                        .foregroundStyle(Theme.Colors.textPrimary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                LazyVGrid(
+                    columns: Array(repeating: GridItem(.flexible(), spacing: metrics.chipSpacing), count: question.options.count > 2 ? 2 : max(question.options.count, 1)),
+                    alignment: .leading,
+                    spacing: metrics.chipSpacing
+                ) {
+                    ForEach(visibleOptions(of: question)) { option in
+                        optionChip(option)
+                    }
+                    if question.options.count > metrics.maxVisibleOptions {
+                        moreChip(question.options.count - metrics.maxVisibleOptions + 1)
+                    }
+                }
+            }
+        }
+    }
+
+    /// Four chips fit; past that the last slot says how many more are waiting in the terminal.
+    private func visibleOptions(of question: ApprovalQuestion) -> [ApprovalQuestion.Option] {
+        guard question.options.count > metrics.maxVisibleOptions else { return question.options }
+        return Array(question.options.prefix(metrics.maxVisibleOptions - 1))
     }
 
     /// One answer, numbered as the CLI numbers it so the key to press there is obvious.
-    private func optionRow(_ option: ApprovalQuestion.Option) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: Theme.Metrics.expandedContentSpacing) {
-            Text("\(option.id + 1).")
-                .font(Theme.Text.caption)
-                .foregroundStyle(Theme.Colors.textTertiary)
-
-            Text(option.label)
-                .font(Theme.Text.body)
-                .foregroundStyle(Theme.Colors.textPrimary)
-                .lineLimit(1)
-                .truncationMode(.tail)
+    private func optionChip(_ option: ApprovalQuestion.Option) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            HStack(alignment: .firstTextBaseline, spacing: Theme.Metrics.collapsedContentSpacing) {
+                Text("\(option.id + 1)")
+                    .foregroundStyle(accent)
+                Text(option.label)
+                    .foregroundStyle(Theme.Colors.textPrimary)
+                    .truncationMode(.tail)
+            }
+            .font(Theme.Text.body)
+            .lineLimit(1)
 
             if let detail = nonEmpty(option.detail) {
                 Text(detail)
-                    .font(Theme.Text.body)
+                    .font(Theme.Text.micro)
                     .foregroundStyle(Theme.Colors.textTertiary)
                     .lineLimit(1)
                     .truncationMode(.tail)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(
-            [option.label, option.detail].compactMap { $0 }.joined(separator: ": ")
+        .padding(.horizontal, metrics.chipHorizontalPadding)
+        .padding(.vertical, metrics.chipVerticalPadding)
+        .background(
+            RoundedRectangle(cornerRadius: metrics.blockCornerRadius, style: .continuous)
+                .fill(Theme.Colors.textPrimary.opacity(metrics.blockFillOpacity))
         )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel([option.label, option.detail].compactMap { $0 }.joined(separator: ": "))
     }
 
-    private var headline: String {
-        if let question {
-            return question.prompt
+    private func moreChip(_ count: Int) -> some View {
+        Text("+\(count) more in the terminal")
+            .font(Theme.Text.caption)
+            .foregroundStyle(Theme.Colors.textTertiary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, metrics.chipHorizontalPadding)
+            .padding(.vertical, metrics.chipVerticalPadding)
+    }
+
+    // MARK: The way there
+
+    private var actions: some View {
+        HStack(spacing: Theme.Metrics.collapsedContentSpacing * 1.5) {
+            if let session = store.session(for: approval.sessionID), SessionWindowOpener.canOpen(session) {
+                Button {
+                    SessionWindowOpener.open(session)
+                } label: {
+                    Text("Answer in \(approval.kind.displayName) ↗")
+                }
+                .buttonStyle(PromptPrimaryButtonStyle(tint: accent))
+                .help(session.host.map { "Open \($0.name)" } ?? "Open \(session.kind.displayName)")
+            }
+
+            Text(keyHint)
+                .font(Theme.Text.micro)
+                .foregroundStyle(Theme.Colors.textTertiary)
+                .lineLimit(1)
+
+            Spacer(minLength: .zero)
+
+            Button {
+                store.dismissApproval(approvalID: approval.approvalID)
+            } label: {
+                Text("✕ Dismiss")
+            }
+            .buttonStyle(NotchButtonStyle(verticalPadding: Theme.Metrics.Control.compactVerticalPadding))
+            .font(Theme.Text.caption)
+            .help("Hide this notice. The prompt stays open in the agent.")
         }
-        return nonEmpty(approval.toolName) ?? "Approval needed"
     }
 
-    private var statusWord: String {
-        guard let question else { return "Approval needed" }
-        if let header = nonEmpty(question.header) { return header }
-        return "Question"
+    /// What to press once there: the option numbers for a question, return for a permission.
+    private var keyHint: String {
+        guard let question, !question.options.isEmpty else { return "⏎ there to allow" }
+        return question.options.count == 1 ? "press 1 there" : "press 1–\(question.options.count) there"
     }
 
     /// Amber for a decision that is holding a hook open, the question hue for one that is
@@ -290,5 +328,25 @@ struct ApprovalCardView: View {
         let hours = minutes / 60
         guard hours >= 24 else { return "\(hours)h\(minutes % 60)m" }
         return "\(hours / 24)d"
+    }
+}
+
+/// The card's one filled button, in the prompt's own colour, so the way to answer is the most
+/// visible thing on it rather than the least.
+private struct PromptPrimaryButtonStyle: ButtonStyle {
+    let tint: Color
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(Theme.Text.caption)
+            .foregroundStyle(Theme.Colors.surface)
+            .lineLimit(1)
+            .padding(.horizontal, Theme.Metrics.Control.horizontalPadding)
+            .padding(.vertical, Theme.Metrics.Control.compactVerticalPadding + 1)
+            .background(
+                RoundedRectangle(cornerRadius: Theme.Metrics.Control.cornerRadius, style: .continuous)
+                    .fill(tint.opacity(configuration.isPressed ? 0.8 : 1))
+            )
+            .contentShape(Rectangle())
     }
 }

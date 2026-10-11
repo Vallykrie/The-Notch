@@ -24,6 +24,7 @@ struct SettingsExpandedView: View {
 
     @ObservedObject var integrations: AgentIntegrationManager
     @ObservedObject var store: AgentSessionStore
+    var onReplayIntro: () -> Void = {}
     @State private var showingConnections = false
 
     var body: some View {
@@ -75,6 +76,13 @@ struct SettingsExpandedView: View {
                 SettingsToggleRow(label: "Expand on hover", isOn: $settings.expandOnHover)
                 SettingsChoiceRow(label: "Hover speed", selection: $settings.hoverSensitivity)
                 SettingsToggleRow(label: "Launch at login", isOn: $settings.launchAtLogin)
+                // "Celebrate", not "Celebrate finished runs": the row has ~14 characters.
+                SettingsToggleRow(label: "Celebrate done", isOn: $settings.celebrateFinishedRuns)
+                Button("Replay intro…", action: onReplayIntro)
+                    .font(Theme.Text.micro)
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Theme.Colors.textSecondary)
+                    .help("Play the first-launch intro again, including the question about hooking up your agents.")
                 Button("Donate…") { NSWorkspace.shared.open(SupportLinks.donate) }
                     .font(Theme.Text.micro)
                     .buttonStyle(.plain)

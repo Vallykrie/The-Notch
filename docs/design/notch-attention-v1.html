@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Notch Attention Motion</title>
+<style>
+@font-face{font-family:Departure;src:url("../../The%20Notch/Resources/Fonts/DepartureMono-Regular.otf")}
+:root{--bg:#0b0b0c;--fg:#ece9e2;--muted:#8d8a83;--line:#262420;--card:#121211;--mono:Departure,ui-monospace,Menlo,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.55 -apple-system,BlinkMacSystemFont,system-ui,sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 16px 64px}
+h1{font:600 22px/1.2 -apple-system,system-ui,sans-serif;margin:0 0 6px;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:0 0 18px;max-width:780px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.bar button{font:12px var(--mono);background:#161614;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px 12px;cursor:pointer}
+.bar button:hover{border-color:#4a4740}
+.bar button.on{background:var(--fg);color:#000;border-color:var(--fg)}
+.bar .sp{flex:1}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;border-radius:0;padding:8px 10px}
+.stage{position:relative;aspect-ratio:1000/400;border-radius:14px;overflow:hidden;container-type:inline-size;user-select:none;
+  background:
+   radial-gradient(120% 90% at 50% 120%,#f6d39a 0%,transparent 55%),
+   radial-gradient(70% 70% at 10% 90%,#3b5bd6 0%,transparent 60%),
+   radial-gradient(60% 80% at 90% 70%,#e0785a 0%,transparent 60%),
+   linear-gradient(170deg,#6f4ea8 0%,#d9774f 55%,#f2b77b 100%)}
+.menubar{position:absolute;inset:0 0 auto 0;height:8%;display:flex;align-items:center;justify-content:space-between;padding:0 1.6cqw;
+  font:500 1.25cqw/1 -apple-system,system-ui,sans-serif;color:rgba(255,255,255,.92);background:rgba(20,10,30,.12);backdrop-filter:blur(8px)}
+.menubar span{margin-right:1.6cqw}
+canvas{position:absolute;inset:0;width:100%;height:100%}
+#gooLayer{filter:url(#goo)}
+.hint{font:12px var(--mono);color:var(--muted);margin:10px 2px 0;min-height:18px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;margin-top:26px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.card h3{font:12px var(--mono);letter-spacing:.06em;margin:0 0 8px;display:flex;gap:8px;align-items:center}
+.card h3 i{width:8px;height:8px;display:inline-block}
+.card ol{margin:0;padding-left:18px;color:#c9c5bc;font-size:13px}
+.card li{margin:3px 0}
+.card p{margin:8px 0 0;color:var(--muted);font-size:12.5px}
+code{font:12px var(--mono);color:#e9d9b8}
+.why{margin-top:22px;color:var(--muted);font-size:13px;max-width:860px}
+.why b{color:var(--fg);font-weight:600}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <filter id="goo"><feGaussianBlur in="SourceGraphic" stdDeviation="3.5"/>
+    <feColorMatrix values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -8"/></filter>
+</svg>
+<div class="wrap">
+  <h1>Notch attention motion · prototype v1</h1>
+  <p class="sub">Everything happens inside the notch. Onboarding + hook consent first, then the three moments where an agent needs you. Each moment gets its own physical gesture so you can tell them apart without reading: approval <b>pops</b>, a question <b>drips</b>, done <b>breathes out</b>. The cards are clickable. If you ignore them, they nudge again.</p>
+  <div class="bar">
+    <button data-s="onboarding" class="on">1 · onboarding + consent</button>
+    <button data-s="permission">2 · permission</button>
+    <button data-s="question">3 · question</button>
+    <button data-s="done">4 · done</button>
+    <span class="sp"></span>
+    <div class="seg" id="speed"><button data-v="1" class="on">1×</button><button data-v=".5">½×</button><button data-v=".25">¼×</button></div>
+    <button id="snd" class="on">sound on</button>
+  </div>
+  <div class="stage" id="stage">
+    <div class="menubar"><div><span></span><span><b>Ghostty</b></span><span>Shell</span><span>Edit</span><span>View</span><span>Window</span></div><div><span>⌁</span><span>Sun 11 Oct  9:41</span></div></div>
+    <canvas id="gooLayer"></canvas>
+    <canvas id="main"></canvas>
+  </div>
+  <div class="hint" id="hint"></div>
+
+  <div class="grid">
+    <div class="card"><h3><i style="background:#f2efe8"></i>ONBOARDING + CONSENT</h3><ol>
+      <li>Notch melts: drops bead off its bottom edge (gooey).</li>
+      <li>It swallows them and opens into a wide band of drifting pixels.</li>
+      <li>The pixels fly in and build the mascot. Pop, blink, look around.</li>
+      <li>Says hi, slides left, and asks to install the hook. Both agent rows can be toggled.</li>
+      <li><b>connect</b>: pixels stream from the mascot into each row, which ticks green.</li>
+      <li>The mascot dissolves, and its own pixels rebuild it, tiny, on the left shoulder while the band closes.</li>
+      <li>A drop falls off the notch and becomes a “hover to open” pill, then gets drunk back up.</li></ol>
+      <p>The consent copy says what we touch, that other hooks are kept and that there's a backup. That's the "never clobber" rule, spoken out loud.</p></div>
+    <div class="card"><h3><i style="background:#ff850f"></i>PERMISSION · POP</h3><ol>
+      <li>Shoulder mascot startles and turns amber.</li>
+      <li>Notch <b>inhales</b> (shrinks 16pt, 110ms) and then pops into the card on an under-damped spring.</li>
+      <li>Two amber rings shock out from the silhouette. Sparks fly off the bottom edge and the rim glows.</li>
+      <li>Ignored for 3.6s: a nudge (width kick, belly wobble, one ring, mascot hop). It repeats.</li>
+      <li>allow → card ticks green and closes · deny → head-shake, then closes.</li></ol>
+      <p>This is the loudest gesture, because it is the one that blocks the agent.</p></div>
+    <div class="card"><h3><i style="background:#ffcc1a"></i>QUESTION · DRIP</h3><ol>
+      <li>A single drop forms under the notch and hangs.</li>
+      <li>The notch <b>gulps</b> it and grows into the question card. The bottom edge wobbles.</li>
+      <li>The options stagger in. A “?” bobs above the mascot.</li>
+      <li>Ignored for 4s: a drop forms again at the bottom edge and is drunk back up.</li>
+      <li>Click an option, or press 1–3. The row fills yellow and the card closes.</li></ol>
+      <p>Softer than permission: a question is a conversation, not a gate (the same reasoning as <code>Status.question</code>).</p></div>
+    <div class="card"><h3><i style="background:#38ff73"></i>DONE · BREATHE OUT</h3><ol>
+      <li>Shoulders widen, and a green light sweeps along the rim from left to right.</li>
+      <li>Pixel confetti spills out of the bottom edge onto the desktop. The mascot hops.</li>
+      <li>The notch peeks open with a summary and a jump-back button.</li>
+      <li>It auto-closes after 5s. The countdown pauses while you hover.</li></ol>
+      <p>This one never repeats. Once it's done it goes quiet, and the shoulder stays green.</p></div>
+  </div>
+  <p class="why"><b>Motion tokens this would add to <code>Theme.Motion</code>:</b> <code>pop</code> spring(0.42, 0.60) · <code>inhale</code> spring(0.12, 1.0) · <code>band</code> spring(0.60, 0.74) · <code>nudge</code> = velocity kicks on the existing springs (no new curves) · ring 0.7s ease-out · confetti gravity 520pt/s². The existing <code>open</code>, <code>close</code> and <code>resize</code> are reused unchanged. In SwiftUI the goo is a <code>Canvas</code> with <code>.alphaThreshold</code> + <code>.blur</code> (Apple's metaball recipe), so no Metal is needed.</p>
+</div>
+
+<script>
+// ---------- setup ----------
+const W=1000,H=400,CX=500;
+const C={ink:'#f2efe8',muted:'#8d8a83',dim:'#4b4842',chip:'#1b1a18',work:'#2a9eff',amber:'#ff850f',yellow:'#ffcc1a',green:'#38ff73',red:'#ff5a64'};
+const FONT='Departure, ui-monospace, Menlo, monospace';
+const stage=document.getElementById('stage'),gooC=document.getElementById("gooLayer"),mainC=document.getElementById('main');
+const gx=gooC.getContext('2d'),mx=mainC.getContext('2d');
+let S=1,DPR=1;
+function resize(){const r=stage.getBoundingClientRect();S=r.width/W;DPR=window.devicePixelRatio||1;
+  for(const c of[gooC,mainC]){c.width=Math.round(r.width*DPR);c.height=Math.round(r.height*DPR)}}
+addEventListener('resize',resize);resize();
+
+let speed=1,soundOn=true,now=0;
+const SFX={approval:'sfx-approval.wav',question:'sfx-question.wav',done:'sfx-done.wav'};
+function sfx(k){if(!soundOn)return;try{const a=new Audio('../../The%20Notch/Resources/Sounds/'+SFX[k]);a.volume=.55;a.play().catch(()=>{})}catch(e){}}
+
+// ---------- maths ----------
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),lerp=(a,b,t)=>a+(b-a)*t,rnd=(a,b)=>a+Math.random()*(b-a);
+function bez(x1,y1,x2,y2){const cx=3*x1,bx=3*(x2-x1)-cx,ax=1-cx-bx,cy=3*y1,by=3*(y2-y1)-cy,ay=1-cy-by;
+  const X=t=>((ax*t+bx)*t+cx)*t,Y=t=>((ay*t+by)*t+cy)*t,dX=t=>(3*ax*t+2*bx)*t+cx;
+  return x=>{let t=x;for(let i=0;i<8;i++){const d=dX(t);if(Math.abs(d)<1e-6)break;t-=(X(t)-x)/d;t=clamp(t,0,1)}return Y(t)}}
+const EASE={out:bez(.2,.8,.3,1),inOut:bez(.45,0,.25,1),in:bez(.5,0,.75,0),close:bez(.42,0,.22,1)};
+function hex(c){const n=parseInt(c.slice(1),16);return[n>>16&255,n>>8&255,n&255]}
+function mix(a,b,t){const A=hex(a),B=hex(b);return'#'+A.map((v,i)=>Math.round(lerp(v,B[i],t)).toString(16).padStart(2,'0')).join('')}
+function rgba(c,a){const[r,g,b]=hex(c);return`rgba(${r},${g},${b},${a})`}
+
+// One animatable value. Springs use the SwiftUI parameterisation (response, dampingFraction).
+class Ch{constructor(v){this.v=v;this.t=v;this.vel=0;this.m=null}
+  spring(t,r,d){this.t=t;this.m={k:'s',r,d};return this}
+  curve(t,dur,e=EASE.close){this.m={k:'c',f:this.v,t,dur,e,el:0};this.t=t;this.vel=0;return this}
+  kick(v,r=.38,d=.5){this.vel+=v;if(!this.m||this.m.k!=='s')this.m={k:'s',r,d};return this}
+  set(v){this.v=this.t=v;this.vel=0;this.m=null;return this}
+  step(dt){const m=this.m;if(!m)return;
+    if(m.k==='s'){const k=(2*Math.PI/m.r)**2,c=4*Math.PI*m.d/m.r,n=Math.ceil(dt/.004),h=dt/n;
+      for(let i=0;i<n;i++){this.vel+=(-k*(this.v-this.t)-c*this.vel)*h;this.v+=this.vel*h}
+      if(Math.abs(this.v-this.t)<.005&&Math.abs(this.vel)<.02){this.v=this.t;this.vel=0;this.m=null}}
+    else{m.el+=dt;const p=Math.min(1,m.el/m.dur);this.v=lerp(m.f,m.t,m.e(p));if(p>=1)this.m=null}}}
+const REG=[];const ch=v=>{const c=new Ch(v);REG.push(c);return c};
+
+// ---------- notch ----------
+const SZ={collapsed:{w:188,h:32,rt:6,rb:14},live:{w:376,h:32,rt:6,rb:14},band:{w:780,h:250,rt:19,rb:30},
+  consent:{w:740,h:236,rt:19,rb:28},perm:{w:600,h:160,rt:19,rb:26},ask:{w:600,h:200,rt:19,rb:26},
+  done:{w:540,h:132,rt:19,rb:26},doneWide:{w:440,h:34,rt:6,rb:15}};
+const M={open:{s:[.38,.72]},close:{c:[.32,EASE.close]},closeSlow:{c:[.6,EASE.close]},resize:{s:[.45,1]},
+  pop:{s:[.42,.6]},band:{s:[.6,.74]},inhale:{s:[.12,1]},warm:{s:[.5,.6]}};
+const N={w:ch(188),h:ch(32),rt:ch(6),rb:ch(14),belly:ch(0),dx:ch(0)};
+function nSet(sz){for(const k in sz)N[k].set(sz[k]);N.belly.set(0);N.dx.set(0)}
+function nTo(sz,how){for(const k in sz){if(how.s)N[k].spring(sz[k],...how.s);else N[k].curve(sz[k],...how.c)}}
+function geo(grow=0){const w=N.w.v,h=N.h.v,x0=CX-w/2+N.dx.v-grow,x1=CX+w/2+N.dx.v+grow;return{x0,x1,w:x1-x0,h:h+grow,rt:N.rt.v,rb:N.rb.v+grow*.5,belly:N.belly.v,cx:(x0+x1)/2}}
+function notchPath(c,g){const{x0,x1,h,rt}=g,rb=Math.max(0,Math.min(g.rb,h-rt,(x1-x0)/2)),span=x1-x0-2*rb,b=g.belly*1.33;
+  c.beginPath();c.moveTo(x0-rt,-2);c.lineTo(x0-rt,0);c.quadraticCurveTo(x0,0,x0,rt);c.lineTo(x0,h-rb);c.quadraticCurveTo(x0,h,x0+rb,h);
+  c.bezierCurveTo(x0+rb+span*.25,h+b,x1-rb-span*.25,h+b,x1-rb,h);c.quadraticCurveTo(x1,h,x1,h-rb);c.lineTo(x1,rt);c.quadraticCurveTo(x1,0,x1+rt,0);c.lineTo(x1+rt,-2);c.closePath()}
+
+// ---------- mascot (12×10 blob, same anatomy as AgentActivityGlyph) ----------
+function mascotCells(p){const m=new Map(),put=(x,y,k)=>m.set(x+','+y,{x,y,k});
+  const body=p.squash?[[4,3,8],[5,1,10],[6,1,10],[7,2,9]]:[[3,4,7],[4,2,9],[5,1,10],[6,1,10],[7,2,9]],ar=p.squash?3:2;
+  for(const[r,a,b] of body)for(let x=a;x<=b;x++)put(x,r,'b');
+  const ant=(root,dir,lift)=>{put(root,ar,'a');if(lift<=0){put(root+dir,ar,'a');return}
+    for(let s=1;s<=Math.min(lift,2);s++)put(root+dir*s,ar-s,s===lift?'t':'a')};
+  ant(4,-1,p.lift??1);ant(7,1,p.liftR??p.lift??1);
+  const legs=(p.legs||0)===0?[[3,8],[4,8],[7,8],[8,8],[2,9],[9,9]]:[[2,8],[3,8],[8,8],[9,8],[4,9],[7,9]];
+  for(const[x,y] of legs)put(x,y,'l');
+  if(p.eyes!=='closed'){const rows=p.eyes==='wide'?[5,4]:[5],w=p.eyes==='narrow'?1:2;
+    for(const st of[3,7])for(let o=0;o<w;o++){const c=clamp(st+o+(p.shift||0),2,8);for(const r of rows)m.delete(c+','+r)}}
+  const cells=[...m.values()],occ=new Set(cells.map(c=>c.x+','+c.y));
+  return cells.map(c=>({x:c.x,y:c.y,tone:c.k==='l'?-1:c.k==='t'||!occ.has(c.x+','+(c.y-1))?1:!occ.has(c.x+','+(c.y+1))?-1:0}))}
+function drawMascot(c,cx,cy,cell,col,pose,a=1,flash=0){if(a<=0)return;const cells=mascotCells(pose),gap=Math.max(.5,cell*.14);
+  const hi=mix(col,'#ffffff',.38),lo=mix(col,'#000000',.38),ox=cx-6*cell,oy=cy-5*cell;
+  c.save();c.globalAlpha=a;c.shadowColor=rgba(col,.55);c.shadowBlur=cell*1.6*S*DPR;
+  for(const p of cells){let k=p.tone>0?hi:p.tone<0?lo:col;if(flash>0)k=mix(k,'#ffffff',flash);c.fillStyle=k;
+    c.fillRect(ox+p.x*cell+gap/2,oy+p.y*cell+gap/2,cell-gap,cell-gap)}c.restore()}
+function mascotTargets(cx,cy,cell,pose){return mascotCells(pose).map(p=>({x:cx-6*cell+(p.x+.5)*cell,y:cy-5*cell+(p.y+.5)*cell,cell:p}))}
+
+// The big mascot inside a panel, and the tiny one on the left shoulder.
+const MAS={on:false,x:ch(CX),y:ch(118),oy:ch(0),cell:ch(8),col:C.ink,a:ch(1),flash:ch(0),eyes:'open',shift:0,look:false,lift:1,blinkAt:0,blinkUntil:0,mood:null};
+const MINI={on:false,col:C.ink,a:ch(0),oy:ch(0),flash:ch(0),mood:'idle'};
+const SH={a:ch(0),text:'',col:C.muted,t0:0,dot:null};
+function shText(t,col=C.muted,dot=null){SH.text=t;SH.col=col;SH.t0=now;SH.dot=dot}
+
+// ---------- particles, blobs, rings, rim ----------
+let parts=[],blobs=[],rings=[],rims=[],pill=null;
+function addP(o){const p=Object.assign({x:0,y:0,vx:0,vy:0,age:0,life:9e9,size:2,col:C.ink,a:1,layer:'in',kind:'ball',g:0,drag:0,delay:0},o);parts.push(p);return p}
+function blob(x,y,r){const b={x:new Ch(x),y:new Ch(y),r:new Ch(r)};blobs.push(b);return b}
+function ring(col,n=1,gap=.14){for(let i=0;i<n;i++)rings.push({t0:now+i*gap,col,dur:.75})}
+function rim(col,mode,dur){rims.push({t0:now,col,mode,dur})}
+function sparks(col,n=26){const g=geo();for(let i=0;i<n;i++){const side=Math.random();
+  const x=side<.2?g.x0+4:side>.8?g.x1-4:rnd(g.x0+20,g.x1-20),ang=Math.PI/2+rnd(-1.1,1.1)+(side<.2?.6:side>.8?-.6:0),sp=rnd(140,340);
+  addP({x,y:g.h+g.belly,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,drag:4.2,life:rnd(.4,.8),size:rnd(2,3.4),col:Math.random()<.3?C.ink:col,layer:'out'})}}
+function confetti(n=48){const g=geo(),cols=[C.green,C.green,C.ink,C.work,C.yellow];for(let i=0;i<n;i++){
+  addP({x:rnd(g.x0+16,g.x1-16),y:g.h-2,vx:rnd(-240,240),vy:rnd(40,260),g:520,drag:.9,life:rnd(1.2,1.9),size:rnd(3,5),spin:rnd(6,14),
+    col:cols[i%cols.length],layer:'out',kind:'conf',delay:rnd(0,.18)})}}
+
+// ---------- scene plumbing ----------
+let waiters=[],clickWaiters=[],sceneId=0,UI={},hits=[],hover=null,mouse={x:-99,y:-99,in:false},pressed=null;
+class Cancel extends Error{}
+function reset(){waiters=[];clickWaiters=[];parts=[];blobs=[];rings=[];rims=[];pill=null;UI={};
+  MAS.on=false;MAS.look=false;MAS.mood=null;MAS.eyes='open';MAS.shift=0;MAS.lift=1;MAS.a.set(1);MAS.flash.set(0);MAS.oy.set(0);
+  MINI.on=false;MINI.a.set(0);MINI.oy.set(0);MINI.flash.set(0);SH.a.set(0);SH.text='';CA.set(0)}
+function run(fn){const id=++sceneId;reset();
+  const s={
+    wait:ms=>new Promise((res,rej)=>waiters.push({at:now+ms/1000,fn:()=>id===sceneId?res():rej(new Cancel)})),
+    after:(ms,f)=>waiters.push({at:now+ms/1000,fn:()=>{if(id===sceneId)f()}}),
+    click:(ids,ms)=>new Promise((res,rej)=>{let done=false;const fin=v=>{if(done)return;done=true;id===sceneId?res(v):rej(new Cancel)};
+      clickWaiters.push({ids,fin});if(ms)waiters.push({at:now+ms/1000,fn:()=>fin('timeout')})})};
+  fn(s).catch(e=>{if(!(e instanceof Cancel))console.error(e)})}
+const CA=ch(0); // content alpha of whatever panel is open
+const contentIn=()=>{CA.set(0);CA.curve(1,.26,EASE.in)}; const contentOut=()=>CA.curve(0,.11,EASE.out);
+function typed(str,t0,cps=30){return str.slice(0,Math.max(0,Math.floor((now-t0)*cps)))}
+
+// ---------- drawing helpers ----------
+function txt(c,s,x,y,{size=11,col=C.ink,align='left',a=1}={}){if(!s)return;c.save();c.globalAlpha*=a;c.font=`${size}px ${FONT}`;c.fillStyle=col;c.textAlign=align;c.textBaseline='alphabetic';c.fillText(s,x,y);c.restore()}
+function rr(c,x,y,w,h,r){c.beginPath();c.roundRect(x,y,w,h,r)}
+function btn(c,id,label,x,y,w,h,{kind='ghost',col=C.ink,a=1}={}){
+  const hov=hover===id,pr=pressed&&pressed.id===id&&now-pressed.t<.18,sc=pr?.95:1;
+  c.save();c.globalAlpha*=a;c.translate(x+w/2,y+h/2);c.scale(sc,sc);c.translate(-(x+w/2),-(y+h/2));
+  if(kind==='primary'){c.fillStyle=hov?mix(col,'#ffffff',.25):col;rr(c,x,y,w,h,7);c.fill();txt(c,label,x+w/2,y+h/2+4,{col:'#000',align:'center'})}
+  else{c.fillStyle=hov?'#2a2925':'#1a1917';rr(c,x,y,w,h,7);c.fill();c.strokeStyle=hov?'#55524a':'#302e2a';c.lineWidth=1;rr(c,x+.5,y+.5,w-1,h-1,6.5);c.stroke();
+    txt(c,label,x+w/2,y+h/2+4,{col:hov?C.ink:'#c9c5bc',align:'center'})}
+  c.restore();if(a>.5)hits.push({id,x,y,w,h,primary:kind==='primary'})}
+function tag(c,label,col,x,y){c.font=`9px ${FONT}`;const w=c.measureText(label).width+10;c.fillStyle=rgba(col,.16);rr(c,x,y-10,w,14,3);c.fill();txt(c,label,x+5,y,{size:9,col});return w}
+
+// ---------- the four moments ----------
+const SCENES={
+async onboarding(s){nSet(SZ.collapsed);setHint('first launch · the whole thing plays inside the notch');
+  await s.wait(600);
+  // 1 · melt: drops bead off the bottom edge
+  nTo({w:236,h:40,rb:16},M.warm);
+  [-64,-33,-2,30,61].forEach((dx,i)=>s.after(i*70,()=>{const b=blob(CX+dx,34,0);b.r.spring(9+(i%3)*2.6,.35,.6);b.y.curve(58+Math.random()*26,.8,EASE.in)}));
+  await s.wait(900);
+  // 2 · it swallows them and opens into a band
+  nTo(SZ.band,M.band);N.belly.kick(260,.6,.45);
+  blobs.forEach(b=>{b.y.curve(140,.5,EASE.inOut);b.r.spring(20,.4,1)});s.after(600,()=>blobs=[]);
+  for(let i=0;i<170;i++)addP({kind:'star',x:rnd(CX-385,CX+385),y:rnd(6,245),vx:rnd(-8,8),vy:rnd(-5,5),size:Math.random()<.15?2:1.2,
+    col:[C.ink,C.ink,C.work,C.amber,'#b58cff'][i%5],tw:rnd(2,6),ph:rnd(0,6),delay:rnd(0,.8),a:rnd(.35,.9)});
+  await s.wait(800);
+  // 3 · pixels gather into the mascot
+  const pose={eyes:'open',lift:1},tg=mascotTargets(CX,118,8,pose),stars=parts.filter(p=>p.kind==='star').sort(()=>Math.random()-.5);
+  tg.forEach((t,i)=>{const p=stars[i];Object.assign(p,{kind:'seek',tx:t.x,ty:t.y,sAge:0,sDelay:rnd(0,.5),resp:rnd(.45,.7),ts:6.9,from:p.col,fromS:p.size})});
+  await s.wait(1350);
+  parts=parts.filter(p=>p.kind!=='seek');MAS.on=true;MAS.x.set(CX);MAS.y.set(118);MAS.cell.set(8);MAS.col=C.ink;MAS.flash.set(1).curve(0,.5,EASE.out);MAS.oy.kick(-260,.32,.45);sfx('done');
+  await s.wait(650);blink();await s.wait(500);MAS.shift=-1;await s.wait(420);MAS.shift=1;await s.wait(420);MAS.shift=0;await s.wait(250);
+  // 4 · hello
+  UI.view='greet';UI.g1=now;CA.set(1);await s.wait(1100);UI.g2=now;await s.wait(1900);
+  // 5 · consent
+  contentOut();await s.wait(140);
+  MAS.x.spring(CX-250,.5,.82);MAS.y.spring(122,.5,.82);nTo(SZ.consent,M.resize);
+  UI.view='consent';UI.rows=[{name:'claude code',path:'~/.claude/settings.json',on:true,st:null},{name:'codex',path:'~/.codex/hooks.json',on:true,st:null}];UI.c0=now;
+  await s.wait(200);contentIn();MAS.look=true;setHint('click a row to toggle it · connect ⏎ or not now');
+  let r;while((r=await s.click(['connect','later','cb0','cb1'])).startsWith('cb')){const row=UI.rows[+r[2]];row.on=!row.on}
+  MAS.look=false;MAS.shift=0;
+  if(r==='connect'&&UI.rows.some(x=>x.on)){
+    UI.connecting=true;MAS.oy.kick(-240,.3,.45);MAS.lift=2;
+    UI.rows.forEach((row,i)=>{if(!row.on)return;const tx=UI.cbX+6,ty=UI.rowY[i]-4;
+      for(let k=0;k<22;k++)addP({kind:'path',pts:[[MAS.x.v+rnd(-18,18),MAS.y.v+rnd(-14,14)],[MAS.x.v+70,MAS.y.v-60+i*40],[tx-60,ty+rnd(-20,20)],[tx,ty]],
+        dur:.62,delay:k*.03+i*.12,col:C.green,size:3.2,die:true,onArrive:k===21?()=>{row.st='on';row.t=now;MAS.flash.set(.6).curve(0,.3)}:null})});
+    await s.wait(1250);MAS.lift=1;UI.after="connected. i'll tap you when they need you.";UI.a0=now;await s.wait(1700);
+  }else{MAS.eyes='narrow';UI.after="no worries. settings › agents, any time.";UI.a0=now;await s.wait(1900);MAS.eyes='open'}
+  // 6 · dissolve into the shoulder
+  contentOut();await s.wait(120);MAS.x.spring(CX,.45,.85);MAS.y.spring(112,.45,.85);nTo({w:640,h:200,rb:26},M.resize);
+  await s.wait(520);
+  const live=mascotTargets(CX-140,16,2.2,{eyes:'open',lift:1}),big=mascotTargets(MAS.x.v,MAS.y.v+MAS.oy.v,8,{eyes:'open',lift:1});
+  MAS.on=false;
+  big.forEach((b,i)=>{const t=live[i];addP({kind:'path',pts:[[b.x,b.y],[b.x-140,b.y+40],[t.x-30,t.y+70],[t.x,t.y]],dur:rnd(.85,1.05),delay:(9-b.cell.y)*.03,
+    col:C.ink,size:6.5,toSize:2,die:true})});
+  parts.filter(p=>p.kind==='star').forEach(p=>{if(Math.random()<.3)Object.assign(p,{kind:'path',pts:[[p.x,p.y],[p.x+120,p.y+30],[CX+170,60],[CX+130,16]],dur:rnd(.7,1.1),delay:rnd(0,.25),die:true,size:1.6});else p.life=p.age+rnd(.1,.4)});
+  s.after(480,()=>nTo(SZ.live,M.closeSlow));
+  await s.wait(1150);
+  MINI.on=true;MINI.col=C.ink;MINI.a.set(1);MINI.flash.set(.8).curve(0,.4);SH.a.set(1);shText('ready',C.ink,C.green);
+  await s.wait(700);
+  // 7 · the hint pill drops off the notch
+  setHint('the pill drips off the notch, then gets drunk back up');
+  const b=blob(CX,26,0);b.r.spring(9.5,.3,.7);await s.wait(260);b.y.curve(60,.42,EASE.in);await s.wait(430);
+  blobs=[];pill={y:60,w:new Ch(19),ta:new Ch(0)};pill.w.spring(196,.42,.68);s.after(160,()=>pill.ta.curve(1,.2));
+  await s.wait(2800);pill.ta.curve(0,.12);await s.wait(100);pill.w.spring(19,.3,1);await s.wait(260);
+  pill=null;const b2=blob(CX,60,9.5);b2.y.curve(24,.38,EASE.inOut);b2.r.curve(0,.45,EASE.in);await s.wait(500);blobs=[];
+  setHint('done · press a button above to see the attention moments');
+},
+
+async permission(s){await liveSetup(s,'auth-refactor');
+  setHint('claude wants to run a command');sfx('approval');
+  MINI.col=C.amber;MINI.mood='alert';MINI.oy.kick(-120,.18,.4);shText('needs you',C.amber,C.amber);
+  await s.wait(260);
+  nTo({w:SZ.live.w-16,h:29},M.inhale);await s.wait(110);
+  nTo(SZ.perm,M.pop);N.belly.kick(300,.42,.42);ring(C.amber,2);sparks(C.amber);rim(C.amber,'pulse',1.1);
+  UI.view='perm';UI.t0=now;MINI.a.curve(0,.12);SH.a.curve(0,.12);
+  MAS.on=true;MAS.col=C.amber;MAS.cell.set(3.6);MAS.x.set(CX-300+64);MAS.y.set(84);MAS.eyes='wide';MAS.lift=2;MAS.mood='alert';
+  s.after(90,contentIn);
+  let n=0,r;
+  while((r=await s.click(['allow','always','deny'],3600))==='timeout'){n++;N.w.kick(340,.42,.42);N.belly.kick(200,.42,.4);ring(C.amber,1);rim(C.amber,'pulse',.8);MAS.oy.kick(-150,.25,.4);
+    setHint(`nudge ${n} · it keeps asking until you answer`)}
+  pressed={id:r,t:now};
+  if(r==='deny'){N.dx.kick(900,.32,.22);MAS.col=C.red;MAS.eyes='narrow';UI.res='deny';setHint('denied · head-shake, then close');await s.wait(600)}
+  else{UI.res=r;MAS.col=C.green;MAS.eyes='narrow';MAS.flash.set(.7).curve(0,.3);rim(C.green,'sweep',.5);setHint(r==='always'?'always allowed · closes':'allowed once · closes');await s.wait(520)}
+  contentOut();await s.wait(110);MAS.on=false;nTo(SZ.live,M.close);
+  MINI.col=r==='deny'?C.red:C.work;MINI.mood=r==='deny'?null:'work';MINI.a.curve(1,.2);SH.a.curve(1,.2);shText(r==='deny'?'denied':'auth-refactor',r==='deny'?C.red:C.muted,r==='deny'?C.red:C.work);
+  if(r==='deny'){await s.wait(1600);MINI.col=C.work;MINI.mood='work';shText('auth-refactor',C.muted,C.work)}
+},
+
+async question(s){await liveSetup(s,'api-tests');
+  setHint('claude has a question');sfx('question');
+  MINI.col=C.yellow;MINI.mood='ask';shText('asking',C.yellow,C.yellow);
+  const b=blob(CX,28,0);b.r.spring(13,.32,.6);await s.wait(240);b.y.curve(58,.5,EASE.inOut);await s.wait(520);
+  nTo(SZ.ask,M.open);N.belly.kick(220,.45,.38);b.y.curve(130,.35,EASE.in);b.r.spring(18,.3,1);s.after(380,()=>blobs=[]);
+  MINI.a.curve(0,.12);SH.a.curve(0,.12);
+  UI.view='ask';UI.t0=now;MAS.on=true;MAS.col=C.yellow;MAS.cell.set(3.6);MAS.x.set(CX-300+64);MAS.y.set(92);MAS.eyes='open';MAS.mood='ask';MAS.lift=1;
+  s.after(100,contentIn);
+  let n=0,r;
+  while((r=await s.click(['q1','q2','q3'],4000))==='timeout'){n++;setHint(`nudge ${n} · a drop forms and is drunk back up`);
+    const d=blob(CX,N.h.v-4,0);d.r.spring(11,.3,.6);s.after(260,()=>d.y.curve(N.h.v+16,.4,EASE.inOut));
+    s.after(900,()=>{d.y.curve(N.h.v-6,.3,EASE.inOut);d.r.curve(0,.35)});s.after(1300,()=>blobs=blobs.filter(x=>x!==d));MAS.oy.kick(-120,.25,.4)}
+  pressed={id:r,t:now};UI.pick=r;UI.pt=now;MAS.eyes='narrow';MAS.oy.kick(140,.22,.5);setHint('answered · closes');
+  await s.wait(650);contentOut();await s.wait(110);MAS.on=false;nTo(SZ.live,M.close);
+  MINI.col=C.work;MINI.mood='work';MINI.a.curve(1,.2);SH.a.curve(1,.2);shText('api-tests',C.muted,C.work);
+},
+
+async done(s){await liveSetup(s,'auth-refactor');
+  setHint('the agent finished');sfx('done');
+  nTo(SZ.doneWide,M.open);rim(C.green,'sweep',.6);MINI.col=C.green;MINI.mood='done';MINI.oy.kick(-200,.3,.45);MINI.flash.set(.8).curve(0,.4);
+  shText('✓ done 4m12s',C.green,null);s.after(160,()=>confetti());
+  await s.wait(1300);
+  nTo(SZ.done,M.open);N.belly.kick(120,.4,.5);MINI.a.curve(0,.12);SH.a.curve(0,.12);
+  UI.view='done';UI.t0=now;UI.left=5;MAS.on=true;MAS.col=C.green;MAS.cell.set(3.6);MAS.x.set(CX-270+60);MAS.y.set(80);MAS.eyes='narrow';MAS.mood='done';
+  s.after(90,contentIn);setHint('closes on its own after 5s (hover pauses it)');
+  let r;
+  while(true){r=await s.click(['jump','dismiss'],100);if(r!=='timeout')break;if(!mouse.inNotch)UI.left-=.1*1;if(UI.left<=0){r='auto';break}}
+  if(r!=='auto')pressed={id:r,t:now};
+  setHint(r==='jump'?'jumps to the terminal tab · closes':r==='auto'?'auto-closed':'dismissed');
+  await s.wait(r==='auto'?0:220);contentOut();await s.wait(110);MAS.on=false;nTo(SZ.live,M.close);
+  MINI.a.curve(1,.2);SH.a.curve(1,.2);MINI.mood='idle';shText('auth-refactor',C.muted,C.green);
+}};
+
+async function liveSetup(s,name){nSet(SZ.live);MINI.on=true;MINI.a.set(1);MINI.col=C.work;MINI.mood='work';SH.a.set(1);shText(name,C.muted,C.work);setHint('an agent is working…');await s.wait(1100)}
+function blink(){MAS.blinkUntil=now+.12}
+
+// ---------- panels ----------
+function drawPanel(c,g){const x0=g.x0,x1=g.x1,a=CA.v;
+  if(UI.view==='greet'){const l1="hi, i'm notch.",l2='i keep an eye on your coding agents.';
+    txt(c,typed(l1,UI.g1,24),CX,196,{size:15,align:'center',a});if(UI.g2)txt(c,typed(l2,UI.g2,36),CX,220,{size:11,col:C.muted,align:'center',a})}
+  if(UI.view==='consent'){const X=CX-170;c.save();c.globalAlpha=a;
+    c.translate(0,(1-a)*6);
+    txt(c,'let me watch your coding agents?',X,72,{size:15});
+    txt(c,'i add one small hook so they can ping me when they stop.',X,96,{col:C.muted});
+    txt(c,'your other hooks stay. a backup is saved. undo in settings.',X,112,{col:C.muted});
+    UI.cbX=X;UI.rowY=[146,170];
+    UI.rows.forEach((row,i)=>{const y=UI.rowY[i],hov=hover==='cb'+i,on=row.st==='on';
+      c.strokeStyle=on?C.green:row.on?C.ink:'#55524a';c.lineWidth=1.2;rr(c,X+.5,y-10.5,12,12,3);c.stroke();
+      if(on||row.on){c.fillStyle=on?C.green:C.ink;rr(c,X+3,y-8,7,7,1.5);c.fill()}
+      if(on){const p=clamp((now-row.t)/.25,0,1);c.strokeStyle='#000';c.lineWidth=1.6;c.beginPath();c.moveTo(X+3.5,y-4.5);c.lineTo(X+5.5,y-2.5);if(p>.4)c.lineTo(X+5.5+3.5*(p-.4)/.6,y-2.5-5*(p-.4)/.6);c.stroke()}
+      txt(c,row.name,X+22,y,{col:row.on||on?C.ink:C.muted});
+      if(on)txt(c,typed('hooked ✓  backup saved',row.t,40),X+130,y,{col:C.green});else txt(c,row.path,X+130,y,{col:hov?C.ink:C.dim});
+      if(!UI.connecting)hits.push({id:'cb'+i,x:X-4,y:y-14,w:330,h:20})});
+    if(UI.after)txt(c,typed(UI.after,UI.a0,34),X,212,{size:11,col:UI.after.startsWith('conn')?C.green:C.muted});
+    else{btn(c,'later','not now',X,192,86,26);btn(c,'connect','connect ⏎',X+96,192,112,26,{kind:'primary',col:C.ink})}
+    c.restore()}
+  if(UI.view==='perm'){const X=x0+112,res=UI.res,ruleCol=res==='deny'?C.red:res?C.green:C.amber;c.save();c.globalAlpha=a;
+    c.fillStyle=ruleCol;const rl=(g.h-58)*clamp((now-UI.t0)/.3,0,1);c.fillRect(x0+20,44,2,rl);
+    const tw=tag(c,res==='deny'?'DENIED':res?'ALLOWED':'PERMISSION',ruleCol,X,52);txt(c,'claude · auth-refactor',X+tw+8,52,{size:10,col:C.muted});
+    txt(c,'wants to run',X,78,{col:'#c9c5bc'});
+    c.fillStyle=C.chip;rr(c,X,86,x1-X-26,26,6);c.fill();txt(c,'$ rm -rf ./build && npm run build',X+10,103,{col:'#f3d2a8'});
+    const bx=x1-26;btn(c,'allow','allow ⏎',bx-84,124,84,24,{kind:'primary',col:res&&res!=='deny'?C.green:C.amber});btn(c,'always','always',bx-84-80,124,72,24);btn(c,'deny','deny',bx-84-80-66,124,58,24);
+    c.restore()}
+  if(UI.view==='ask'){const X=x0+112;c.save();c.globalAlpha=a;
+    c.fillStyle=C.yellow;c.fillRect(x0+20,44,2,(g.h-58)*clamp((now-UI.t0)/.3,0,1));
+    const tw=tag(c,'QUESTION',C.yellow,X,52);txt(c,'claude · api-tests',X+tw+8,52,{size:10,col:C.muted});
+    txt(c,'which test runner should i set up?',X,80,{size:13});
+    const opts=[['1','vitest','recommended'],['2','jest',''],['3','type something…','']];
+    opts.forEach(([k,l,note],i)=>{const id='q'+(i+1),e=clamp((now-UI.t0-.18-i*.06)/.25,0,1),y=96+i*28+(1-EASE.out(e))*8,hov=hover===id,pk=UI.pick===id;
+      c.save();c.globalAlpha*=e;c.fillStyle=pk?C.yellow:hov?'#262521':'#1a1917';rr(c,X,y,x1-X-26,22,6);c.fill();
+      txt(c,k,X+10,y+15,{col:pk?'#000':C.yellow});txt(c,l,X+28,y+15,{col:pk?'#000':i===2?C.muted:C.ink});if(note)txt(c,note,x1-36,y+15,{size:9,col:pk?'#000':C.dim,align:'right'});
+      c.restore();if(!UI.pick)hits.push({id,x:X,y,w:x1-X-26,h:22})});
+    const q=MAS.x.v+20,qy=MAS.y.v-28+Math.sin(now*5)*2;if(!UI.pick)drawQ(c,q,qy,2.2,C.yellow);
+    c.restore()}
+  if(UI.view==='done'){const X=x0+108;c.save();c.globalAlpha=a;
+    c.fillStyle=C.green;c.fillRect(x0+20,44,2,(g.h-58)*clamp((now-UI.t0)/.3,0,1));
+    const tw=tag(c,'DONE',C.green,X,52);txt(c,'claude · auth-refactor',X+tw+8,52,{size:10,col:C.muted});
+    txt(c,'refactored the session middleware',X,78,{size:13});
+    txt(c,'4m 12s · 12 files · +318 −94',X,98,{col:C.muted});
+    btn(c,'jump','jump back ↗',x1-26-110,64,110,24,{kind:'primary',col:C.green});btn(c,'dismiss','dismiss',x1-26-110,94,110,22);
+    const p=clamp(UI.left/5,0,1);c.fillStyle=rgba(C.green,.5);c.fillRect(x0+28,g.h-9,(x1-x0-56)*p,2);
+    c.restore()}}
+function drawQ(c,x,y,cell,col){const rows=['.###.','#...#','...#.','..#..','.....','..#..'];c.fillStyle=col;
+  rows.forEach((r,j)=>[...r].forEach((ch,i)=>{if(ch==='#')c.fillRect(x+i*cell,y+j*cell,cell-.4,cell-.4)}))}
+
+function drawShoulders(c,g){const a=SH.a.v;if(a<=0.01)return;c.save();c.globalAlpha=a;
+  if(MINI.on){const mood=MINI.mood,t=now,pose={eyes:'open',lift:1};let oy=MINI.oy.v;
+    if(mood==='work'){pose.legs=Math.floor(t/.14)%2;oy+=Math.floor(t/.55)%2?-2.2:0}
+    if(mood==='alert'){pose.eyes='wide';pose.lift=2}
+    if(mood==='ask'){pose.lift=0;pose.liftR=2;pose.shift=Math.sin(t*3)>0?1:0}
+    if(mood==='done'){pose.eyes='narrow';pose.lift=Math.sin(t*8)>0?2:1;pose.liftR=Math.sin(t*8)>0?1:2}
+    if(mood==='idle'){pose.eyes=(t%3.4)<.12?'closed':'narrow';pose.lift=0}
+    drawMascot(c,CX-140,16+oy,2.2,MINI.col,pose,MINI.a.v,MINI.flash.v)}
+  if(SH.text){const e=clamp((now-SH.t0)/.25,0,1),y=20+(1-EASE.out(e))*8;c.save();c.globalAlpha*=e;let x=CX+104;
+    if(SH.dot){c.fillStyle=SH.dot;const pulse=SH.dot===C.amber||SH.dot===C.yellow?.5+.5*Math.abs(Math.sin(now*4)):1;c.globalAlpha*=pulse;c.fillRect(x,y-6,4,4);c.globalAlpha/=pulse;x+=10}
+    txt(c,SH.text,x,y,{size:10,col:SH.col});c.restore()}
+  c.restore()}
+
+// ---------- frame loop ----------
+let last=performance.now();
+function step(dt){now+=dt;
+  for(const ch of REG)ch.step(dt);for(const b of blobs){b.x.step(dt);b.y.step(dt);b.r.step(dt)}
+  if(pill){pill.w.step(dt);pill.ta.step(dt)}
+  const due=waiters.filter(w=>w.at<=now);waiters=waiters.filter(w=>w.at>now);due.forEach(w=>w.fn());
+  if(MAS.on){if(now>MAS.blinkAt){blink();MAS.blinkAt=now+rnd(2.2,4)}if(MAS.look&&mouse.in)MAS.shift=clamp(Math.round((mouse.x-MAS.x.v)/140),-1,1)}
+  for(const p of parts){p.age+=dt;const live=p.age-p.delay;
+    if(p.kind==='star'){p.x+=p.vx*dt;p.y+=p.vy*dt}
+    else if(p.kind==='seek'){p.sAge+=dt;if(p.sAge>p.sDelay){const k=(2*Math.PI/p.resp)**2,c=4*Math.PI*.78/p.resp;
+      p.vx+=(-k*(p.x-p.tx)-c*p.vx)*dt;p.vy+=(-k*(p.y-p.ty)-c*p.vy)*dt;p.x+=p.vx*dt;p.y+=p.vy*dt}}
+    else if(p.kind==='path'){if(live<0)continue;const u=EASE.inOut(clamp(live/p.dur,0,1)),q=p.pts,v=1-u;
+      p.px=p.x;p.py=p.y;p.x=v*v*v*q[0][0]+3*v*v*u*q[1][0]+3*v*u*u*q[2][0]+u*u*u*q[3][0];p.y=v*v*v*q[0][1]+3*v*v*u*q[1][1]+3*v*u*u*q[2][1]+u*u*u*q[3][1];
+      if(p.px===undefined||p.age<dt*1.5){p.px=p.x;p.py=p.y}
+      if(live>=p.dur){if(p.onArrive){p.onArrive();p.onArrive=null}if(p.die)p.life=0}}
+    else{if(live<0)continue;p.vy+=p.g*dt;p.vx*=1-p.drag*dt;p.vy*=1-p.drag*dt*.4;p.x+=p.vx*dt;p.y+=p.vy*dt}}
+  parts=parts.filter(p=>p.age<p.life)}
+
+function drawParts(c,layer){for(const p of parts){if(p.layer!==layer)continue;const live=p.age-p.delay;let a=p.a,s=p.size,col=p.col;
+  if(p.kind==='star'){if(live<0)continue;a*=Math.min(1,live/.6)*(.45+.55*Math.abs(Math.sin(p.age*p.tw+p.ph)));if(p.life<9e9)a*=clamp((p.life-p.age)/.3,0,1)}
+  else if(p.kind==='seek'){const k=clamp((p.sAge-p.sDelay)/(p.resp*1.3),0,1);s=lerp(p.fromS,p.ts,EASE.inOut(k));col=mix(p.from,C.ink,k);a=lerp(.7,1,k)}
+  else if(p.kind==='path'){if(live<0){if(p.pts&&p.age<.01)continue;c.fillStyle=col;c.fillRect(p.pts[0][0]-s/2,p.pts[0][1]-s/2,s,s);continue}
+    const u=clamp(live/p.dur,0,1);if(p.toSize)s=lerp(p.size,p.toSize,EASE.inOut(u));
+    c.strokeStyle=rgba(col,.35);c.lineWidth=Math.max(1,s*.6);c.beginPath();c.moveTo(p.px,p.py);c.lineTo(p.x,p.y);c.stroke()}
+  else{if(live<0)continue;a*=clamp((p.life-p.age)/.35,0,1);
+    if(p.kind==='conf'){const w=s*Math.abs(Math.cos(p.age*p.spin));c.globalAlpha=a;c.fillStyle=col;c.fillRect(p.x-w/2,p.y-s/2,w,s);c.globalAlpha=1;continue}}
+  c.globalAlpha=a;c.fillStyle=col;c.fillRect(p.x-s/2,p.y-s/2,s,s);c.globalAlpha=1}}
+
+function render(){const k=S*DPR,g=geo();hits=[];
+  // goo layer: notch + drops, thresholded by the SVG filter
+  gx.setTransform(1,0,0,1,0,0);gx.clearRect(0,0,gooC.width,gooC.height);gx.setTransform(k,0,0,k,0,0);gx.fillStyle='#000';
+  if(blobs.length){notchPath(gx,geo(-3));gx.fill();for(const b of blobs){if(b.r.v<=.2)continue;gx.beginPath();gx.arc(b.x.v,b.y.v,b.r.v,0,7);gx.fill()}}
+  // crisp layer
+  mx.setTransform(1,0,0,1,0,0);mx.clearRect(0,0,mainC.width,mainC.height);mx.setTransform(k,0,0,k,0,0);
+  notchPath(mx,g);mx.fillStyle='#000';mx.fill();mouse.inNotch=mx.isPointInPath(mouse.x*k,mouse.y*k);
+  mx.save();notchPath(mx,g);mx.clip();
+  drawParts(mx,'in');drawShoulders(mx,g);
+  if(UI.view){mx.save();const a=CA.v;if(a<1&&a>0)mx.filter=`blur(${((1-a)*4*S).toFixed(1)}px)`;drawPanel(mx,g);mx.restore()}
+  if(MAS.on){const pose={eyes:now<MAS.blinkUntil?'closed':MAS.eyes,shift:MAS.shift,lift:MAS.lift};let oy=MAS.oy.v,a=MAS.a.v;
+    if(MAS.mood==='alert'){const ph=(now%1.5)/1.5;pose.lift=2;a*=.75+.25*Math.max(0,1-ph*3);}
+    if(MAS.mood==='ask'){pose.lift=0;pose.liftR=2;pose.shift=Math.sin(now*3)>0?1:0}
+    if(MAS.mood==='done'){pose.eyes='narrow';pose.lift=Math.sin(now*8)>0?2:1;pose.liftR=Math.sin(now*8)>0?1:2}
+    if(UI.view&&UI.view!=='greet'&&UI.view!=='consent')a*=CA.v;
+    drawMascot(mx,MAS.x.v,MAS.y.v+oy,MAS.cell.v,MAS.col,pose,a,MAS.flash.v)}
+  // rim light
+  for(const r of rims){const p=(now-r.t0)/r.dur;if(p<0||p>1)continue;mx.save();notchPath(mx,g);mx.lineWidth=3;
+    if(r.mode==='pulse'){mx.strokeStyle=rgba(r.col,.9*(1-p));}
+    else{const gr=mx.createLinearGradient(g.x0-40,0,g.x1+40,0),q=EASE.inOut(p);gr.addColorStop(0,rgba(r.col,0));gr.addColorStop(clamp(q-.12,0,1),rgba(r.col,0));gr.addColorStop(q,rgba(r.col,1));gr.addColorStop(clamp(q+.12,0,1),rgba(r.col,0));gr.addColorStop(1,rgba(r.col,0));mx.strokeStyle=gr}
+    mx.stroke();mx.restore()}
+  mx.restore();
+  // outside the notch
+  for(const r of rings){const p=(now-r.t0)/r.dur;if(p<0||p>1)continue;const e=EASE.out(p);mx.save();notchPath(mx,geo(4+e*34));
+    mx.strokeStyle=rgba(r.col,.85*(1-p));mx.lineWidth=2.4*(1-p)+.6;mx.shadowColor=r.col;mx.shadowBlur=10*k*(1-p);mx.stroke();mx.restore()}
+  rings=rings.filter(r=>now-r.t0<r.dur);rims=rims.filter(r=>now-r.t0<r.dur);
+  drawParts(mx,'out');
+  if(pill){const w=pill.w.v;mx.fillStyle='#000';rr(mx,CX-w/2,pill.y-9.5,w,19,9.5);mx.fill();txt(mx,'hover the notch to open',CX,pill.y+3.5,{size:10,col:C.ink,align:'center',a:pill.ta.v})}
+  // pointer
+  const h=hits.slice().reverse().find(b=>mouse.x>=b.x&&mouse.x<=b.x+b.w&&mouse.y>=b.y&&mouse.y<=b.y+b.h);hover=h?h.id:null;mainC.style.cursor=h?'pointer':'default'}
+
+window.dbg={N,MAS,SH,CA,get UI(){return UI},get now(){return now},get sid(){return sceneId}};
+function loop(t){const dt=Math.min(.05,(t-last)/1000)*speed;last=t;step(dt);render();requestAnimationFrame(loop)}
+
+// ---------- input ----------
+function toLocal(e){const r=stage.getBoundingClientRect();return{x:(e.clientX-r.left)/S,y:(e.clientY-r.top)/S}}
+mainC.addEventListener('mousemove',e=>{const p=toLocal(e);mouse.x=p.x;mouse.y=p.y;mouse.in=true});
+mainC.addEventListener('mouseleave',()=>{mouse.in=false;mouse.x=mouse.y=-99});
+function fire(id){pressed={id,t:now};const ws=clickWaiters.filter(w=>w.ids.includes(id));clickWaiters=clickWaiters.filter(w=>!w.ids.includes(id));ws.forEach(w=>w.fin(id))}
+mainC.addEventListener('click',e=>{const p=toLocal(e);const h=hits.slice().reverse().find(b=>p.x>=b.x&&p.x<=b.x+b.w&&p.y>=b.y&&p.y<=b.y+b.h);if(h)fire(h.id)});
+addEventListener('keydown',e=>{if(e.key==='Enter'){const p=hits.find(h=>h.primary);if(p)fire(p.id)}if(['1','2','3'].includes(e.key)&&UI.view==='ask')fire('q'+e.key)});
+
+const hintEl=document.getElementById('hint');function setHint(t){hintEl.textContent=t}
+document.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-s]').forEach(x=>x.classList.toggle('on',x===b));run(SCENES[b.dataset.s])});
+document.querySelectorAll('#speed button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#speed button').forEach(x=>x.classList.toggle('on',x===b));speed=+b.dataset.v});
+const snd=document.getElementById('snd');snd.onclick=()=>{soundOn=!soundOn;snd.classList.toggle('on',soundOn);snd.textContent=soundOn?'sound on':'sound off'};
+
+requestAnimationFrame(t=>{last=t;loop(t)});
+document.fonts.load(`12px Departure`).finally(()=>{if(sceneId===0)run(SCENES.onboarding)});
+</script>
+</body>
+</html>

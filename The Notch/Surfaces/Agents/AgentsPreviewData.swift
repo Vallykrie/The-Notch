@@ -9,7 +9,7 @@ enum AgentsPreviewData {
     /// running app showed `{"command":"…","description":"…"}`. Previews that do not carry the
     /// shape the app receives cannot catch a bug in how that shape is presented.
     static let longToolInput = JSONValue.object([
-        // Deliberately past `summaryLineLimit`: the clamp is the thing being verified, and a
+        // Deliberately past `Theme.Metrics.Prompt.commandLineLimit`: the clamp is the thing being verified, and a
         // command that happens to fit proves nothing about the case that used to hang the
         // buttons off the bottom curve.
         "command": .string(

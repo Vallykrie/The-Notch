@@ -159,6 +159,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         applyPreferences()
 
+        // First launch: the notch introduces itself and asks before hooking into any agent.
+        // Hooks used to be installed silently here; now nothing is until the user says yes.
+        if !services.settings.hasSeenIntro {
+            coordinator.requestOnboarding()
+        }
+
         if let directory = LiveCapture.requestedDirectory {
             LiveCapture.start(
                 window: notchWindow,

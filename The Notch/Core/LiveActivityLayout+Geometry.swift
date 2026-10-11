@@ -17,15 +17,15 @@ extension LiveActivityLayout {
             Theme.Metrics.LiveActivity.hudShoulderWidth
         case .trading:
             Theme.Metrics.Trading.shoulderWidth
-        case let .lyrics(shoulderWidth):
-            shoulderWidth
+        case .welcome:
+            Theme.Metrics.LiveActivity.welcomeShoulderWidth
         }
     }
 
     /// A faux notch has no camera to reserve space for. Keep trading's two text
     /// shoulders close together while preserving the real hardware exclusion zone.
     func housingWidth(physicalWidth: CGFloat, hasPhysicalNotch: Bool) -> CGFloat {
-        (self == .trading || isLyrics) && !hasPhysicalNotch ? Theme.Metrics.Trading.fauxHousingGap : physicalWidth
+        self == .trading && !hasPhysicalNotch ? Theme.Metrics.Trading.fauxHousingGap : physicalWidth
     }
 
     /// The outer padding a shoulder's content hugs. The compact cases cannot afford the
@@ -35,7 +35,7 @@ extension LiveActivityLayout {
         switch self {
         case .idle, .mediaOnly, .agentsOnly, .both:
             Theme.Metrics.LiveActivity.compactHorizontalPadding
-        case .systemHUD, .trading, .lyrics:
+        case .systemHUD, .trading, .welcome:
             Theme.Metrics.collapsedHorizontalPadding
         }
     }

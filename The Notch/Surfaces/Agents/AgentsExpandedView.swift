@@ -43,10 +43,9 @@ struct AgentsExpandedView: View {
         }
     }
 
+    /// A prompt card carries its own insets — it is the whole panel, with no tab bar above it.
     private var verticalInset: CGFloat {
-        oldestApproval?.question == nil
-            ? Theme.Metrics.expandedVerticalPadding
-            : Theme.Metrics.Agents.questionVerticalPadding
+        oldestApproval == nil ? Theme.Metrics.expandedVerticalPadding : .zero
     }
 
     private var oldestApproval: PendingApproval? {

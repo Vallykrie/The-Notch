@@ -25,19 +25,10 @@ enum LiveActivityLayout: Equatable {
     /// A brightness or volume level, which outranks everything above for as long as it lasts.
     case systemHUD
     case trading
-    /// The sung line, split across the camera housing. Lyrics on, synced lyrics found, and the
-    /// track playing — see `LyricsController.showsOnNotch`.
-    ///
-    /// The only case whose width is not a constant: it carries the width the current line needs
-    /// (see `LyricsCollapsedView.shoulderWidth(for:)`), so a short line does not sit in a slab
-    /// of black. Carried *in* the case so the silhouette and the drawn shoulders still read the
-    /// same one value — the rule this whole type exists to enforce.
-    case lyrics(shoulderWidth: CGFloat)
-
-    var isLyrics: Bool {
-        if case .lyrics = self { return true }
-        return false
-    }
+    /// The end of the first-launch intro: the mascot that just flew down from the band on one
+    /// shoulder, and "ready" on the other. It lasts as long as the hint pill does and then the
+    /// notch goes back to whatever is actually live — usually nothing, so a bare cutout.
+    case welcome
 
     init(
         hasMedia: Bool,
@@ -45,15 +36,12 @@ enum LiveActivityLayout: Equatable {
         hasHUD: Bool,
         hasTrading: Bool = false,
         agentNeedsAttention: Bool = false,
-        hasLyrics: Bool = false,
-        lyricsShoulderWidth: CGFloat = Theme.Metrics.LiveActivity.lyricsShoulderWidth
+        isWelcoming: Bool = false
     ) {
         if hasHUD {
             self = .systemHUD
-        } else if hasLyrics && !agentNeedsAttention {
-            // Above trading: lyrics are on because the user turned them on, for this song.
-            // An agent that needs the user still wins — it is stalled until they answer.
-            self = .lyrics(shoulderWidth: lyricsShoulderWidth)
+        } else if isWelcoming {
+            self = .welcome
         } else if hasTrading && agentNeedsAttention {
             self = .agentsOnly
         } else if hasTrading {
@@ -74,6 +62,12 @@ enum LiveActivityLayout: Equatable {
     /// battery glyph at rest, and it was a black bar covering the menu bar all day that
     /// swallowed clicks across its whole width. At rest the notch must be indistinguishable
     /// from the hardware.
+    /// Whether a shoulder is showing an agent's mascot, so a card's mascot has somewhere to fly
+    /// home to.
+    var showsAgentMascot: Bool {
+        self == .agentsOnly || self == .both
+    }
+
     var wantsShoulders: Bool {
         self != .idle
     }

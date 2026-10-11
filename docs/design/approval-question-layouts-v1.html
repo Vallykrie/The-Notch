@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Prompt Card Layouts</title>
+<style>
+@font-face{font-family:Departure;src:url("../../The%20Notch/Resources/Fonts/DepartureMono-Regular.otf")}
+:root{--bg:#0b0b0c;--fg:#ece9e2;--muted:#8d8a83;--line:#262420;--card:#121211;--mono:Departure,ui-monospace,Menlo,monospace;
+  --amber:#ff850f;--yellow:#ffcc1a;--t1:#fff;--t2:rgba(255,255,255,.62);--t3:rgba(255,255,255,.38);--chip:#1b1a18;--div:rgba(255,255,255,.1)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.55 -apple-system,BlinkMacSystemFont,system-ui,sans-serif}
+.wrap{max-width:1240px;margin:0 auto;padding:28px 16px 64px}
+h1{font:600 22px/1.2 -apple-system,system-ui,sans-serif;margin:0 0 6px}
+.sub{color:var(--muted);margin:0 0 18px;max-width:860px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px}
+.bar button{font:12px var(--mono);background:#161614;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px 12px;cursor:pointer}
+.bar button.on{background:var(--fg);color:#000;border-color:var(--fg)}
+.lbl{font:11px var(--mono);color:var(--muted)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}.seg button{border:0;border-radius:0}
+.rows{display:grid;gap:26px}
+.row h2{font:12px var(--mono);letter-spacing:.06em;color:var(--muted);margin:0 0 8px;font-weight:400}
+.row h2 b{color:var(--fg);font-weight:400}
+.desk{background:linear-gradient(170deg,#3a2f52,#5a3d40 60%,#6b5340);border-radius:12px;padding:0 0 34px;overflow:hidden;display:flex;justify-content:center}
+.scale{zoom:1.45}
+@supports not (zoom:1){.scale{transform:scale(1.45);transform-origin:top center}}
+/* the notch panel: 640x190, black, top corners flare out, bottom corners round */
+.panel{position:relative;width:640px;height:190px;background:#000;border-radius:0 0 24px 24px;font-family:var(--mono);color:var(--t1);overflow:hidden;
+  box-shadow:0 10px 22px rgba(0,0,0,.55)}
+.panel::before,.panel::after{content:"";position:absolute;top:0;width:19px;height:19px}
+.panel .in{position:absolute;inset:0;padding:6px 28px 0}
+.tabs{display:flex;align-items:center;justify-content:space-between;height:28px}
+.tabs .t{display:flex;gap:2px;background:#1a1917;border-radius:7px;padding:3px}
+.tabs .t span{font-size:9px;color:var(--t3);padding:3px 9px;border-radius:5px}.tabs .t span.on{background:#2e2c28;color:var(--t1)}
+.tabs .r{font-size:8px;display:flex;gap:10px;align-items:center}
+.gear{width:9px;height:9px;border-radius:50%;background:var(--t3)}
+.mono{font-family:var(--mono)}
+.t1{color:var(--t1)}.t2{color:var(--t2)}.t3{color:var(--t3)}
+.ell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:26px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;font-size:13px;color:#c9c5bc}
+.card h3{font:12px var(--mono);margin:0 0 8px;color:var(--fg);letter-spacing:.04em}
+.card ul{margin:0;padding-left:18px}.card li{margin:3px 0}
+.k{display:inline-block;font-size:8px;color:var(--t2);border:1px solid rgba(255,255,255,.22);border-radius:3px;padding:0 3px;line-height:11px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Approval &amp; question cards · layout proposals v1</h1>
+  <p class="sub">Each panel is drawn at the real 640×190pt notch size, with the real font and colours, zoomed 1.45× so it reads on this page. The cards stay <b>notices</b>: you answer in the agent, as today, because approving from the notch didn't land reliably in Claude Code. So each layout's job is to make three things obvious at a glance: what is being asked, what the choices are, and how to get to where you answer. Switch layouts above, and each layout is shown against the same five cases.</p>
+  <div class="bar"><span class="lbl">layout</span>
+    <div class="seg" id="layout"><button data-v="current">current</button><button data-v="focus" class="on">A · focus</button><button data-v="terminal">B · terminal mirror</button><button data-v="banner">C · banner</button></div>
+  </div>
+  <div class="rows" id="rows"></div>
+  <div class="notes">
+    <div class="card"><h3>WHAT'S WRONG WITH CURRENT</h3><ul>
+      <li>The tab bar eats the top 30pt of a card that has no use for tabs while something is blocked.</li>
+      <li>The mascot is a 22–30pt icon wedged beside a two-line headline, so the headline wraps early.</li>
+      <li>Option descriptions get cut off with "…" on the same line as their labels.</li>
+      <li>The way to answer ("Open Agent to answer · click elsewhere to dismiss") is dim footer text, so the one action is the least visible thing on the card.</li></ul></div>
+    <div class="card"><h3>A · FOCUS</h3><ul>
+      <li>No tab bar while a prompt is up; the card is the whole panel.</li>
+      <li>A left column for <i>who</i> (a big mascot, agent, project, how long it has been blocked), a right column for <i>what</i>.</li>
+      <li>The command sits in a code block; options form a 2×2 grid with descriptions on their own line.</li>
+      <li>A real "Answer in Claude Code ↗" button, plus a dismiss ✕.</li></ul></div>
+    <div class="card"><h3>B · TERMINAL MIRROR</h3><ul>
+      <li>Draws the prompt the way the CLI shows it: <code>● Bash(…)</code>, then the numbered choices with <code>❯</code> on the first.</li>
+      <li>Shows exactly what you'll see in the terminal, and which number to press.</li>
+      <li>A slim header carries the agent, the project and the timer; the open button sits in it.</li>
+      <li>The most "dev tool" feel, and it matches the retro mono look.</li></ul></div>
+    <div class="card"><h3>C · BANNER</h3><ul>
+      <li>A coloured banner strip on top (amber for a permission, yellow for a question) with the mascot, who, how long, and the actions on the right.</li>
+      <li>Below it, the full width goes to the content: the command large and readable, or the options as full-width rows.</li>
+      <li>The most familiar "notification" shape, and the fastest to scan.</li></ul></div>
+  </div>
+</div>
+
+<script>
+const CASES=[
+  {name:'permission · short command',kind:'perm',agent:'Claude Code',project:'demo',blocked:'12s',tool:'Bash',body:'rm -rf ./build && npm run build',desc:'Clean and rebuild the project'},
+  {name:'permission · file edit',kind:'perm',agent:'Claude Code',project:'the-notch',blocked:'48s',tool:'Edit',body:'The Notch/Surfaces/Shell/NotchRootView.swift',diff:'+12 −3',desc:'Wire the lyric pill into the root view'},
+  {name:'permission · long command',kind:'perm',agent:'Codex',project:'data-pipeline',blocked:'2m',tool:'shell',body:'ssh build-box "cd ~/data-pipeline && python -m jobs.backfill --source events --from 2025-01-01 --to 2026-10-01 --report out/report.html"',desc:'Run the backfill on the build machine'},
+  {name:'question · 4 options with descriptions',kind:'ask',agent:'Claude Code',project:'notch',blocked:'17s',header:'Topic',q:'What kind of question do you want me to ask you?',
+    opts:[['Project planning','Questions to pin down the next steps for the v2 plan'],['Quiz me','Trivia or technical quiz questions, one at a time'],['Get to know you',"Questions about your goals and preferences that I'll save to memory"],['Brainstorm a new idea','Questions to shape a project or feature you have in mind']]},
+  {name:'question · 2 short options',kind:'ask',agent:'Codex',project:'api',blocked:'4s',header:'Tests',q:'Which test runner should I set up?',opts:[['vitest','recommended'],['jest','']]},
+];
+const AMBER='#ff850f',YELLOW='#ffcc1a';
+
+// the concept-D mascot as a pixel grid
+function mascotSVG(cell,col,pose='wide'){const m=new Map(),put=(x,y,k)=>m.set(x+','+y,k);
+  for(const[r,a,b] of[[3,4,7],[4,2,9],[5,1,10],[6,1,10],[7,2,9]])for(let x=a;x<=b;x++)put(x,r,'b');
+  put(4,2,'a');put(3,1,'a');put(2,0,'t');put(7,2,'a');put(8,1,'a');put(9,0,'t');
+  if(pose==='lean'){m.delete('3,1');m.delete('2,0');put(3,2,'a')}
+  for(const[x,y] of[[3,8],[4,8],[7,8],[8,8],[2,9],[9,9]])put(x,y,'l');
+  const rows=pose==='wide'?[4,5]:[5];for(const c of[3,4,7,8])for(const r of rows)m.delete(c+','+r);
+  const hi=shade(col,1),lo=shade(col,-1);let s=`<svg width="${12*cell}" height="${10*cell}" viewBox="0 0 ${12*cell} ${10*cell}" style="display:block;filter:drop-shadow(0 0 ${cell*.6}px ${col}66)">`;
+  for(const[key,k] of m){const[x,y]=key.split(',').map(Number);const top=!m.has(x+','+(y-1)),bot=!m.has(x+','+(y+1));
+    const c=k==='l'?lo:k==='t'||top?hi:bot?lo:col;s+=`<rect x="${x*cell+.25}" y="${y*cell+.25}" width="${cell-.5}" height="${cell-.5}" fill="${c}"/>`}
+  return s+'</svg>'}
+function shade(hex,d){const n=parseInt(hex.slice(1),16);let r=n>>16&255,g=n>>8&255,b=n&255;const t=d>0?255:0,f=d>0?.4:.36;
+  return `rgb(${r+(t-r)*f|0},${g+(t-g)*f|0},${b+(t-b)*f|0})`}
+const tint=c=>c.kind==='perm'?AMBER:YELLOW;
+const tabs=c=>`<div class="tabs"><div class="t"><span>Media</span><span class="on">Agents</span><span>Crypto</span></div><div class="r"><span style="color:${tint(c)}">1 waiting</span><span class="gear"></span></div></div>`;
+const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+
+// ---------- current (as shipped) ----------
+function current(c){const t=tint(c);
+  const head=c.kind==='perm'
+    ? `<div style="display:flex;gap:14px;align-items:flex-start;margin-top:10px">${mascotSVG(3,t)}<div style="flex:1;min-width:0"><div style="font-size:16px" class="ell">${c.tool}</div><div style="font-size:11px" class="ell"><span style="color:${t}">Approval needed</span> <span class="t3">·</span> <span class="t2">${c.project}</span></div></div><div style="font-size:11px;color:${t}">blocked ${c.blocked}</div></div>
+       <div class="t2" style="font-size:11px;margin-top:6px;height:42px;overflow:hidden">${esc(c.body)}</div>`
+    : `<div style="display:flex;gap:14px;align-items:flex-start;margin-top:10px">${mascotSVG(2,t,'lean')}<div style="flex:1;font-size:13px;line-height:15px;max-height:30px;overflow:hidden">${esc(c.q)}</div><div style="font-size:11px" class="t3">${c.header} · <span style="color:${t}">blocked ${c.blocked}</span></div></div>
+       <div style="margin-top:4px;height:62px;overflow:hidden">${c.opts.map((o,i)=>`<div style="display:flex;gap:14px;font-size:11px;line-height:15.5px"><span class="t3" style="font-size:9px">${i+1}.</span><span class="ell" style="flex:none">${esc(o[0])}</span><span class="t3 ell">${esc(o[1])}</span></div>`).join('')}</div>`;
+  return `<div class="panel"><div class="in">${tabs(c)}<div style="display:flex;gap:12px;height:150px"><div style="width:2px;background:${t};border-radius:2px;margin-top:6px;height:136px"></div><div style="flex:1;min-width:0">${head}
+    <div style="font-size:9px;margin-top:6px"><span>↗ Open Agent to answer</span> <span class="t3">· click elsewhere to dismiss</span></div></div></div></div></div>`}
+
+// ---------- A · focus ----------
+function focus(c){const t=tint(c);
+  const who=`<div style="width:132px;flex:none;display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding-top:4px">
+      ${mascotSVG(4,t,c.kind==='perm'?'wide':'lean')}
+      <div style="font-size:9px;letter-spacing:.08em;color:${t};margin-top:4px">${c.kind==='perm'?'NEEDS PERMISSION':'HAS A QUESTION'}</div>
+      <div style="font-size:11px;line-height:14px"><div>${c.agent}</div><div class="t2 ell" style="max-width:128px">${c.project}</div></div>
+      <div style="font-size:9px" class="t3">waiting ${c.blocked}</div></div>`;
+  let what;
+  if(c.kind==='perm'){
+    what=`<div style="font-size:15px;display:flex;align-items:baseline;gap:8px">${c.tool}${c.diff?`<span style="font-size:10px"><span style="color:#38ff73">${c.diff.split(' ')[0]}</span> <span style="color:#ff5a64">${c.diff.split(' ')[1]}</span></span>`:''}<span class="t3 ell" style="font-size:10px">${esc(c.desc)}</span></div>
+      <div style="background:var(--chip);border-radius:7px;padding:8px 10px;margin-top:8px;font-size:11px;line-height:15px;color:#f3d2a8;max-height:57px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;word-break:break-all"><span class="t3">${c.tool==='Edit'?'✎ ':'$ '}</span>${esc(c.body)}</div>`;
+  }else{
+    const cols=c.opts.length>2?2:c.opts.length;
+    what=`<div style="font-size:13px;line-height:16px;max-height:32px;overflow:hidden">${esc(c.q)}</div>
+      <div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:6px;margin-top:8px">${c.opts.map((o,i)=>`<div style="background:var(--chip);border-radius:7px;padding:5px 8px;min-width:0">
+        <div style="font-size:11px;display:flex;gap:6px"><span style="color:${t}">${i+1}</span><span class="ell">${esc(o[0])}</span></div>
+        ${o[1]?`<div class="t3 ell" style="font-size:9px;margin-top:1px">${esc(o[1])}</div>`:''}</div>`).join('')}</div>`;
+  }
+  const actions=`<div style="display:flex;gap:8px;align-items:center;position:absolute;left:192px;right:28px;bottom:14px">
+      <span style="background:${t};color:#000;border-radius:6px;padding:4px 10px;font-size:10px">Answer in ${c.agent} ↗</span>
+      <span class="t3" style="font-size:9px">${c.kind==='ask'?`press <span class="k">1</span>–<span class="k">${c.opts.length}</span> there`:`<span class="k">⏎</span> to allow there`}</span>
+      <span style="flex:1"></span><span class="t3" style="font-size:10px;border:1px solid var(--div);border-radius:6px;padding:3px 8px">✕ Dismiss</span></div>`;
+  return `<div class="panel"><div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:${t};opacity:.9"></div><div class="in" style="padding:18px 28px 0 32px;display:flex;gap:28px">${who}<div style="flex:1;min-width:0">${what}</div></div>${actions}</div>`}
+
+// ---------- B · terminal mirror ----------
+function terminal(c){const t=tint(c);
+  const header=`<div style="display:flex;align-items:center;gap:8px;height:28px;border-bottom:1px solid var(--div)">
+      ${mascotSVG(2,t,c.kind==='perm'?'wide':'lean')}
+      <span style="font-size:10px">${c.agent}</span><span class="t3" style="font-size:10px">· ${c.project}</span>
+      <span style="font-size:9px;color:${t}">· waiting ${c.blocked}</span><span style="flex:1"></span>
+      <span style="font-size:9px;border:1px solid var(--div);border-radius:5px;padding:2px 7px">Open terminal ↗</span><span class="t3" style="font-size:10px;padding:0 2px">✕</span></div>`;
+  let body;
+  if(c.kind==='perm'){
+    const lines=c.tool==='Edit'?[`<span style="color:${t}">●</span> Edit(<span class="t1">${esc(c.body)}</span>) <span style="color:#38ff73">+12</span> <span style="color:#ff5a64">−3</span>`]
+      :[`<span style="color:${t}">●</span> ${c.tool}(<span style="color:#f3d2a8">${esc(c.body.length>96?c.body.slice(0,96)+'…':c.body)}</span>)`];
+    body=`<div style="font-size:11px;line-height:16px;margin-top:10px;max-height:34px;overflow:hidden;word-break:break-all">${lines.join('')}</div>
+      <div class="t3" style="font-size:10px;margin:2px 0 6px 14px">⎿ ${esc(c.desc)}</div>
+      <div style="font-size:11px;line-height:16px">Do you want to proceed?</div>
+      <div style="font-size:11px;line-height:16px"><div><span style="color:${t}">❯</span> <span style="color:${t}">1.</span> Yes</div><div class="t2">&nbsp; 2. Yes, and don't ask again this session</div><div class="t2">&nbsp; 3. No, and tell ${c.agent.split(' ')[0]} what to do differently</div></div>`;
+  }else{
+    body=`<div style="font-size:11px;line-height:16px;margin-top:10px"><span style="color:${t};font-size:9px;border:1px solid ${t}66;border-radius:3px;padding:0 4px;margin-right:6px">${c.header}</span>${esc(c.q)}</div>
+      <div style="font-size:11px;line-height:16px;margin-top:6px">${c.opts.map((o,i)=>`<div style="display:flex;gap:6px;white-space:nowrap;overflow:hidden">${i===0?`<span style="color:${t}">❯</span>`:'<span>&nbsp;</span>'}<span style="color:${i===0?t:'var(--t2)'}">${i+1}.</span><span class="${i===0?'t1':'t2'}">${esc(o[0])}</span>${o[1]?`<span class="t3 ell">${esc(o[1])}</span>`:''}</div>`).join('')}
+      <div class="t3" style="display:flex;gap:6px"><span>&nbsp;</span>${c.opts.length+1}. Type something.</div></div>`;
+  }
+  return `<div class="panel"><div class="in" style="padding:4px 28px 0">${header}${body}</div></div>`}
+
+// ---------- C · banner ----------
+function banner(c){const t=tint(c);
+  const top=`<div style="position:absolute;left:19px;right:19px;top:0;height:42px;background:linear-gradient(90deg,${t}26,${t}0d);border-bottom:1px solid ${t}40;display:flex;align-items:center;gap:10px;padding:4px 10px 0">
+      ${mascotSVG(3,t,c.kind==='perm'?'wide':'lean')}
+      <div style="line-height:13px"><div style="font-size:11px">${c.agent} <span style="color:${t}">${c.kind==='perm'?'needs permission':'is asking'}</span></div><div class="t2" style="font-size:9px">${c.project} · waiting ${c.blocked}</div></div>
+      <span style="flex:1"></span>
+      <span style="background:${t};color:#000;border-radius:6px;padding:4px 9px;font-size:10px">Open ↗</span><span class="t2" style="font-size:10px;border:1px solid var(--div);border-radius:6px;padding:3px 7px">✕</span></div>`;
+  let body;
+  if(c.kind==='perm'){
+    body=`<div style="display:flex;gap:8px;align-items:baseline"><span style="font-size:10px;color:${t}">${c.tool}</span><span class="t3 ell" style="font-size:10px">${esc(c.desc)}</span>${c.diff?`<span style="font-size:10px;margin-left:auto"><span style="color:#38ff73">+12</span> <span style="color:#ff5a64">−3</span></span>`:''}</div>
+      <div style="font-size:13px;line-height:18px;margin-top:6px;color:#f3d2a8;max-height:72px;overflow:hidden;word-break:break-all"><span class="t3">${c.tool==='Edit'?'':'$ '}</span>${esc(c.body)}</div>`;
+  }else{
+    const tight=c.opts.length>3;
+    body=`<div style="font-size:13px;line-height:16px" class="ell">${esc(c.q)}</div>
+      <div style="margin-top:6px">${c.opts.map((o,i)=>`<div style="display:flex;gap:8px;align-items:baseline;padding:${tight?2:4}px 0;border-top:1px solid ${i?'var(--div)':'transparent'}">
+        <span style="font-size:9px;color:#000;background:${t};border-radius:3px;padding:0 4px;line-height:12px">${i+1}</span>
+        <span style="font-size:11px;flex:none">${esc(o[0])}</span><span class="t3 ell" style="font-size:10px">${esc(o[1])}</span></div>`).join('')}</div>`;
+  }
+  return `<div class="panel">${top}<div class="in" style="padding:52px 32px 0">${body}</div></div>`}
+
+const LAYOUTS={current,focus,terminal,banner};
+let layout='focus';
+function render(){document.getElementById('rows').innerHTML=CASES.map(c=>`<div class="row"><h2><b>${c.name}</b></h2><div class="desk"><div class="scale">${LAYOUTS[layout](c)}</div></div></div>`).join('')}
+document.querySelectorAll('#layout button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#layout button').forEach(x=>x.classList.toggle('on',x===b));layout=b.dataset.v;render()});
+document.fonts.load('12px Departure').finally(render);
+</script>
+</body>
+</html>

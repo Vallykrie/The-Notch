@@ -294,6 +294,14 @@ private final class NotchHostingView: NSHostingView<NotchRootView> {
         let pointInView = convert(pointInWindow, from: nil)
         let isInsideLiveRegion = hitRegion.contains(pointInView)
         window.ignoresMouseEvents = !isInsideLiveRegion
+        // Top-left origin, the space the SwiftUI root and its effects draw in. The lyric pill
+        // splashes away from this; it lies outside the live region, so this is the only way it
+        // can know the pointer is near.
+        coordinator.pointerLocation = CGPoint(
+            x: pointInView.x,
+            y: isFlipped ? pointInView.y : bounds.height - pointInView.y
+        )
+        coordinator.pointerIsInsideLiveRegion = isInsideLiveRegion
 
         // A pin release is a transition trigger in its own right. Settings closing while the
         // pointer sits somewhere else entirely leaves `pointerIsInsideLiveRegion` unchanged at

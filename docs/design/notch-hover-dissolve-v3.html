@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Notch Pixel Rebuild</title>
+<style>
+@font-face{font-family:Departure;src:url("../../The%20Notch/Resources/Fonts/DepartureMono-Regular.otf")}
+:root{--bg:#0b0b0c;--fg:#ece9e2;--muted:#8d8a83;--line:#262420;--card:#121211;--mono:Departure,ui-monospace,Menlo,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.55 -apple-system,BlinkMacSystemFont,system-ui,sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 16px 64px}
+h1{font:600 22px/1.2 -apple-system,system-ui,sans-serif;margin:0 0 6px}
+.sub{color:var(--muted);margin:0 0 18px;max-width:800px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.bar button{font:12px var(--mono);background:#161614;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px 12px;cursor:pointer}
+.bar button:hover{border-color:#4a4740}
+.bar button.on{background:var(--fg);color:#000;border-color:var(--fg)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;border-radius:0;padding:8px 10px}
+.lbl{font:11px var(--mono);color:var(--muted);margin-right:2px}
+.sp{flex:1}
+.stage{position:relative;aspect-ratio:1000/400;border-radius:14px;overflow:hidden;container-type:inline-size;user-select:none;
+  background:
+   radial-gradient(120% 90% at 50% 120%,#f6d39a 0%,transparent 55%),
+   radial-gradient(70% 70% at 10% 90%,#3b5bd6 0%,transparent 60%),
+   radial-gradient(60% 80% at 90% 70%,#e0785a 0%,transparent 60%),
+   linear-gradient(170deg,#6f4ea8 0%,#d9774f 55%,#f2b77b 100%)}
+.menubar{position:absolute;inset:0 0 auto 0;height:8%;display:flex;align-items:center;justify-content:space-between;padding:0 1.6cqw;
+  font:500 1.25cqw/1 -apple-system,system-ui,sans-serif;color:rgba(255,255,255,.92);background:rgba(20,10,30,.12);backdrop-filter:blur(8px)}
+.menubar span{margin-right:1.6cqw}
+canvas{position:absolute;inset:0;width:100%;height:100%}
+.hint{font:12px var(--mono);color:var(--muted);margin:10px 2px 0;min-height:18px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;margin-top:24px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.card h3{font:12px var(--mono);letter-spacing:.06em;margin:0 0 8px}
+.card p{margin:0;color:#c9c5bc;font-size:13px}
+.card p+p{margin-top:8px;color:var(--muted);font-size:12.5px}
+.why{margin-top:22px;color:var(--muted);font-size:13px;max-width:900px}
+.why b{color:var(--fg);font-weight:600}
+code{font:12px var(--mono);color:#e9d9b8}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Hover open / close · pixel rebuild · prototype v3</h1>
+  <p class="sub">Hover the notch. On open, what's on the shoulders comes apart into its own pixels, and they rebuild the panel as the notch opens. On close, the panel comes apart and its pixels fly back up to rebuild the shoulders. Three versions of the motion: pick one, or tell me what to mix.</p>
+  <div class="bar">
+    <span class="lbl">motion</span>
+    <div class="seg" id="variant"><button data-v="stream" class="on">A · stream</button><button data-v="scan">B · scanline</button><button data-v="dust">C · dust</button></div>
+    <span class="lbl">panel</span>
+    <div class="seg" id="surface"><button data-v="agents" class="on">agents</button><button data-v="media">media</button></div>
+    <span class="sp"></span>
+    <div class="seg" id="speed"><button data-v="1" class="on">1×</button><button data-v=".5">½×</button><button data-v=".25">¼×</button></div>
+    <button id="loop">auto loop</button>
+  </div>
+  <div class="stage" id="stage">
+    <div class="menubar"><div><span></span><span><b>Ghostty</b></span><span>Shell</span><span>Edit</span><span>View</span><span>Window</span></div><div><span>⌁</span><span>Sun 11 Oct  9:41</span></div></div>
+    <canvas id="main"></canvas>
+  </div>
+  <div class="hint" id="hint">hover the notch</div>
+
+  <div class="grid">
+    <div class="card"><h3>A · STREAM</h3><p>Same move as the end of the onboarding. Pixels pour off the shoulders in curved streams and land row by row, top first.</p><p>The most alive of the three, and the one that matches the intro. Each pixel trails a short tail.</p></div>
+    <div class="card"><h3>B · SCANLINE</h3><p>The notch builds the panel like a CRT. Pixels spread sideways along the top edge, then drop into place behind a bright scan line that runs top to bottom. Closing runs it in reverse, bottom first.</p><p>The most orderly, and the easiest to read through on a quick hover.</p></div>
+    <div class="card"><h3>C · DUST</h3><p>The content puffs into a small cloud of dust that drifts, then gets pulled into the new shape on a spring.</p><p>The softest and most "liquid". Also the most motion, so it may feel busy on every hover.</p></div>
+  </div>
+  <p class="why"><b>How it stays fast:</b> the reveal is done when the open spring settles (about 0.5s). The crisp content is uncovered pixel by pixel as each one lands, so text is never blurry or late. Closing has to be slightly slower than today's 0.32s close, here 0.45s, or the notch shuts over pixels still in the air. <b>In the app:</b> the panel would be rendered to a bitmap once per open (<code>ImageRenderer</code>), sampled into 2pt cells, and the pixels drawn by the existing <code>NotchFX</code> canvas. No new dependencies. Reduce Motion keeps today's plain open.</p>
+</div>
+
+<script>
+// ---------- setup ----------
+const W=1000,H=400,CX=500;
+const C={ink:'#f2efe8',muted:'#8d8a83',dim:'#55524a',work:'#2a9eff',think:'#bd6bff',done:'#38ff73',coral:'#fa7352'};
+const FONT='Departure, ui-monospace, Menlo, monospace';
+const stage=document.getElementById('stage'),mainC=document.getElementById('main'),mx=mainC.getContext('2d');
+let S=1,DPR=1;
+function resize(){const r=stage.getBoundingClientRect();S=r.width/W;DPR=window.devicePixelRatio||1;mainC.width=Math.round(r.width*DPR);mainC.height=Math.round(r.height*DPR);buildContent()}
+addEventListener('resize',resize);
+let speed=1,variant='stream',surface='agents',now=0,looping=false;
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),lerp=(a,b,t)=>a+(b-a)*t,rnd=(a,b)=>a+Math.random()*(b-a);
+function bez(x1,y1,x2,y2){const cx=3*x1,bx=3*(x2-x1)-cx,ax=1-cx-bx,cy=3*y1,by=3*(y2-y1)-cy,ay=1-cy-by;
+  const X=t=>((ax*t+bx)*t+cx)*t,Y=t=>((ay*t+by)*t+cy)*t,dX=t=>(3*ax*t+2*bx)*t+cx;
+  return x=>{x=clamp(x,0,1);let t=x;for(let i=0;i<8;i++){const d=dX(t);if(Math.abs(d)<1e-6)break;t-=(X(t)-x)/d;t=clamp(t,0,1)}return Y(t)}}
+const EASE={glide:bez(.45,0,.25,1),out:bez(.2,.8,.3,1),close:bez(.42,0,.22,1),in:bez(.5,0,.75,0)};
+function damped(from,to,resp,damp,t){const w=2*Math.PI/resp,z=Math.min(damp,1),d=from-to;
+  if(z>.999)return to+d*(1+w*t)*Math.exp(-w*t);const wd=w*Math.sqrt(1-z*z);return to+Math.exp(-z*w*t)*(d*Math.cos(wd*t)+z*w*d/wd*Math.sin(wd*t))}
+function hex(c){const n=parseInt(c.slice(1),16);return[n>>16&255,n>>8&255,n&255]}
+function mix(a,b,t){const A=hex(a),B=hex(b);return'#'+A.map((v,i)=>Math.round(lerp(v,B[i],t)).toString(16).padStart(2,'0')).join('')}
+
+// One animatable value, SwiftUI-style springs or a timing curve.
+class Ch{constructor(v){this.v=v;this.t=v;this.vel=0;this.m=null}
+  spring(t,r,d){this.t=t;this.m={k:'s',r,d};return this}
+  curve(t,dur,e=EASE.close){this.m={k:'c',f:this.v,t,dur,e,el:0};this.t=t;this.vel=0;return this}
+  step(dt){const m=this.m;if(!m)return;
+    if(m.k==='s'){const k=(2*Math.PI/m.r)**2,c=4*Math.PI*m.d/m.r,n=Math.ceil(dt/.004),h=dt/n;
+      for(let i=0;i<n;i++){this.vel+=(-k*(this.v-this.t)-c*this.vel)*h;this.v+=this.vel*h}
+      if(Math.abs(this.v-this.t)<.005&&Math.abs(this.vel)<.02){this.v=this.t;this.vel=0;this.m=null}}
+    else{m.el+=dt;const p=Math.min(1,m.el/m.dur);this.v=lerp(m.f,m.t,m.e(p));if(p>=1)this.m=null}}}
+
+// ---------- the notch ----------
+const COLLAPSED={w:376,h:32,rt:6,rb:14},EXPANDED={w:640,h:190,rt:19,rb:24};
+const N={w:new Ch(376),h:new Ch(32),rt:new Ch(6),rb:new Ch(14)};
+let isOpen=false;
+function notchPath(c){const w=N.w.v,h=N.h.v,rt=N.rt.v,rb=Math.min(N.rb.v,h-rt),x0=CX-w/2,x1=CX+w/2;
+  c.beginPath();c.moveTo(x0,-1);c.lineTo(x0,0);c.quadraticCurveTo(x0+rt,0,x0+rt,rt);c.lineTo(x0+rt,h-rb);c.arcTo(x0+rt,h,x0+rt+rb,h,rb);
+  c.lineTo(x1-rt-rb,h);c.arcTo(x1-rt,h,x1-rt,h-rb,rb);c.lineTo(x1-rt,rt);c.quadraticCurveTo(x1-rt,0,x1,0);c.lineTo(x1,-1);c.closePath()}
+
+// ---------- content ----------
+// Each surface is drawn once into an offscreen canvas in its own local coordinates (the
+// silhouette's top-left is 0,0), then sampled into 2pt cells — those cells are the pixels.
+const CELL=2;
+function mascotCells(p){const m=new Map(),put=(x,y,k)=>m.set(x+','+y,{x,y,k});
+  for(const[r,a,b] of[[3,4,7],[4,2,9],[5,1,10],[6,1,10],[7,2,9]])for(let x=a;x<=b;x++)put(x,r,'b');
+  const ant=(root,dir,lift)=>{put(root,2,'a');for(let s=1;s<=lift;s++)put(root+dir*s,2-s,s===lift?'t':'a')};
+  ant(4,-1,p.lift??1);ant(7,1,p.liftR??p.lift??1);
+  for(const[x,y] of[[3,8],[4,8],[7,8],[8,8],[2,9],[9,9]])put(x,y,'l');
+  const w=p.eyes==='narrow'?1:2;for(const st of[3,7])for(let o=0;o<w;o++)m.delete((st+o)+',5');
+  const cells=[...m.values()],occ=new Set(cells.map(c=>c.x+','+c.y));
+  return cells.map(c=>({x:c.x,y:c.y,tone:c.k==='l'?-1:c.k==='t'||!occ.has(c.x+','+(c.y-1))?1:!occ.has(c.x+','+(c.y+1))?-1:0}))}
+function mascot(c,x,y,cell,col,pose={}){const hi=mix(col,'#ffffff',.4),lo=mix(col,'#000000',.38);
+  for(const p of mascotCells(pose)){c.fillStyle=p.tone>0?hi:p.tone<0?lo:col;c.fillRect(x+p.x*cell+.25,y+p.y*cell+.25,cell-.5,cell-.5)}}
+function txt(c,s,x,y,size,col,align='left'){c.font=`${size}px ${FONT}`;c.fillStyle=col;c.textAlign=align;c.fillText(s,x,y)}
+function art(c,x,y,s,r){const g=c.createLinearGradient(x,y,x+s,y+s);g.addColorStop(0,'#3d7a5c');g.addColorStop(.55,'#1b3b33');g.addColorStop(1,'#6fb08a');
+  c.fillStyle=g;c.beginPath();c.roundRect(x,y,s,s,r);c.fill();c.fillStyle='#e9c46a';c.beginPath();c.arc(x+s*.62,y+s*.36,s*.13,0,7);c.fill();
+  c.fillStyle='#0e1f1a';c.beginPath();c.moveTo(x,y+s*.78);c.lineTo(x+s*.35,y+s*.52);c.lineTo(x+s*.6,y+s*.74);c.lineTo(x+s*.8,y+s*.6);c.lineTo(x+s,y+s*.8);c.lineTo(x+s,y+s);c.lineTo(x,y+s);c.fill()}
+
+function drawCollapsed(c){const w=COLLAPSED.w;art(c,16,7,18,4);mascot(c,w-16-24,6,2,C.work,{lift:1})}
+function drawTabs(c,active){c.fillStyle='#1a1917';c.beginPath();c.roundRect(28,6,170,22,7);c.fill();
+  ['Media','Agents','Crypto'].forEach((t,i)=>{if(t.toLowerCase()===active){c.fillStyle='#2e2c28';c.beginPath();c.roundRect(31+i*56,9,52,16,5);c.fill()}
+    txt(c,t,57+i*56,21,9,t.toLowerCase()===active?C.ink:C.muted,'center')});
+  c.fillStyle=C.muted;c.beginPath();c.arc(640-36,17,4,0,7);c.fill()}
+function drawAgents(c){drawTabs(c,'agents');
+  const rows=[[C.work,'auth-refactor','Claude app','└ Editing NotchRootView.swift','2 min','412K ctx · 38K out',{lift:1}],
+              [C.think,'api-tests','Codex','└ Thinking…','5 min','188K ctx · 12K out',{lift:2,liftR:0}],
+              [C.done,'landing-page','Claude app','└ Done (4 files)','12 min','96K ctx · 22K out',{eyes:'narrow'}]];
+  rows.forEach(([col,name,host,sub,ago,usage,pose],i)=>{const y=44+i*46;mascot(c,28,y,3,col,pose);
+    txt(c,name,76,y+12,13,C.ink);c.font=`13px ${FONT}`;const nw=c.measureText(name).width;txt(c,host,84+nw,y+12,10,C.muted);
+    txt(c,sub,76,y+28,11,'#b7b3aa');txt(c,ago,612,y+12,10,C.muted,'right');txt(c,usage,612,y+28,10,C.dim,'right')})}
+function drawMedia(c){drawTabs(c,'media');art(c,28,40,124,8);
+  txt(c,'Night Drive',172,64,16,C.ink);txt(c,'Glass Harbor',172,84,11,C.muted);txt(c,'Low Tide Radio',172,100,11,C.dim);
+  c.fillStyle='#2a2926';c.fillRect(204,132,360,3);c.fillStyle=C.coral;c.fillRect(204,132,236,3);
+  txt(c,'2:51',172,137,9,C.muted);txt(c,'4:22',612,137,9,C.muted,'right');
+  const tx=[330,388,446];c.fillStyle=C.ink;
+  c.beginPath();c.moveTo(tx[0]+6,150);c.lineTo(tx[0]-4,156);c.lineTo(tx[0]+6,162);c.fill();c.fillRect(tx[0]-6,150,2,12);
+  c.fillRect(tx[1]-5,149,4,14);c.fillRect(tx[1]+2,149,4,14);
+  c.beginPath();c.moveTo(tx[2]-6,150);c.lineTo(tx[2]+4,156);c.lineTo(tx[2]-6,162);c.fill();c.fillRect(tx[2]+4,150,2,12)}
+
+// A surface: a crisp canvas for display, and its cells for the pixels.
+function makeSurface(size,draw,origin){
+  const k=S*DPR,crisp=document.createElement('canvas');crisp.width=Math.ceil(size.w*k);crisp.height=Math.ceil(size.h*k);
+  const cc=crisp.getContext('2d');cc.scale(k,k);draw(cc);
+  const probe=document.createElement('canvas');probe.width=size.w;probe.height=size.h;const pc=probe.getContext('2d',{willReadFrequently:true});draw(pc);
+  const data=pc.getImageData(0,0,size.w,size.h).data,cells=[];
+  for(let y=0;y<size.h;y+=CELL)for(let x=0;x<size.w;x+=CELL){let r=0,g=0,b=0,a=0;
+    for(let j=0;j<CELL;j++)for(let i=0;i<CELL;i++){const o=((y+j)*size.w+(x+i))*4;if(data[o+3]>0){r+=data[o];g+=data[o+1];b+=data[o+2];a+=data[o+3]}}
+    if(a>CELL*CELL*255*.28){const n=a/255;cells.push({x:origin.x+x,y:origin.y+y,col:`rgb(${r/n|0},${g/n|0},${b/n|0})`})}}
+  return{crisp,cells,origin,size}}
+let SURF={};
+function buildContent(){SURF.collapsed=makeSurface(COLLAPSED,drawCollapsed,{x:CX-COLLAPSED.w/2,y:0});
+  SURF.agents=makeSurface(EXPANDED,drawAgents,{x:CX-EXPANDED.w/2,y:0});SURF.media=makeSurface(EXPANDED,drawMedia,{x:CX-EXPANDED.w/2,y:0})}
+
+// ---------- the rebuild ----------
+// A transition moves pixels from one surface's cells to another's. Every pixel knows when it
+// leaves (its source cell is erased) and when it lands (its destination cell is uncovered).
+let T=null;
+function begin(from,to,opening){
+  const src=from.cells.slice().sort((a,b)=>a.x-b.x||a.y-b.y),dst=to.cells.slice().sort((a,b)=>a.x-b.x||a.y-b.y);
+  const n=Math.max(src.length,dst.length),parts=[],leave=new Float64Array(src.length).fill(Infinity),land=new Float64Array(dst.length).fill(Infinity);
+  const yMin=Math.min(...dst.map(d=>d.y)),yMax=Math.max(...dst.map(d=>d.y)),syMax=Math.max(...src.map(s=>s.y)),syMin=Math.min(...src.map(s=>s.y));
+  for(let i=0;i<n;i++){const si=Math.floor(i*src.length/n),di=Math.floor(i*dst.length/n),s=src[si],d=dst[di];
+    let start,dur;
+    if(variant==='scan'){
+      // rows build top-down on open, dissolve bottom-up on close
+      const row=opening?(d.y-yMin)/Math.max(1,yMax-yMin):1-(s.y-syMin)/Math.max(1,syMax-syMin);
+      start=now+row*.26+rnd(0,.03);dur=.24}
+    else if(variant==='dust'){start=now+rnd(0,.08);dur=.52+rnd(-.06,.06)}
+    else{const row=opening?(d.y-yMin)/Math.max(1,yMax-yMin):1-(s.y-syMin)/Math.max(1,syMax-syMin);
+      start=now+row*.16+rnd(0,.06);dur=.36+rnd(-.05,.05)}
+    // pixels that are surplus (many→few) fade out mid-flight instead of all landing
+    const surplus=!opening&&i%Math.max(1,Math.round(n/dst.length))!==0;
+    parts.push({s,d,start,dur,surplus,j1:rnd(-30,30),j2:rnd(-20,20),bx:rnd(-1,1),by:rnd(-1,1)});
+    leave[si]=Math.min(leave[si],start);if(!surplus||dst.length>=n)land[di]=Math.min(land[di],start+dur)}
+  T={from,to,src,dst,parts,leave,land,opening,end:Math.max(...parts.map(p=>p.start+p.dur))+.05}}
+
+function pos(p,t){const u=clamp((t-p.start)/p.dur,0,1),s=p.s,d=p.d,up=!T.opening;
+  if(variant==='scan'){
+    // sideways along the source row first, then straight down (or up) into place
+    const a=EASE.out(clamp(u/.45,0,1)),b=EASE.glide(clamp((u-.35)/.65,0,1));
+    return{x:lerp(s.x,d.x,a),y:lerp(s.y,d.y,b),u}}
+  if(variant==='dust'){
+    // a short puff away from home, then pulled in on a spring
+    const puff=Math.min(1,(t-p.start)/.12),px=s.x+p.bx*18*EASE.out(puff),py=s.y+p.by*14*EASE.out(puff)+(up?-6:6)*EASE.out(puff);
+    if(t-p.start<.12)return{x:px,y:py,u};const e=t-p.start-.12;
+    return{x:damped(px,d.x,.34,.72,e),y:damped(py,d.y,.34,.72,e),u}}
+  const k=EASE.glide(u),v=1-k,
+    p1={x:s.x+p.j1,y:s.y+(up?-12:44)},p2={x:d.x+(up?p.j2:-40+p.j2*.5),y:d.y+(up?40:-10)};
+  return{x:v*v*v*s.x+3*v*v*k*p1.x+3*v*k*k*p2.x+k*k*k*d.x,y:v*v*v*s.y+3*v*v*k*p1.y+3*v*k*k*p2.y+k*k*k*d.y,u}}
+
+// draws `surf` with only the cells `keep` says are visible
+const maskC=document.createElement('canvas'),tmpC=document.createElement('canvas');
+function drawMasked(surf,cells,keep){const k=S*DPR,w=surf.crisp.width,h=surf.crisp.height;
+  for(const c of[maskC,tmpC]){if(c.width!==w||c.height!==h){c.width=w;c.height=h}}
+  const m=maskC.getContext('2d'),t=tmpC.getContext('2d');m.clearRect(0,0,w,h);m.fillStyle='#000';
+  cells.forEach((c,i)=>{if(keep(i))m.fillRect((c.x-surf.origin.x)*k,(c.y-surf.origin.y)*k,CELL*k+.5,CELL*k+.5)});
+  t.globalCompositeOperation='copy';t.drawImage(surf.crisp,0,0);t.globalCompositeOperation='destination-in';t.drawImage(maskC,0,0);t.globalCompositeOperation='source-over';
+  mx.drawImage(tmpC,surf.origin.x,surf.origin.y,surf.size.w,surf.size.h)}
+
+// ---------- open / close ----------
+function open(){if(isOpen)return;isOpen=true;
+  for(const[k,v] of Object.entries(EXPANDED))N[k].spring(v,.38,.72);
+  begin(SURF.collapsed,SURF[surface],true);setHint('opening · the shoulders come apart and rebuild the panel')}
+function close(){if(!isOpen)return;isOpen=false;
+  // 0.45s rather than today's 0.32s, so the notch does not shut over pixels still in flight
+  for(const[k,v] of Object.entries(COLLAPSED))N[k].curve(v,.45);
+  begin(SURF[surface],SURF.collapsed,false);setHint('closing · the panel comes apart and rebuilds the shoulders')}
+
+// ---------- frame ----------
+let last=performance.now();
+function frame(ts){const dt=Math.min(.05,(ts-last)/1000)*speed;last=ts;now+=dt;for(const c of Object.values(N))c.step(dt);
+  if(T&&now>T.end)T=null;
+  const k=S*DPR;mx.setTransform(1,0,0,1,0,0);mx.clearRect(0,0,mainC.width,mainC.height);mx.setTransform(k,0,0,k,0,0);
+  notchPath(mx);mx.fillStyle='#000';mx.fill();
+  mx.save();notchPath(mx);mx.clip();
+  if(T){
+    drawMasked(T.from,T.src,i=>now<T.leave[i]);
+    drawMasked(T.to,T.dst,i=>now>=T.land[i]);
+    for(const p of T.parts){if(now<p.start||now>p.start+p.dur)continue;const q=pos(p,now);
+      let a=1;if(p.surplus)a=1-clamp((q.u-.5)/.4,0,1);if(a<=0)continue;
+      const tail=pos(p,now-.03);mx.globalAlpha=a*.35;mx.strokeStyle=p.s.col;mx.lineWidth=1.2;mx.beginPath();mx.moveTo(tail.x+1,tail.y+1);mx.lineTo(q.x+1,q.y+1);mx.stroke();
+      mx.globalAlpha=a;mx.fillStyle=q.u>.6?p.d.col:p.s.col;mx.fillRect(q.x,q.y,CELL,CELL)}
+    mx.globalAlpha=1;
+    if(variant==='scan'){
+      // the scan line: the build front, a bright hairline across the panel
+      const pr=clamp((now-(T.parts[0]?T.parts.reduce((m,p)=>Math.min(m,p.start),1e9):now))/.5,0,1),y=T.opening?lerp(4,N.h.v,EASE.glide(pr)):lerp(N.h.v,4,EASE.glide(pr));
+      if(pr<1){const g=mx.createLinearGradient(CX-N.w.v/2,0,CX+N.w.v/2,0);g.addColorStop(0,'rgba(255,255,255,0)');g.addColorStop(.5,'rgba(255,255,255,.55)');g.addColorStop(1,'rgba(255,255,255,0)');
+        mx.fillStyle=g;mx.fillRect(CX-N.w.v/2,y,N.w.v,1.2)}}
+  }else{const s=isOpen?SURF[surface]:SURF.collapsed;mx.drawImage(s.crisp,s.origin.x,s.origin.y,s.size.w,s.size.h)}
+  mx.restore();
+  requestAnimationFrame(frame)}
+
+// ---------- hover, like the app: 40ms in, 220ms out ----------
+let hoverTimer=null,inside=false,mouse={x:-99,y:-99};
+function hit(){const w=isOpen?EXPANDED.w+56:COLLAPSED.w,h=isOpen?EXPANDED.h+28:COLLAPSED.h;return mouse.x>CX-w/2&&mouse.x<CX+w/2&&mouse.y<h}
+mainC.addEventListener('mousemove',e=>{const r=stage.getBoundingClientRect();mouse.x=(e.clientX-r.left)/S;mouse.y=(e.clientY-r.top)/S;evaluate()});
+mainC.addEventListener('mouseleave',()=>{mouse.x=mouse.y=-99;evaluate()});
+function evaluate(){if(looping)return;const now_=hit();if(now_===inside)return;inside=now_;clearTimeout(hoverTimer);
+  hoverTimer=setTimeout(()=>inside?open():close(),(inside?40:220)/speed)}
+
+// ---------- controls ----------
+const hintEl=document.getElementById('hint');function setHint(t){hintEl.textContent=t}
+function seg(id,fn){document.querySelectorAll(`#${id} button`).forEach(b=>b.onclick=()=>{document.querySelectorAll(`#${id} button`).forEach(x=>x.classList.toggle('on',x===b));fn(b.dataset.v)})}
+seg('variant',v=>variant=v);seg('surface',v=>{surface=v});seg('speed',v=>speed=+v);
+let loopTimer=null;document.getElementById('loop').onclick=e=>{looping=!looping;e.target.classList.toggle('on',looping);clearTimeout(loopTimer);
+  const tick=()=>{if(!looping)return;isOpen?close():open();loopTimer=setTimeout(tick,(isOpen?2200:1500)/speed)};if(looping)tick()};
+
+resize();document.fonts.load('12px Departure').finally(()=>{buildContent();requestAnimationFrame(t=>{last=t;frame(t)})});
+</script>
+</body>
+</html>

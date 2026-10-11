@@ -101,18 +101,19 @@ final class AgentBridgeController {
     /// over the notch unprompted — the agent is stalled until the user answers.
     private func observeApprovals() {
         store.$pendingApprovals
-            .map(\.isEmpty)
+            .map { $0.min(by: { $0.requestedAt < $1.requestedAt }).map { $0.question == nil } }
             .removeDuplicates()
-            .sink { [weak self] isEmpty in
+            .sink { [weak self] oldestIsPermission in
                 guard let self else { return }
-                // Only the *takeover* is conditional. An approval is the one event that earns
-                // the right to open the notch unprompted, because the agent is stalled until
-                // the user answers. Releasing it does not send the user back anywhere: the tab
-                // is theirs to choose, and yanking it to media the moment they approve
-                // something would fight them.
-                guard !isEmpty else { return }
-                coordinator.show(.agents)
-                NotchRootView.transition(coordinator, to: .expanded)
+                // The controller only says *what* happened; `NotchRootView` decides how the
+                // notch moves for it — a pop for a permission, a drip for a question — and
+                // whether it closes again once the prompt is gone. Releasing does not send the
+                // user anywhere: if they opened the panel themselves, it stays theirs.
+                switch oldestIsPermission {
+                case true?: coordinator.raiseAttention(.approval)
+                case false?: coordinator.raiseAttention(.question)
+                case nil: coordinator.raiseAttention(.resolved)
+                }
             }
             .store(in: &observers)
 
@@ -177,6 +178,12 @@ final class AgentBridgeController {
                         // turn and then closes passes through both, but `sessionFinished`'s
                         // cooldown is longer than that gap, so it sounds once.
                         sounds.play(.sessionFinished)
+                        // Only a run that was actually running is celebrated: a session going
+                        // from waiting to done is a close, not a finish. Subagents report to
+                        // their parent, which finishes on its own.
+                        if previous.isBusy, !session.isSubagent {
+                            coordinator.raiseAttention(.finished(sessionID: id))
+                        }
 
                     case .needsApproval:
                         // Intentionally silent: the approval observer above already sounds for

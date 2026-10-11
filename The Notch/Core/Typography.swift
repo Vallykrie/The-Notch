@@ -51,25 +51,32 @@ enum Typography {
         .custom(postScriptName, fixedSize: size)
     }
 
+    /// The face at an arbitrary size, for the one surface that sizes its type to fit — the
+    /// lyric pill, which shrinks a line too long for its widest width.
+    static func font(size: CGFloat) -> Font {
+        mono(size)
+    }
+
     /// 8pt — badge counts and unit suffixes riding next to a number.
     static let micro = mono(8)
     /// 9pt — the collapsed pill's shoulder text. Small enough to clear the camera housing.
     static let caption = mono(captionSize)
-    /// The caption's size as a number, for measuring caption text with AppKit — the collapsed
-    /// notch sizes its lyrics shoulders from the line's real width.
+    /// The caption's size as a number, for measuring caption text.
     static let captionSize: CGFloat = 9
     /// 11pt — the workhorse. Session rows, tool lines, secondary detail.
-    static let body = mono(11)
+    static let body = mono(bodySize)
+    /// The body's size as a number — the lyric pill sizes itself from its line's width.
+    static let bodySize: CGFloat = 11
     /// 13pt — row titles and the agent name on an approval card.
     static let title = mono(13)
     /// 16pt — the one line the panel wants you to read first.
     static let headline = mono(16)
     static let tradingPrice = mono(24)
 
-    /// Departure Mono's advance width is exactly half its point size, which makes column
-    /// alignment computable rather than guessed. Surfaces use this to reserve space for a
-    /// known character count without measuring text.
+    /// Departure Mono's advance width is 7/11 of its point size (measured: 7pt at 11pt). It was
+    /// documented as half, which undersized anything reserved from a character count by a
+    /// fifth — the lyric pill clipped its lines that way before it switched to measuring.
     static func width(characters: Int, at size: CGFloat) -> CGFloat {
-        CGFloat(characters) * size * 0.5
+        CGFloat(characters) * size * 7 / 11
     }
 }

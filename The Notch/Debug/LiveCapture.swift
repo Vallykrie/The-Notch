@@ -45,6 +45,7 @@ enum LiveCapture {
 
         install(SIGUSR1) { captureOnce(label: "state") }
         install(SIGUSR2) { captureTransition() }
+        install(SIGHUP) { toggleRecording() }
 
         FileHandle.standardError.write(
             Data("LiveCapture: armed, pid \(ProcessInfo.processInfo.processIdentifier)\n".utf8)
@@ -59,6 +60,27 @@ enum LiveCapture {
         source.setEventHandler { MainActor.assumeIsolated(handler) }
         source.resume()
         sources.append(source)
+    }
+
+    private static var recorder: Timer?
+    private static var recordedFrames = 0
+
+    /// `kill -HUP <pid>` starts writing frames continuously at 30fps, and stops on the next one.
+    /// For recording a whole moment — a takeover, a drip, confetti — as it really plays.
+    private static func toggleRecording() {
+        if let recorder {
+            recorder.invalidate()
+            self.recorder = nil
+            FileHandle.standardError.write(Data("LiveCapture: recorded \(recordedFrames) frames\n".utf8))
+            return
+        }
+        recordedFrames = 0
+        recorder = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { _ in
+            MainActor.assumeIsolated {
+                recordedFrames += 1
+                write(name: String(format: "rec-%05d.png", recordedFrames))
+            }
+        }
     }
 
     private static func captureOnce(label: String) {

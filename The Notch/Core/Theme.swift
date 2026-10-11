@@ -429,17 +429,10 @@ enum Theme {
             /// that grows when you press a key reads as a response.
             static let hudShoulderWidth: CGFloat = 92
 
-            /// The sung line, split at a word into two halves that sit either side of the
-            /// camera housing and read straight across it. Only while the user has lyrics on and
-            /// the track is playing — they asked for the words to be there.
-            ///
-            /// The shoulders follow the line: each is sized to the longer half, between these
-            /// bounds. 150 holds about 30 characters per half at caption size; longer halves
-            /// scale down rather than widen the notch further. The floor keeps a one-word line
-            /// from shrinking the notch to a sliver that reads as a glitch.
-            static let lyricsShoulderWidth: CGFloat = 150
-            static let lyricsMinimumShoulderWidth: CGFloat = 44
-            static let lyricsMinimumScale: CGFloat = 0.7
+            /// The intro's closing shoulder: the mascot on one side, "ready" on the other. Wide
+            /// enough for the word at caption size and nothing more.
+            static let welcomeShoulderWidth: CGFloat = 64
+            static let welcomeDotSize: CGFloat = 4
 
             /// Outer padding on a compact shoulder. Tighter than
             /// `Metrics.collapsedHorizontalPadding`, which is sized for text: a 40pt shoulder
@@ -848,36 +841,8 @@ enum Theme {
             // `cardCornerRadius` (10) is gone with the rounded rectangle it drew. The
             // approval "card" is the panel — see `ApprovalCardView`.
 
-            /// The amber rule down the leading edge of the approval surface, and the gap
-            /// between it and the content. `cardPadding` kept its name and its value; it is
-            /// now spent horizontally, where the panel has room, instead of on a border's
-            /// top and bottom inset, where it did not.
-            static let accentRuleWidth: CGFloat = 2
-            static let cardPadding: CGFloat = 12
-
-            /// The ceiling on the approval detail line, not a target. At the panel's current
-            /// 190pt only two of these actually fit beneath the header, and `ApprovalCardView`
-            /// gives the row a negative layout priority so the third is dropped rather than
-            /// pushing the buttons past the bottom curve. The ceiling stays at three so the
-            /// line earns the space back if the panel ever grows.
-            static let summaryLineLimit = 3
             static let planLineLimit = 8
             static let elapsedRefreshInterval: TimeInterval = 1
-
-            /// Between one answer to a question and the next. Tighter than
-            /// `collapsedContentSpacing`, because four options plus a text field have to fit
-            /// under a two-line question inside a 190pt panel, and the buttons already carry
-            /// their own padding — the gap only has to say they are separate rows.
-            static let optionSpacing: CGFloat = 4
-
-            /// The mascot on the question card. Smaller than `activityGlyphSize`, because the
-            /// card that asks a question has to hold the question, its answers and a text field
-            /// in the same 190pt that a permission prompt spends on one line of detail.
-            static let questionGlyphSize: CGFloat = 22
-
-            /// What the question card insets itself by, in place of
-            /// `expandedVerticalPadding` — see `AgentsExpandedView.verticalInset`.
-            static let questionVerticalPadding: CGFloat = 4
 
             /// The fade over the bottom of an overflowing session list, and the gap between the
             /// "more below" pill and the panel's bottom edge. The fade is what says "this
@@ -1005,4 +970,293 @@ enum Theme {
         // speed on any shape. Do not reintroduce a gradient sweep here for a "simpler" ring —
         // the shape is the reason it did not work.
     }
+}
+
+// MARK: - Liquid notch and attention choreography
+//
+// Everything the attention moments, the onboarding and the lyric pill move on. These sit in an
+// extension rather than in the enums above only because there are a lot of them; the ground
+// rule is the same — no surface declares a curve, a duration or a size of its own.
+
+extension Theme.Motion {
+    /// An approval taking over the notch. Under-damped on purpose: this is the one opening that
+    /// is meant to be *noticed* rather than merely followed, and the overshoot is what reads as
+    /// a pop rather than a slide. `open` stays the gesture for everything the pointer asked for.
+    static let pop = Animation.spring(response: 0.42, dampingFraction: 0.6, blendDuration: 0)
+
+    /// The notch drawing in a breath just before it pops: 16pt narrower and 3pt shorter, held
+    /// for `inhaleHold`. Critically damped, because the inhale is anticipation and anticipation
+    /// that wobbles reads as a stutter.
+    static let inhale = Animation.spring(response: 0.12, dampingFraction: 1.0, blendDuration: 0)
+    static let inhaleHold: Duration = .milliseconds(110)
+
+    /// The first-launch band opening. Longer than `open` because it is also the reveal of
+    /// everything that follows, and slightly under-damped so it lands like liquid settling.
+    static let band = Animation.spring(response: 0.6, dampingFraction: 0.74, blendDuration: 0)
+
+    /// The bottom edge bulging and the silhouette widening on a nudge — a quick push out and an
+    /// under-damped settle. Two curves rather than one spring with an initial velocity because
+    /// `withAnimation` has no way to start a spring that is already moving; the push stands in
+    /// for the impulse and the settle is what the eye actually reads as the wobble.
+    static let kickOut = Animation.easeOut(duration: 0.09)
+    static let kickSettle = Animation.spring(response: 0.42, dampingFraction: 0.42, blendDuration: 0)
+
+    /// The shoulders breathing out when a run finishes, and in again. The out is `open`'s
+    /// sibling; the in is the critically damped `shoulders` so the silhouette settles without
+    /// an overshoot on the way back to rest.
+    static let breathOut = Animation.spring(response: 0.38, dampingFraction: 0.72, blendDuration: 0)
+    static let breathIn = shoulders
+
+
+    /// A slower close for the moments where the mascot flies home: its pixels are still in the
+    /// air for most of this, and a close as quick as `close` cut them off mid-flight.
+    static let homecoming = Animation.timingCurve(0.42, 0.0, 0.22, 1.0, duration: 0.5)
+    /// The onboarding band contracting while the mascot's pixels stream to the shoulder.
+    static let bandClose = Animation.timingCurve(0.42, 0.0, 0.22, 1.0, duration: 0.6)
+
+    /// Choreography timings. Durations rather than curves, read by `NotchFX` and the scripts
+    /// that drive it; the shapes of those motions are the `Liquid` springs below.
+    enum Attention {
+        /// How long an unanswered takeover waits before it nudges again, and how many times.
+        /// A question waits a little longer than a permission because nothing is held open by it.
+        static let approvalNudge: Duration = .milliseconds(3600)
+        static let questionNudge: Duration = .milliseconds(4000)
+        static let maxNudges = 6
+        /// Width and bottom-edge push for one nudge, in points.
+        static let nudgeWidth: CGFloat = 14
+        static let nudgeBelly: CGFloat = 8
+        static let popBelly: CGFloat = 13
+        /// The inhale before a pop, in points.
+        static let inhaleWidth: CGFloat = 16
+        static let inhaleHeight: CGFloat = 3
+
+        /// One shock ring leaving the silhouette, and the gap between a pair of them.
+        static let ringLife: TimeInterval = 0.75
+        static let ringGap: TimeInterval = 0.14
+        static let ringReach: CGFloat = 34
+        static let sparkCount = 26
+        static let rimPulse: TimeInterval = 1.1
+        static let rimSweep: TimeInterval = 0.6
+
+        /// The question's drop: how long it takes to form, how long it hangs before the notch
+        /// gulps it, and how long a nudge drop lives.
+        static let dropForm: Duration = .milliseconds(240)
+        static let dropHang: Duration = .milliseconds(520)
+        static let nudgeDropLife: TimeInterval = 1.3
+
+        /// The question's drop under the resting notch, and a nudge drop under the open card:
+        /// radius and how far below the edge each hangs. Short enough that the neck holds.
+        static let questionDrop = (radius: CGFloat(13), hang: CGFloat(17))
+        static let nudgeDrop = (radius: CGFloat(10), hang: CGFloat(9))
+
+        /// The onboarding's stream of pixels into a checkbox: how many, one every `streamStagger`,
+        /// each in the air for `streamFlight`.
+        static let streamCount = 22
+        static let streamStagger: TimeInterval = 0.03
+        static let streamFlight: TimeInterval = 0.62
+
+        /// The mascot's pixels flying between the shoulder and a card.
+        static let transit: TimeInterval = 0.66
+        static let transitStagger: TimeInterval = 0.022
+        static let transitArrival: Duration = .milliseconds(800)
+        static let homecomingArrival: Duration = .milliseconds(880)
+        /// The close starts this long after the pixels leave, so they are visibly on their way
+        /// before the card closes over the place they came from.
+        static let homecomingLead: Duration = .milliseconds(240)
+
+        /// A finished run: how long the shoulders stay breathed out, how far, and how much
+        /// confetti.
+        static let breathHold: Duration = .milliseconds(1250)
+        static let breathWidth: CGFloat = 56
+        static let confettiCount = 48
+        static let confettiLife: ClosedRange<TimeInterval> = 1.2 ... 1.9
+
+        /// The faint star field behind an attention card. Dim enough to sit behind text.
+        static let cardStars = 36
+        static let cardStarOpacity: ClosedRange<Double> = 0.12 ... 0.36
+    }
+
+    /// The first-launch sequence, beat by beat. Each is the wait *before* the next beat.
+    enum Onboarding {
+        static let settle: Duration = .milliseconds(600)
+        static let melt: Duration = .milliseconds(900)
+        static let starsIn: Duration = .milliseconds(800)
+        static let gather: Duration = .milliseconds(1350)
+        static let lookAround: Duration = .milliseconds(420)
+        static let greetLine: Duration = .milliseconds(1100)
+        static let greetHold: Duration = .milliseconds(1900)
+        static let toConsent: Duration = .milliseconds(340)
+        static let connectStream: Duration = .milliseconds(1250)
+        static let afterwordHold: Duration = .milliseconds(1800)
+        static let toDissolve: Duration = .milliseconds(640)
+        static let dissolveLead: Duration = .milliseconds(480)
+        static let landing: Duration = .milliseconds(1150)
+        static let beforeHint: Duration = .milliseconds(700)
+        static let hintDwell: Duration = .milliseconds(2800)
+        static let afterHint: Duration = .milliseconds(900)
+        /// Characters per second for the typed lines.
+        static let typeRate: Double = 30
+        static let starCount = 170
+    }
+
+    /// The closed-form springs and bezier timings the FX layer evaluates per frame. `Animation`
+    /// cannot be sampled, so these are the same physics as numbers: (response, damping) pairs in
+    /// SwiftUI's parameterisation, and durations in seconds.
+    enum Liquid {
+        /// Cubic timing curves as control points: an ease in and out, a fall that accelerates,
+        /// and a launch that decelerates. Named for what they do, not for CSS keywords.
+        static let glide = (0.45, 0.0, 0.25, 1.0)
+        static let accelerate = (0.5, 0.0, 0.75, 0.0)
+        static let decelerate = (0.2, 0.8, 0.3, 1.0)
+        /// The onboarding mascot's hop: up on `decelerate`, back down on this spring.
+        static let hopRise: TimeInterval = 0.12
+        static let hopLand = (response: 0.32, damping: 0.45)
+        /// The onboarding mascot sliding aside for the consent copy, and back.
+        static let mascotSlide = (response: 0.5, damping: 0.82)
+        static let dropGrow = (response: 0.35, damping: 0.6)
+        static let dropFall: TimeInterval = 0.8
+        static let gulp: TimeInterval = 0.35
+        static let pillWidth = (response: 0.5, damping: 0.78)
+        static let pillGather = (response: 0.5, damping: 0.58)
+        static let starSeek: ClosedRange<Double> = 0.45 ... 0.7
+        static let starSeekDamping = 0.78
+        /// The lyric pill's drop: forming under the notch, falling to the pill, and going home.
+        static let pillDripForm: TimeInterval = 0.26
+        static let pillDripFall: TimeInterval = 0.42
+        static let pillLeave: TimeInterval = 0.45
+        /// A new lyric line gliding in.
+        static let lineGlide: TimeInterval = 0.42
+        /// How long the splashed drops take to drift to a stop, as a drag rate per second.
+        static let splashDrag: Double = 2.6
+        /// The cursor pushing drops aside while the pill is splashed.
+        static let splashPush: Double = 1500
+        static let regatherSpread: TimeInterval = 0.28
+        static let regatherDelay: TimeInterval = 0.18
+    }
+}
+
+extension Theme.Metrics {
+    /// The band the first launch opens into: wider and taller than the expanded panel, because
+    /// it holds a 96pt mascot beside the consent copy.
+    static let onboardingBandSize = CGSize(width: 780, height: 250)
+    static let onboardingTopCornerRadius: CGFloat = 19
+    static let onboardingBottomCornerRadius: CGFloat = 30
+
+    /// The metaball pass that makes drops look like liquid. The blur is what merges two nearby
+    /// shapes; the threshold is what gives the merged shape a hard edge again.
+    enum Liquid {
+        static let blur: CGFloat = 3.5
+        static let threshold: Double = 0.42
+        /// How far a drop's parent silhouette is drawn inside the real edge, so the drop grows
+        /// out from under the crisp notch rather than from its outline.
+        static let attachInset: CGFloat = 3
+    }
+
+    /// The lyric line floating under the notch.
+    enum LyricPill {
+        /// From the notch's bottom edge to the pill's centre: the pill's top sits ~13pt under the
+        /// notch — far enough to read as its own thing, close enough to read as the notch's.
+        static let drop: CGFloat = 24
+        static let height: CGFloat = 21
+        static let dropCount = 64
+        static let horizontalPadding: CGFloat = 22
+        static let maxWidth: CGFloat = 560
+        /// The smallest a too-long line is scaled to before it is allowed to clip.
+        static let minimumScale: CGFloat = 0.8
+        static let minWidth: CGFloat = 60
+        /// The cursor within this distance of the pill splashes it; beyond `farDistance` it
+        /// gathers again. The gap between the two is hysteresis, so a pointer resting at the
+        /// edge does not make it flicker.
+        static let nearDistance: CGFloat = 30
+        static let farDistance: CGFloat = 78
+        static let pushRadius: CGFloat = 66
+        /// How far a splash throws drops, and how small they shrink to.
+        static let splashSpeed: ClosedRange<CGFloat> = 170 ... 420
+        static let splashRadius: ClosedRange<CGFloat> = 4 ... 8.5
+        /// Drops are kept this far below the notch, so a splash never looks like the notch
+        /// leaking.
+        static let notchClearance: CGFloat = 12
+        static let lineGlideOffset: CGFloat = 9
+    }
+
+    /// The approval and question card — `ApprovalCardView`, layout A in
+    /// `docs/design/approval-question-layouts-v1.html`.
+    enum Prompt {
+        /// The left column: who is asking. Wide enough for "NEEDS PERMISSION" at micro size and
+        /// a project name, and well clear of the camera housing, so it can start at the top.
+        static let whoColumnWidth: CGFloat = 132
+        static let columnSpacing: CGFloat = 26
+        static let whoTopInset: CGFloat = 16
+        static let whoSpacing: CGFloat = 4
+        /// Ten rows at a 4pt cell: big enough that the startle and the lean read from across
+        /// a desk, which is when this card is being looked at.
+        static let mascotSize: CGFloat = 40
+        /// With no tab bar above it, the right column starts this far below the housing.
+        static let housingClearance: CGFloat = 6
+        static let bottomInset: CGFloat = 12
+        /// The accent rule down the leading edge, and the gap between it and the mascot.
+        static let ruleWidth: CGFloat = 2
+        static let ruleGap: CGFloat = 12
+        /// The command's code block and the option chips share one fill and corner.
+        static let blockCornerRadius: CGFloat = 7
+        static let blockFillOpacity: CGFloat = 0.07
+        static let blockHorizontalPadding: CGFloat = 10
+        static let blockVerticalPadding: CGFloat = 7
+        static let commandLineLimit = 3
+        /// A warm off-white, so a command reads as code against the card's white prose.
+        static let commandTint = Color(red: 0.95, green: 0.82, blue: 0.66)
+        static let chipSpacing: CGFloat = 6
+        static let chipHorizontalPadding: CGFloat = 8
+        static let chipVerticalPadding: CGFloat = 4
+        /// Two rows of two. A fifth option and beyond are counted, not drawn.
+        static let maxVisibleOptions = 4
+        static let tagCornerRadius: CGFloat = 3
+        static let tagHorizontalPadding: CGFloat = 4
+    }
+
+    /// Where things sit in the onboarding band, in the band's own coordinates. Absolute rather
+    /// than stacked, because the effects layer has to know exactly where a checkbox is to
+    /// stream pixels into it.
+    enum Onboarding {
+        static let mascotCenter = CGPoint(x: 390, y: 112)
+        static let mascotAsideCenter = CGPoint(x: 132, y: 118)
+        static let mascotPixel: CGFloat = 8
+        static let greetingTop: CGFloat = 176
+        static let consentLeading: CGFloat = 230
+        static let titleTop: CGFloat = 46
+        static let bodyTop: CGFloat = 74
+        static let bodyLineSpacing: CGFloat = 3
+        static let rowsTop: CGFloat = 116
+        static let rowHeight: CGFloat = 20
+        static let checkboxSize: CGFloat = 12
+        static let checkboxCornerRadius: CGFloat = 3
+        static let nameColumn: CGFloat = 130
+        static let buttonsTop: CGFloat = 204
+        /// Every detected agent gets a row — the user has to be able to untick any agent the
+        /// yes would apply to. Past `singleColumnRows` they split into two columns of this
+        /// width, with a narrower name and a status that truncates in the middle.
+        static let singleColumnRows = 3
+        static let columnWidth: CGFloat = 270
+        static let compactNameColumn: CGFloat = 112
+        static let compactStatusWidth: CGFloat = 140
+        /// The intro's question drop and the stars, in the band.
+        static let starInset = CGSize(width: 6, height: 6)
+    }
+
+    enum Attention {
+        static let sparkSize: ClosedRange<CGFloat> = 2 ... 3.4
+        static let sparkSpeed: ClosedRange<CGFloat> = 140 ... 340
+        static let confettiSize: ClosedRange<CGFloat> = 3 ... 5
+        static let confettiGravity: CGFloat = 520
+        static let ringWidth: CGFloat = 2.4
+        static let rimWidth: CGFloat = 3
+    }
+}
+
+extension Theme.Colors {
+    /// The onboarding mascot and its stars: a warm white, so the first thing the app shows is
+    /// not yet any of the status hues it will later use to mean something.
+    static let ink = Color(red: 0.95, green: 0.94, blue: 0.91)
+    static let starTints: [Color] = [ink, ink, Status.working, Status.needsApproval, Status.thinking]
+    static let confetti: [Color] = [Status.done, Status.done, ink, Status.working, Status.question]
 }
