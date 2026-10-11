@@ -193,19 +193,23 @@ struct NotchRootView: View {
         .onChange(of: systemHUD.event) { _, _ in refreshActivity() }
         .onChange(of: settings.revision) { _, _ in refreshActivity() }
         .onChange(of: trading.wantsShoulder) { _, _ in refreshActivity() }
-        .onChange(of: lyrics.showsOnNotch) { _, _ in refreshActivity() }
-        .onChange(of: lyrics.currentLineIndex) { _, _ in refreshActivity() }
         .onChange(of: attentionFlags) { _, _ in refreshActivity() }
         .onChange(of: store.pendingApprovals.count) { _, _ in refreshActivity() }
-        .onChange(of: coordinator.isWelcoming) { _, _ in refreshActivity() }
         .onChange(of: tradingPanelVisible) { _, value in trading.setPanelVisible(value) }
-        .onChange(of: pillLine) { old, new in updatePill(from: old, to: new) }
-        .onReceive(coordinator.$attentionCue.compactMap { $0 }) { cue in handleAttention(cue) }
-        .onReceive(coordinator.$onboardingRequest.compactMap { $0 }) { _ in beginOnboarding() }
+    }
+
+    /// The choreography's inputs, in a chain of their own: appended to the one above, the whole
+    /// thing was more than CI's compiler would type-check in reasonable time.
+    private func observingAttention(_ content: some View) -> some View {
+        content
+            .onChange(of: coordinator.isWelcoming) { _, _ in refreshActivity() }
+            .onChange(of: pillLine) { old, new in updatePill(from: old, to: new) }
+            .onReceive(coordinator.$attentionCue.compactMap { $0 }) { cue in handleAttention(cue) }
+            .onReceive(coordinator.$onboardingRequest.compactMap { $0 }) { _ in beginOnboarding() }
     }
 
     private func observingActivity(_ content: some View) -> some View {
-        observingInputs(content)
+        observingAttention(observingInputs(content))
         .onChange(of: coordinator.currentSurface) { _, _ in
             withAnimation(Theme.Motion.shoulders) {
                 animatedCollapsedSize = coordinator.collapsedSize

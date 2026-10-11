@@ -423,7 +423,7 @@ final class NotchFX {
             let side = Double.random(in: 0 ... 1)
             let x: CGFloat = side < 0.2 ? rect.minX + 4 : side > 0.8 ? rect.maxX - 4 : .random(in: rect.minX + 20 ... rect.maxX - 20)
             let lean = side < 0.2 ? 0.6 : side > 0.8 ? -0.6 : 0
-            let angle = Double.pi / 2 + .random(in: -1.1 ... 1.1) + lean
+            let angle = CGFloat.pi / 2 + .random(in: -1.1 ... 1.1) + lean
             let speed = CGFloat.random(in: metrics.sparkSpeed)
             sparks.append(Spark(
                 origin: CGPoint(x: x, y: rect.maxY),
