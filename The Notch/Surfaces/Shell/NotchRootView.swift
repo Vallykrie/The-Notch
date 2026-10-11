@@ -35,6 +35,26 @@ struct NotchRootView: View {
     /// `switch` over `NotchSurface` if it were a case there.
     @State private var isShowingSettings = false
 
+    /// Every drawn effect — liquid, stars, pixels in flight, sparks, the lyric pill.
+    @State private var fx = NotchFX()
+    /// Added to the aperture for the attention gestures: negative for the inhale before a pop,
+    /// positive for a nudge or a finished run's breath. Zero at rest.
+    @State private var flex: CGSize = .zero
+    /// The bottom edge's bow — see `NotchShape.belly`. Zero at rest.
+    @State private var belly: CGFloat = .zero
+    /// The animation the next state change should use instead of plain `open`/`close`. Set by
+    /// the choreography just before it changes the state, and consumed by the state mirror.
+    @State private var nextStateAnimation: Animation?
+    /// Why the notch opened itself, if it did. A takeover is closed again by the choreography
+    /// when what it was for goes away; an opening the user asked for is never closed for them.
+    @State private var takeover: Takeover?
+    /// Where the card's mascot was when the prompt it stood for was answered, so it can fly home
+    /// from there even though the card has already been taken down.
+    @State private var homecomingFrom: CGRect?
+    @State private var choreography: Task<Void, Never>?
+    @State private var nudger: Task<Void, Never>?
+    @State private var onboarding: OnboardingDirector?
+
     /// `debugShowsSettings` is for `FrameDump` and nothing else. The settings surface is local
     /// view state by design (see `isShowingSettings`), and `ImageRenderer` cannot press a
     /// button — so the one surface with the tightest vertical budget in the app would otherwise
@@ -59,6 +79,7 @@ struct NotchRootView: View {
 
     var body: some View {
         observingActivity(aperture)
+            .environment(fx)
     }
 
     /// The silhouette, its content and the spring that opens it.
@@ -68,6 +89,8 @@ struct NotchRootView: View {
     private var aperture: some View {
         ZStack(alignment: .top) {
             Color.clear
+
+            NotchLiquidLayer(fx: fx)
 
             shellContent
                 // Content is laid out at its *destination* size immediately and never
@@ -86,12 +109,19 @@ struct NotchRootView: View {
                     height: apertureSize.height,
                     alignment: .top
                 )
-                .background(Theme.Colors.surface)
+                .background(alignment: .top) { apertureBackground }
                 .clipShape(currentShape)
                 .overlay(attentionRing)
+                .overlay(NotchRimFlashView(fx: fx, shape: currentShape))
                 .contentShape(currentShape)
                 .compositingGroup()
                 .background(surfaceShadow)
+
+            NotchOuterFXLayer(fx: fx)
+        }
+        .coordinateSpace(.named(NotchFX.space))
+        .onGeometryChange(for: CGSize.self) { $0.size } action: { size in
+            fx.panelSize = size
         }
         // The aperture animates off local view state, not off the coordinator.
         //
@@ -111,8 +141,13 @@ struct NotchRootView: View {
         // activity can add or remove shoulders while `state` remains `.collapsed`, so the state
         // mirror alone never receives a change to animate.
         .onReceive(coordinator.$state.dropFirst()) { newState in
-            withAnimation(Theme.Motion.forState(newState)) {
+            let animation = nextStateAnimation ?? Theme.Motion.forState(newState)
+            nextStateAnimation = nil
+            stateWillChange(to: newState)
+            withAnimation(animation) {
                 animatedState = newState
+                // An inhale or a breath is always given back by the gesture that follows it.
+                flex = .zero
             }
             // These mutations deliberately live in a second transaction. The values fade on
             // `surfaceFade`, while every view that consumes them continues resolving its
@@ -162,7 +197,11 @@ struct NotchRootView: View {
         .onChange(of: lyrics.currentLineIndex) { _, _ in refreshActivity() }
         .onChange(of: attentionFlags) { _, _ in refreshActivity() }
         .onChange(of: store.pendingApprovals.count) { _, _ in refreshActivity() }
+        .onChange(of: coordinator.isWelcoming) { _, _ in refreshActivity() }
         .onChange(of: tradingPanelVisible) { _, value in trading.setPanelVisible(value) }
+        .onChange(of: pillLine) { old, new in updatePill(from: old, to: new) }
+        .onReceive(coordinator.$attentionCue.compactMap { $0 }) { cue in handleAttention(cue) }
+        .onReceive(coordinator.$onboardingRequest.compactMap { $0 }) { _ in beginOnboarding() }
     }
 
     private func observingActivity(_ content: some View) -> some View {
@@ -177,9 +216,13 @@ struct NotchRootView: View {
             shadowStrength = coordinator.state == .expanded
                 ? Theme.Metrics.shadowOpacity
                 : .zero
+            fx.pointer = { [coordinator] in coordinator.pointerLocation }
+            fx.reduceMotion = reduceMotion
             refreshActivity(animated: false)
             trading.setPanelVisible(tradingPanelVisible)
+            updatePill(from: nil, to: pillLine)
         }
+        .onChange(of: reduceMotion) { _, value in fx.reduceMotion = value }
         // Fills the panel, which is deliberately larger than the notch so the shadow and the
         // hover grace zone are not clipped away.
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -199,15 +242,32 @@ struct NotchRootView: View {
     private var contentSize: CGSize {
         switch coordinator.state {
         case .collapsed: coordinator.collapsedSize
-        case .expanded: Theme.Metrics.expandedNotchSize
+        case .expanded: coordinator.expandedSize
         }
     }
 
-    /// The animating silhouette. Reads `animatedState` so it interpolates.
+    /// The animating silhouette. Reads `animatedState` so it interpolates, plus whatever the
+    /// attention gestures are borrowing — and a positive belly is paid for in height, so the
+    /// bowed edge stays inside the frame the fill and the clip are drawn in.
     private var apertureSize: CGSize {
-        switch animatedState {
+        let base = switch animatedState {
         case .collapsed: animatedCollapsedSize
-        case .expanded: Theme.Metrics.expandedNotchSize
+        case .expanded: coordinator.expandedSize
+        }
+        return CGSize(
+            width: max(.zero, base.width + flex.width),
+            height: max(.zero, base.height + flex.height + max(belly, .zero))
+        )
+    }
+
+    /// The black of the notch, with the star field and pixels in flight drawn into it. The
+    /// canvas is the size of the whole panel and is clipped by the aperture like everything
+    /// else, which is what makes the stars appear *inside* the notch as it opens.
+    private var apertureBackground: some View {
+        ZStack(alignment: .top) {
+            Theme.Colors.surface
+            NotchInnerFXLayer(fx: fx)
+                .frame(width: fx.panelSize.width, height: fx.panelSize.height, alignment: .top)
         }
     }
 
@@ -299,8 +359,8 @@ struct NotchRootView: View {
 
             expandedContent
                 .frame(
-                    width: Theme.Metrics.expandedNotchSize.width,
-                    height: Theme.Metrics.expandedNotchSize.height,
+                    width: coordinator.expandedSize.width,
+                    height: coordinator.expandedSize.height,
                     alignment: .top
                 )
                 .scaleEffect(
@@ -337,29 +397,50 @@ struct NotchRootView: View {
             nowPlaying: nowPlaying,
             store: store,
             trading: trading,
-            lyrics: lyrics,
             hudEvent: systemHUD.event
         )
     }
 
+    @ViewBuilder
     private var expandedContent: some View {
+        if let onboarding, coordinator.isOnboarding {
+            OnboardingView(director: onboarding, integrations: services.integrations)
+        } else {
+            panelContent
+        }
+    }
+
+    private var panelContent: some View {
         // `alignment: .leading`, not the default centre. Centred, the tab bar sat directly
         // beneath the camera housing — the one strip of the panel the user physically cannot
         // see, which made the app's only piece of directly-operated chrome invisible.
         VStack(alignment: .leading, spacing: Theme.Metrics.expandedHeaderSpacing) {
-            header
-                .padding(.horizontal, Theme.Metrics.expandedHorizontalPadding)
-                .padding(.top, Theme.Metrics.expandedTopContentInset)
+            if showsHeader {
+                header
+                    .padding(.horizontal, Theme.Metrics.expandedHorizontalPadding)
+                    .padding(.top, Theme.Metrics.expandedTopContentInset)
+            }
 
             Group {
                 if isShowingSettings {
-                    SettingsExpandedView(settings: settings, mediaKeys: services.mediaKeys, integrations: services.integrations, store: store)
+                    SettingsExpandedView(
+                        settings: settings,
+                        mediaKeys: services.mediaKeys,
+                        integrations: services.integrations,
+                        store: store,
+                        onReplayIntro: { coordinator.requestOnboarding() }
+                    )
                 } else {
                     switch coordinator.currentSurface {
                     case .media:
                         MediaExpandedView(nowPlaying: nowPlaying, lyrics: services.lyrics)
                     case .agents:
-                        AgentsExpandedView(store: store, integrations: services.integrations, namespace: contentNamespace, showsModel: settings.showAgentModel)
+                        AgentsExpandedView(
+                            store: store,
+                            integrations: services.integrations,
+                            namespace: contentNamespace,
+                            showsModel: settings.showAgentModel
+                        )
                     case .trading:
                         TradingExpandedView(store: trading, isVisible: tradingPanelVisible) { editing in
                             if !isShowingSettings { coordinator.setPinnedOpen(editing) }
@@ -372,6 +453,12 @@ struct NotchRootView: View {
             .animation(Theme.Motion.content, value: isShowingSettings)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+    }
+
+    /// Whether the tab bar shows. Not while a prompt card is up: the card is the whole panel,
+    /// and tabs are no use while an agent is blocked on the user. The card has its own dismiss.
+    private var showsHeader: Bool {
+        isShowingSettings || coordinator.currentSurface != .agents || store.pendingApprovals.isEmpty
     }
 
     /// The tab bar at the leading edge, the gear at the trailing edge, and whatever actions the
@@ -426,17 +513,6 @@ struct NotchRootView: View {
             NotchHeaderActionButton(title: "Quit") {
                 NSApp.terminate(nil)
             }
-        } else if coordinator.currentSurface == .agents, !store.pendingApprovals.isEmpty {
-            // An approval card covers the rows, so a bulk action on them would act on things the
-            // user cannot see. The slot says how many prompts are queued behind this one instead.
-            Text("\(store.pendingApprovals.count) waiting")
-                .font(Theme.Text.micro)
-                .foregroundStyle(
-                    store.pendingApprovals.contains { $0.question == nil }
-                        ? Theme.Colors.Status.needsApproval
-                        : Theme.Colors.Status.question
-                )
-                .lineLimit(1)
         } else if coordinator.currentSurface == .agents, hasHideableSessions {
             // The bulk form of the per-row hide control. Only offered when it would actually do
             // something, because a button that is present and inert is worse than an absent one.
@@ -481,10 +557,9 @@ struct NotchRootView: View {
             )
             coordinator.hasSystemHUD = settings.replaceSystemHUD && systemHUD.event != nil
             coordinator.hasTradingActivity = trading.wantsShoulder
-            coordinator.hasLyricsActivity = settings.showsMedia(nowPlaying.status) && lyrics.showsOnNotch
-            coordinator.lyricsShoulderWidth = LyricsCollapsedView.shoulderWidth(for: lyrics.currentLine)
             coordinator.agentNeedsAttention = !store.pendingApprovals.isEmpty || store.sessions.contains { $0.status.demandsAttention }
             animatedCollapsedSize = coordinator.collapsedSize
+            fx.collapsedSize = coordinator.collapsedSize
         }
 
         if animated {
@@ -513,13 +588,19 @@ struct NotchRootView: View {
             NotchShape(
                 topCornerRadius: Theme.Metrics.collapsedTopCornerRadius,
                 bottomCornerRadius: Theme.Metrics.collapsedBottomCornerRadius,
-                displayScale: displayScale
+                displayScale: displayScale,
+                belly: belly
             )
         case .expanded:
             NotchShape(
-                topCornerRadius: Theme.Metrics.expandedTopCornerRadius,
-                bottomCornerRadius: Theme.Metrics.expandedBottomCornerRadius,
-                displayScale: displayScale
+                topCornerRadius: coordinator.isOnboarding
+                    ? Theme.Metrics.onboardingTopCornerRadius
+                    : Theme.Metrics.expandedTopCornerRadius,
+                bottomCornerRadius: coordinator.isOnboarding
+                    ? Theme.Metrics.onboardingBottomCornerRadius
+                    : Theme.Metrics.expandedBottomCornerRadius,
+                displayScale: displayScale,
+                belly: belly
             )
         }
     }
@@ -532,6 +613,296 @@ struct NotchRootView: View {
     static func transition(_ coordinator: NotchCoordinator, to state: NotchState) {
         withAnimation(Theme.Motion.forState(state)) {
             coordinator.setState(state)
+        }
+    }
+}
+
+// MARK: - Attention choreography
+//
+// What the notch does, physically, when an agent wants the user. Each moment has its own
+// gesture so it can be told apart out of the corner of the eye without reading anything: a
+// permission prompt *pops* (an inhale, then an under-damped open with shock rings), a question
+// *drips* (a drop forms under the notch and the notch gulps it), and a finished run *breathes
+// out* (the shoulders widen, a light runs along the rim, confetti spills onto the desktop).
+//
+// Everything here lives in this file rather than an extension elsewhere because it drives the
+// view's own `@State` — the aperture's flex and belly — and those have to be mutated inside the
+// same transactions as the state mirror above for the gestures to stay one motion.
+
+/// Why the notch opened itself.
+enum Takeover: Equatable {
+    case approval
+    case question
+}
+
+extension NotchRootView {
+    private var attention: Theme.Motion.Attention.Type { Theme.Motion.Attention.self }
+
+    func handleAttention(_ cue: AttentionCue) {
+        guard !coordinator.isOnboarding else { return }
+        switch cue.kind {
+        case .approval: present(.approval)
+        case .question: present(.question)
+        case .resolved: resolveTakeover()
+        case let .finished(sessionID): celebrate(sessionID: sessionID)
+        }
+    }
+
+    /// A prompt arrived. Already open: the notch only flashes, because yanking an open panel
+    /// around under the pointer is worse than a missed flourish. Closed: the full gesture.
+    private func present(_ kind: Takeover) {
+        let tint = kind == .approval ? Theme.Colors.Status.needsApproval : Theme.Colors.Status.question
+        takeover = kind
+
+        if coordinator.state == .expanded {
+            coordinator.show(.agents)
+            if !reduceMotion {
+                fx.rim(tint, mode: .pulse)
+                fx.rings(around: coordinator.expandedSize, topRadius: Theme.Metrics.expandedTopCornerRadius, bottomRadius: Theme.Metrics.expandedBottomCornerRadius, tint: tint, count: 1)
+            }
+            startNudging(kind)
+            return
+        }
+
+        choreography?.cancel()
+        choreography = Task { @MainActor in
+            coordinator.show(.agents)
+            guard !reduceMotion else {
+                change(to: .expanded, with: Theme.Motion.open)
+                startNudging(kind)
+                return
+            }
+            let expanded = coordinator.expandedSize
+            if kind == .approval {
+                withAnimation(Theme.Motion.inhale) {
+                    flex = CGSize(width: -attention.inhaleWidth, height: -attention.inhaleHeight)
+                }
+                try? await Task.sleep(for: Theme.Motion.inhaleHold)
+                guard !Task.isCancelled else { return }
+                change(to: .expanded, with: Theme.Motion.pop)
+                kickBelly(attention.popBelly)
+                fx.rings(around: expanded, topRadius: Theme.Metrics.expandedTopCornerRadius, bottomRadius: Theme.Metrics.expandedBottomCornerRadius, tint: tint, count: 2)
+                fx.sparks(off: fx.body(expanded, topRadius: Theme.Metrics.expandedTopCornerRadius), tint: tint)
+                fx.rim(tint, mode: .pulse)
+            } else {
+                fx.hangDrop(under: fx.attachment(coordinator.collapsedSize, expanded: false), radius: attention.questionDrop.radius, hang: attention.questionDrop.hang)
+                try? await Task.sleep(for: attention.dropForm + attention.dropHang)
+                guard !Task.isCancelled else { return }
+                change(to: .expanded, with: Theme.Motion.open)
+                kickBelly(attention.popBelly * 0.7)
+                fx.gulp(depth: expanded.height * 0.7)
+            }
+            startNudging(kind)
+        }
+    }
+
+    /// Re-asks, gently, while a takeover sits unanswered and the user is not looking at it.
+    private func startNudging(_ kind: Takeover) {
+        nudger?.cancel()
+        nudger = Task { @MainActor in
+            for _ in 0 ..< attention.maxNudges {
+                try? await Task.sleep(for: kind == .approval ? attention.approvalNudge : attention.questionNudge)
+                guard !Task.isCancelled, takeover == kind, coordinator.state == .expanded,
+                      !store.pendingApprovals.isEmpty else { return }
+                // Someone reading the card does not need to be told it is there.
+                guard !coordinator.pointerIsInsideLiveRegion else { continue }
+                nudge(kind)
+            }
+        }
+    }
+
+    private func nudge(_ kind: Takeover) {
+        let tint = kind == .approval ? Theme.Colors.Status.needsApproval : Theme.Colors.Status.question
+        guard !reduceMotion else {
+            fx.rim(tint, mode: .pulse)
+            return
+        }
+        if kind == .approval {
+            kick(width: attention.nudgeWidth)
+            kickBelly(attention.nudgeBelly)
+            fx.rings(around: coordinator.expandedSize, topRadius: Theme.Metrics.expandedTopCornerRadius, bottomRadius: Theme.Metrics.expandedBottomCornerRadius, tint: tint, count: 1)
+            fx.rim(tint, mode: .pulse)
+        } else {
+            fx.hangDrop(under: fx.attachment(coordinator.expandedSize, expanded: true), radius: attention.nudgeDrop.radius, hang: attention.nudgeDrop.hang, life: attention.nudgeDropLife)
+        }
+    }
+
+    /// The prompt was answered. If the notch only opened because of it and the user is not
+    /// inside it, it goes home on its own — and the mascot with it.
+    private func resolveTakeover() {
+        guard takeover == .approval || takeover == .question else { return }
+        homecomingFrom = fx.anchors[.card]
+        takeover = nil
+        nudger?.cancel()
+        guard coordinator.state == .expanded, !coordinator.pointerIsInsideLiveRegion, !coordinator.isPinnedOpen else {
+            homecomingFrom = nil
+            return
+        }
+        change(to: .collapsed, with: Theme.Motion.homecoming)
+    }
+
+    /// A run finished: the shoulders breathe out with a light along the rim and confetti spills
+    /// onto the desktop. Nothing opens — a finished run asks nothing of the user, so it gets a
+    /// flourish rather than a takeover.
+    private func celebrate(sessionID: String) {
+        guard settings.celebrateFinishedRuns, store.pendingApprovals.isEmpty, takeover == nil,
+              store.sessionsByID[sessionID] != nil, !reduceMotion else { return }
+        let tint = Theme.Colors.Status.done
+        guard coordinator.state == .collapsed else {
+            fx.rim(tint, mode: .sweep)
+            return
+        }
+
+        choreography?.cancel()
+        choreography = Task { @MainActor in
+            withAnimation(Theme.Motion.breathOut) { flex.width = attention.breathWidth }
+            fx.rim(tint, mode: .sweep)
+            let breathed = CGSize(width: coordinator.collapsedSize.width + attention.breathWidth, height: coordinator.collapsedSize.height)
+            fx.confetti(from: fx.body(breathed, topRadius: Theme.Metrics.collapsedTopCornerRadius))
+            try? await Task.sleep(for: attention.breathHold)
+            guard !Task.isCancelled else { return }
+            withAnimation(Theme.Motion.breathIn) { flex = .zero }
+        }
+    }
+
+    // MARK: Transitions
+
+    /// Changes the notch's state on a specific animation rather than plain open/close.
+    private func change(to state: NotchState, with animation: Animation) {
+        guard coordinator.state != state else { return }
+        nextStateAnimation = animation
+        coordinator.setState(state)
+    }
+
+    /// Runs on every state change, before the aperture starts moving: the mascot's pixels fly
+    /// between the shoulder and whichever card the panel is about to show or take down.
+    func stateWillChange(to newState: NotchState) {
+        switch newState {
+        case .expanded:
+            fx.hidePill()
+            flyMascotIn()
+        case .collapsed:
+            flyMascotHome()
+            nudger?.cancel()
+            if takeover != nil { takeover = nil }
+            fx.fadeStars()
+            fx.clearDrops()
+            if belly != .zero { belly = .zero }
+        }
+    }
+
+    /// Whether the panel that is opening will show a card with a mascot on it.
+    private var cardStatus: SessionStatus? {
+        guard !coordinator.isOnboarding, !isShowingSettings, coordinator.currentSurface == .agents else { return nil }
+        if let approval = store.pendingApprovals.min(by: { $0.requestedAt < $1.requestedAt }) {
+            return approval.question == nil ? .needsApproval : .waitingForAnswer
+        }
+        return nil
+    }
+
+    private func flyMascotIn() {
+        guard !reduceMotion, let status = cardStatus else { return }
+        let expanded = fx.silhouette(coordinator.expandedSize)
+        fx.spawnStars(attention.cardStars, in: expanded.insetBy(dx: 12, dy: 8), opacity: attention.cardStarOpacity, appearOver: 0.6)
+        guard let shoulder = fx.anchors[.shoulder], shoulder.height > 0 else { return }
+        let cardPixel = (Theme.Metrics.Prompt.mascotSize / CGFloat(AgentActivityGlyph.rows)).rounded(.down)
+        fx.hidden.insert(.card)
+        fx.transit(
+            cells: AgentActivityGlyph.cells(for: status, elapsed: 0),
+            from: (shoulder.origin, shoulder.height / CGFloat(AgentActivityGlyph.rows)),
+            to: .card,
+            fallback: (CGPoint(x: expanded.minX + Theme.Metrics.expandedHorizontalPadding + 12, y: expanded.minY + 44), cardPixel),
+            tint: status.tint,
+            upward: false
+        )
+        Task { @MainActor in
+            try? await Task.sleep(for: attention.transitArrival)
+            fx.hidden.remove(.card)
+        }
+    }
+
+    private func flyMascotHome() {
+        let from = homecomingFrom ?? (cardStatus == nil ? nil : fx.anchors[.card])
+        homecomingFrom = nil
+        guard !reduceMotion, let from, from.height > 0,
+              let leading = store.leadingSession, coordinator.liveActivityLayout.showsAgentMascot else { return }
+        let collapsed = fx.silhouette(coordinator.collapsedSize)
+        let shoulderPixel = (Theme.Metrics.Agents.mascotCollapsedSize / CGFloat(AgentActivityGlyph.rows)).rounded(.down)
+        fx.hidden.insert(.shoulder)
+        fx.transit(
+            cells: AgentActivityGlyph.cells(for: leading.status, elapsed: 0),
+            from: (from.origin, from.height / CGFloat(AgentActivityGlyph.rows)),
+            to: .shoulder,
+            fallback: (CGPoint(x: collapsed.minX + 10, y: collapsed.minY + 6), shoulderPixel),
+            tint: leading.status.tint,
+            upward: true
+        )
+        Task { @MainActor in
+            try? await Task.sleep(for: attention.homecomingArrival)
+            fx.hidden.remove(.shoulder)
+        }
+    }
+
+    // MARK: Kicks
+
+    /// A push and a wobbly settle on the bottom edge.
+    private func kickBelly(_ amount: CGFloat) {
+        withAnimation(Theme.Motion.kickOut) {
+            belly = amount
+        } completion: {
+            withAnimation(Theme.Motion.kickSettle) { belly = .zero }
+        }
+    }
+
+    /// The same, sideways.
+    private func kick(width amount: CGFloat) {
+        withAnimation(Theme.Motion.kickOut) {
+            flex.width = amount
+        } completion: {
+            withAnimation(Theme.Motion.kickSettle) { flex.width = .zero }
+        }
+    }
+
+    // MARK: The lyric pill
+
+    /// The line the pill should be showing, or `nil` when there should be no pill: lyrics on,
+    /// synced, playing, and the notch at rest. An instrumental break keeps the pill with a note.
+    private var pillLine: String? {
+        guard settings.showsMedia(nowPlaying.status), lyrics.showsOnNotch,
+              coordinator.state == .collapsed, !coordinator.isOnboarding else { return nil }
+        let line = lyrics.currentLine ?? ""
+        return line.isEmpty ? "♪" : line
+    }
+
+    private func updatePill(from old: String?, to new: String?) {
+        switch (old, new) {
+        case (_, nil): fx.hidePill()
+        case let (nil, line?): fx.showPill(line: line)
+        case let (_, line?): fx.setPillLine(line)
+        }
+    }
+
+    // MARK: Onboarding
+
+    private func beginOnboarding() {
+        guard onboarding == nil else { return }
+        choreography?.cancel()
+        nudger?.cancel()
+        let director = OnboardingDirector(
+            fx: fx,
+            coordinator: coordinator,
+            integrations: services.integrations,
+            settings: settings,
+            reduceMotion: reduceMotion,
+            stage: OnboardingDirector.Stage(
+                change: { state, animation in change(to: state, with: animation) },
+                kickBelly: { kickBelly($0) }
+            )
+        )
+        onboarding = director
+        Task { @MainActor in
+            await director.run()
+            onboarding = nil
         }
     }
 }

@@ -31,6 +31,12 @@ enum FrameDump {
     private static let animationDuration: Double = 4.4
     private static let animationFrameRate: Double = 25
 
+    /// What the frames are drawn over: a mid grey for checking edges by eye, or nothing at all
+    /// with `NOTCH_FRAMES_CLEAR=1`, for compositing onto a wallpaper (the README's images).
+    private static var backdrop: Color {
+        ProcessInfo.processInfo.environment["NOTCH_FRAMES_CLEAR"] == "1" ? .clear : Color(white: 0.42)
+    }
+
     /// Renders the real views at a series of pinned instants — see
     /// `EnvironmentValues.debugMotionTime`.
     ///
@@ -75,6 +81,8 @@ enum FrameDump {
             // then at the two sizes it actually ships at. A motion that only reads at 64pt has
             // not solved the problem this indicator exists for.
             ("states", { _ in AnyView(statesSheet) }),
+            // The README's mascot: all nine states in a 3x3 grid, each on its own tile.
+            ("mascots", { _ in AnyView(mascotGrid) }),
             // The real collapsed notch, blocked on an approval: the attention ring travelling
             // its rim, and the agent shoulder's mark, in the silhouette they really occupy.
             ("collapsed", { _ in
@@ -91,6 +99,31 @@ enum FrameDump {
                 AnyView(notch(geometry: geometry, state: .expanded, store: AgentsPreviewData.approvalStore()))
             }),
         ]
+    }
+
+    private static var mascotGrid: some View {
+        let states = SessionStatus.allCases
+        return Grid(horizontalSpacing: 14, verticalSpacing: 14) {
+            ForEach(0 ..< 3, id: \.self) { row in
+                GridRow {
+                    ForEach(0 ..< 3, id: \.self) { column in
+                        let status = states[row * 3 + column]
+                        VStack(spacing: 14) {
+                            AgentActivityGlyphView(status: status, side: 60)
+                                .foregroundStyle(status.tint)
+                                .frame(height: 76, alignment: .bottom)
+                            Text(status.label)
+                                .font(Theme.Text.body)
+                                .foregroundStyle(Theme.Colors.textSecondary)
+                        }
+                        .frame(width: 270, height: 150)
+                        .background(Theme.Colors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    }
+                }
+            }
+        }
+        .padding(20)
+        .environment(\.colorScheme, .dark)
     }
 
     private static var statesSheet: some View {
@@ -136,7 +169,7 @@ enum FrameDump {
 
         return NotchRootView(coordinator: coordinator, store: store, services: services)
             .frame(width: geometry.panelFrame.width, height: geometry.panelFrame.height)
-            .background(Color(white: 0.42))
+            .background(backdrop)
     }
 
     /// Sampled points along the open. Values above 1 represent the spring's overshoot, which
@@ -176,7 +209,7 @@ enum FrameDump {
             .frame(width: geometry.panelFrame.width, height: geometry.panelFrame.height)
             // The panel is transparent; a mid-grey ground makes the silhouette's edge and the
             // shadow legible in the dump instead of black-on-black.
-            .background(Color(white: 0.42))
+            .background(backdrop)
 
             write(view, to: url, name: String(format: "%02d-p%03.0f.png", index, progress * 100))
         }
@@ -319,7 +352,7 @@ enum FrameDump {
             showsSettings: Bool
         )] = [
             // Lyrics on, mid-way through a line long enough to wrap: the stage layout in the
-            // panel, and the line split across the camera housing on the collapsed notch.
+            // panel, and the collapsed notch, whose line floats in the lyric pill below it.
             (
                 "collapsed-lyrics",
                 .media,
@@ -565,11 +598,6 @@ enum FrameDump {
             coordinator.hasSystemHUD = settings.replaceSystemHUD
                 && scenario.services.systemHUD.event != nil
             coordinator.hasTradingActivity = scenario.services.trading.wantsShoulder
-            coordinator.hasLyricsActivity = settings.showsMedia(scenario.services.nowPlaying.status)
-                && scenario.services.lyrics.showsOnNotch
-            coordinator.lyricsShoulderWidth = LyricsCollapsedView.shoulderWidth(
-                for: scenario.services.lyrics.currentLine
-            )
             coordinator.agentNeedsAttention = !scenario.store.pendingApprovals.isEmpty || scenario.store.sessions.contains { $0.status.demandsAttention }
 
             let view = NotchRootView(
@@ -579,7 +607,7 @@ enum FrameDump {
                 debugShowsSettings: scenario.showsSettings
             )
             .frame(width: geometry.panelFrame.width, height: geometry.panelFrame.height)
-            .background(Color(white: 0.42))
+            .background(backdrop)
 
             write(view, to: directory, name: "scenario-\(scenario.name).png")
         }

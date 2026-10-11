@@ -51,6 +51,7 @@ struct AgentsCollapsedView: View {
                 lastActivity: session.lastActivity
             )
             .foregroundStyle(status.tint)
+            .mascotAnchor(.shoulder)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("\(session.kind.displayName): \(status.label)")
         }
@@ -145,7 +146,7 @@ struct AgentsCountCollapsedView: View {
 /// than in either view because the sprite and the count sit on *opposite* shoulders now and
 /// would otherwise each keep their own copy — which is how two readouts about the same agents
 /// drift apart.
-private extension AgentSessionStore {
+extension AgentSessionStore {
     /// Whatever is blocking the user comes first, so the one sprite on screen is always the one
     /// worth clicking. Failing that it is `sessions.first`, which is the session the user last
     /// typed into — see `AgentSessionStore.sessions` for why that beats the busiest one.

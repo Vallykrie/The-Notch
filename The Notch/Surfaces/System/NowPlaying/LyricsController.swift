@@ -42,6 +42,11 @@ final class LyricsController: ObservableObject {
             // `$status` delivers from `willSet`, so read the new value from the argument.
             self?.statusWillChange(to: status)
         }
+        #if DEBUG
+        // `NOTCH_DEBUG_LYRICS=on` starts with lyrics on, so the lyric pill can be watched through
+        // `LiveCapture` without opening the panel to press the button.
+        if ProcessInfo.processInfo.environment["NOTCH_DEBUG_LYRICS"] == "on" { isEnabled = true }
+        #endif
     }
 
     /// The synced lyrics, when lyrics are on and the current track has them.

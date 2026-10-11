@@ -52,11 +52,18 @@ struct ScreenGeometry {
         // The widest *collapsed* silhouette is the HUD's, not a live activity's: shoulders are
         // sized per layout now and the HUD's are more than twice a compact one. Sizing the
         // panel from anything narrower clips the drop shadow off the ends of the HUD.
+        // The first-launch band is the widest and tallest thing the notch ever becomes, and the
+        // confetti and the lyric pill fall below whatever is open, inside the bottom margin.
         let widestSilhouette = max(
             collapsedSize.width + Theme.Metrics.LiveActivity.hudShoulderWidth * 2,
-            Theme.Metrics.expandedNotchSize.width
+            Theme.Metrics.expandedNotchSize.width,
+            Theme.Metrics.onboardingBandSize.width
         )
-        let tallestSilhouette = max(collapsedSize.height, Theme.Metrics.expandedNotchSize.height)
+        let tallestSilhouette = max(
+            collapsedSize.height,
+            Theme.Metrics.expandedNotchSize.height,
+            Theme.Metrics.onboardingBandSize.height
+        )
         let panelSize = CGSize(
             width: min(
                 screen.frame.width,

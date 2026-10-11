@@ -8,14 +8,25 @@ nonisolated struct NotchShape: InsettableShape {
     /// Set by `strokeBorder` so the rim sits wholly inside the silhouette instead of
     /// straddling the edge and bleeding past the clip.
     var inset: CGFloat = 0
+    /// How far the bottom edge bows, in points. Positive lifts the bottom corners so the middle
+    /// of the edge hangs lower than they do — a drop of liquid about to fall; negative pulls the
+    /// middle up instead. The silhouette never grows past its frame: a positive belly is paid
+    /// for by the caller making the frame that much taller, so the fill and the clip agree.
+    ///
+    /// Only the attention gestures set this, and only for a few hundred milliseconds — it is
+    /// the wobble after a pop or a nudge. At rest it is always zero.
+    var belly: CGFloat = 0
 
-    var animatableData: AnimatablePair<CGFloat, CGFloat> {
-        get { AnimatablePair(topCornerRadius, bottomCornerRadius) }
+    var animatableData: AnimatablePair<AnimatablePair<CGFloat, CGFloat>, CGFloat> {
+        get { AnimatablePair(AnimatablePair(topCornerRadius, bottomCornerRadius), belly) }
         set {
             // Capture scale in the view; SwiftUI can interpolate shapes off MainActor.
             let scale = max(1, displayScale)
-            topCornerRadius = (newValue.first * scale).rounded() / scale
-            bottomCornerRadius = (newValue.second * scale).rounded() / scale
+            topCornerRadius = (newValue.first.first * scale).rounded() / scale
+            bottomCornerRadius = (newValue.first.second * scale).rounded() / scale
+            // Not snapped: the belly is a continuous wobble, and snapping it to device pixels
+            // made the settle visibly step on its way back to flat.
+            belly = newValue.second
         }
     }
 
@@ -38,7 +49,8 @@ nonisolated struct NotchShape: InsettableShape {
             Self.cgPath(
                 in: insetRect,
                 topCornerRadius: topCornerRadius,
-                bottomCornerRadius: bottomCornerRadius
+                bottomCornerRadius: bottomCornerRadius,
+                belly: belly
             )
         )
     }
@@ -46,14 +58,16 @@ nonisolated struct NotchShape: InsettableShape {
     static func cgPath(
         in rect: CGRect,
         topCornerRadius: CGFloat,
-        bottomCornerRadius: CGFloat
+        bottomCornerRadius: CGFloat,
+        belly: CGFloat = 0
     ) -> CGPath {
         let path = CGMutablePath()
         appendRim(
             to: path,
             in: rect,
             topCornerRadius: topCornerRadius,
-            bottomCornerRadius: bottomCornerRadius
+            bottomCornerRadius: bottomCornerRadius,
+            belly: belly
         )
         // The top edge, closing the silhouette back to where the rim began. It is the one
         // segment that is never visible — see `cgRimPath`.
@@ -90,7 +104,8 @@ nonisolated struct NotchShape: InsettableShape {
         to path: CGMutablePath,
         in rect: CGRect,
         topCornerRadius: CGFloat,
-        bottomCornerRadius: CGFloat
+        bottomCornerRadius: CGFloat,
+        belly: CGFloat = 0
     ) {
         let topRadius = min(
             max(topCornerRadius, .zero),
@@ -107,10 +122,14 @@ nonisolated struct NotchShape: InsettableShape {
         // Both arcs are measured from the side wall, which the inward top corner has already
         // moved in by `topRadius`; the bottom edge's total horizontal inset is therefore
         // `topRadius + bottomRadius`. The width clamp keeps the two arcs from meeting.
+        // A belly lifts the corners (positive) or the middle (negative) of the bottom edge;
+        // the arcs are measured to wherever the corners now are.
+        let cornerY = rect.maxY - max(belly, .zero)
+        let middleY = rect.maxY - max(-belly, .zero)
         let bottomRadius = min(
             max(bottomCornerRadius, .zero),
             min(
-                max(.zero, rect.height - topRadius),
+                max(.zero, cornerY - rect.minY - topRadius),
                 max(.zero, rect.width * 0.5 - topRadius)
             )
         )
@@ -126,12 +145,25 @@ nonisolated struct NotchShape: InsettableShape {
         // `addArc(tangent1End:tangent2End:radius:)` draws the straight run down the side wall
         // for us, then the quarter circle into the bottom edge.
         path.addArc(
-            tangent1End: CGPoint(x: rect.minX + topRadius, y: rect.maxY),
-            tangent2End: CGPoint(x: rect.maxX - topRadius, y: rect.maxY),
+            tangent1End: CGPoint(x: rect.minX + topRadius, y: cornerY),
+            tangent2End: CGPoint(x: rect.maxX - topRadius, y: cornerY),
             radius: bottomRadius
         )
+        if belly != .zero {
+            // One cubic across the run between the arcs. Control points at the quarter marks,
+            // lowered by 4/3 of the bow, put the curve's middle exactly `belly` from the corners.
+            let start = rect.minX + topRadius + bottomRadius
+            let end = rect.maxX - topRadius - bottomRadius
+            let span = end - start
+            let controlY = cornerY + (middleY - cornerY) * 4 / 3
+            path.addCurve(
+                to: CGPoint(x: end, y: cornerY),
+                control1: CGPoint(x: start + span * 0.25, y: controlY),
+                control2: CGPoint(x: end - span * 0.25, y: controlY)
+            )
+        }
         path.addArc(
-            tangent1End: CGPoint(x: rect.maxX - topRadius, y: rect.maxY),
+            tangent1End: CGPoint(x: rect.maxX - topRadius, y: cornerY),
             tangent2End: CGPoint(x: rect.maxX - topRadius, y: rect.minY + topRadius),
             radius: bottomRadius
         )

@@ -17,7 +17,7 @@ final class SystemServices {
     /// interceptor is what stops macOS drawing its own readout beside ours. It is not a view
     /// dependency, so nothing below `AppDelegate` ever sees it.
     let mediaKeys = MediaKeyInterceptor()
-    let integrations = AgentIntegrationManager()
+    let integrations: AgentIntegrationManager
     /// Every user preference. It rides here rather than being threaded separately because the
     /// surfaces that read it are the same surfaces that already receive `SystemServices`, and
     /// because half the preferences configure the monitors sitting beside it.
@@ -34,6 +34,7 @@ final class SystemServices {
         settings = NotchSettings()
         trading = TradingStore()
         lyrics = LyricsController(nowPlaying: nowPlaying)
+        integrations = AgentIntegrationManager(settings: settings)
         mediaKeys.onHandledEvent = { [weak systemHUD] event in
             systemHUD?.presentIntercepted(event)
         }
@@ -53,5 +54,6 @@ final class SystemServices {
         settings = NotchSettings.ephemeral()
         self.trading = trading ?? TradingPreviewData.emptyStore()
         lyrics = LyricsController(nowPlaying: nowPlaying)
+        integrations = AgentIntegrationManager()
     }
 }

@@ -52,6 +52,13 @@ final class NotchSettings: ObservableObject {
         }
     }
 
+    /// Whether a run finishing breathes the notch out and drops confetti. It never opens the
+    /// notch. Off leaves only the sound cue — for someone running agents
+    /// back to back, a celebration every few minutes is a lot.
+    @Published var celebrateFinishedRuns: Bool {
+        didSet { commit(celebrateFinishedRuns, .celebrateFinishedRuns) }
+    }
+
     /// How long a finished session stays in the panel before it is pruned.
     @Published var finishedRetention: FinishedRetention {
         didSet { commit(finishedRetention.rawValue, .finishedRetention) }
@@ -91,6 +98,37 @@ final class NotchSettings: ObservableObject {
         }
     }
 
+    // MARK: First launch and consent
+    //
+    // State the app records about the user rather than preferences they set, so Restore
+    // Defaults leaves all three alone: putting the switches back must not replay the intro or
+    // forget that the user said no to having their agent config touched.
+
+    /// Whether the first-launch intro has played to the end.
+    @Published var hasSeenIntro: Bool {
+        didSet { defaults.set(hasSeenIntro, forKey: StateKey.hasSeenIntro.rawValue) }
+    }
+
+    /// Whether the user has agreed to The Notch adding its hook to their agents' config.
+    ///
+    /// Nothing is installed until this is `.granted`. It used to be implied: every detected
+    /// agent was hooked up on launch, which wrote to `~/.claude/settings.json` before the user
+    /// had seen a single pixel of the app.
+    @Published var agentHookConsent: AgentHookConsent {
+        didSet {
+            defaults.set(agentHookConsent.rawValue, forKey: StateKey.agentHookConsent.rawValue)
+            bump()
+        }
+    }
+
+    /// Agents the user unticked when they agreed. Consent is for the set they left ticked.
+    @Published var declinedAgentHooks: Set<String> {
+        didSet {
+            defaults.set(declinedAgentHooks.sorted(), forKey: StateKey.declinedAgentHooks.rawValue)
+            bump()
+        }
+    }
+
     // MARK: Change notification
 
     /// Bumped on every change. Views observe this one value rather than eleven separate ones.
@@ -116,6 +154,12 @@ final class NotchSettings: ObservableObject {
         showAgentActivity = defaults.bool(forKey: Key.showAgentActivity.rawValue)
         showAttentionRing = defaults.bool(forKey: Key.showAttentionRing.rawValue)
         showAgentModel = defaults.bool(forKey: Key.showAgentModel.rawValue)
+        celebrateFinishedRuns = defaults.bool(forKey: Key.celebrateFinishedRuns.rawValue)
+        hasSeenIntro = defaults.bool(forKey: StateKey.hasSeenIntro.rawValue)
+        agentHookConsent = AgentHookConsent(
+            rawValue: defaults.string(forKey: StateKey.agentHookConsent.rawValue) ?? ""
+        ) ?? .undecided
+        declinedAgentHooks = Set(defaults.stringArray(forKey: StateKey.declinedAgentHooks.rawValue) ?? [])
         soundCuesEnabled = defaults.bool(forKey: SoundEffects.enabledDefaultsKey)
         finishedRetention = FinishedRetention(
             rawValue: defaults.string(forKey: Key.finishedRetention.rawValue) ?? ""
@@ -157,6 +201,7 @@ final class NotchSettings: ObservableObject {
             Key.showAgentActivity.rawValue: true,
             Key.showAttentionRing.rawValue: true,
             Key.showAgentModel.rawValue: false,
+            Key.celebrateFinishedRuns.rawValue: true,
             Key.replaceSystemHUD.rawValue: true,
             Key.expandOnHover.rawValue: true,
             Key.finishedRetention.rawValue: FinishedRetention.default.rawValue,
@@ -174,6 +219,7 @@ final class NotchSettings: ObservableObject {
             && showAgentActivity
             && showAttentionRing
             && !showAgentModel
+            && celebrateFinishedRuns
             && soundCuesEnabled
             && finishedRetention == .default
             && replaceSystemHUD
@@ -197,6 +243,7 @@ final class NotchSettings: ObservableObject {
         showAgentActivity = true
         showAttentionRing = true
         showAgentModel = false
+        celebrateFinishedRuns = true
         soundCuesEnabled = true
         finishedRetention = .default
         replaceSystemHUD = true
@@ -233,11 +280,19 @@ final class NotchSettings: ObservableObject {
         case showAgentActivity = "NotchShowAgentActivity"
         case showAttentionRing = "NotchShowAttentionRing"
         case showAgentModel = "NotchShowAgentModel"
+        case celebrateFinishedRuns = "NotchCelebrateFinishedRuns"
         case finishedRetention = "NotchFinishedSessionRetention"
         case replaceSystemHUD = "NotchReplaceSystemHUD"
         case hudDwell = "NotchHUDDwell"
         case expandOnHover = "NotchExpandOnHover"
         case hoverSensitivity = "NotchHoverSensitivity"
+    }
+
+    /// Not in `Key`, so `restoreDefaults()` never touches them — see "First launch and consent".
+    private enum StateKey: String {
+        case hasSeenIntro = "NotchHasSeenIntro"
+        case agentHookConsent = "NotchAgentHookConsent"
+        case declinedAgentHooks = "NotchDeclinedAgentHooks"
     }
 
     private func commit(_ value: Any, _ key: Key) {
@@ -272,6 +327,14 @@ final class NotchSettings: ObservableObject {
         }
         launchAtLogin = Self.isRegisteredAsLoginItem()
     }
+}
+
+/// Whether The Notch may add its hook to the user's agent config. See
+/// `NotchSettings.agentHookConsent`.
+enum AgentHookConsent: String {
+    case undecided
+    case granted
+    case declined
 }
 
 // MARK: - Multi-choice options

@@ -199,6 +199,12 @@ approval fixed; Claude's decision shape remains the one unresolved protocol ques
       agent, the run goes under that session's row and clears 90s after its `Stop`.
 - [x] Approval card: tool + input summary, Allow / Allow-always / Deny, `⏎` allows and `⎋` denies,
       elapsed-blocked time. Takes priority over the session list — an agent is stalled on it.
+      *Since 2026-10-11 laid out as two columns* (layout A in
+      `docs/design/approval-question-layouts-v1.html`): who is asking on the left (a 40pt mascot,
+      the kind of prompt, agent, project, wait time), what on the right (the command in a code
+      block, or the options as a 2×2 grid of numbered chips with descriptions on their own line),
+      and an "Answer in …" button, the key to press there and an explicit Dismiss along the
+      bottom. The tab bar is hidden while a prompt is up; the card is the whole panel.
 - [x] Plan review: `AttributedString` Markdown + feedback field (no dependency)
 - [x] Per-agent identity via original 8x8 sprites — `PixelGlyph`, not SF Symbols. (This line
       claimed SF Symbols for months; the app has never shipped one and must not.) The session
@@ -226,10 +232,23 @@ approval fixed; Claude's decision shape remains the one unresolved protocol ques
 - [x] Hide a session from the panel — a per-row control on every session that is not blocking on
       an approval, plus "Clear Idle" in the header for the bulk case. Removes the row and nothing
       else; a hidden session reappears the moment it emits another event.
+- [x] **Attention choreography** — each takeover has its own physical gesture so it reads without
+      reading (prototype: `docs/design/notch-attention-v2.html`). A permission prompt *pops*: an
+      inhale, an under-damped `pop` spring, two shock rings, sparks off the bottom edge and a rim
+      pulse. A question *drips*: a drop forms under the notch and the notch gulps it. A finished
+      run *breathes out*: the shoulders widen, a green light sweeps the rim and pixel confetti
+      spills onto the desktop — and nothing opens (a summary card that peeked the notch open was
+      tried and removed: the confetti says enough). Unanswered prompts
+      nudge every few seconds while the pointer is away. The mascot's own pixels fly between the
+      shoulder and the card on the way in and on the way home, and a takeover the notch opened
+      itself closes again once its prompt is answered. Drawn by `NotchFX` (closed-form effects,
+      a metaball pass for the liquid) on three canvases; every timing is in `Theme`. Reduce
+      Motion drops the flourishes and keeps the signal. Verified with `LiveCapture` against real
+      hook events from `notch-hook`.
 - [ ] Diff preview inside the approval card (currently a text summary only)
 - [ ] Plan review is not wired to a store API — `PlanReviewRequest` is a local placeholder
 
-**Last touched:** 2026-08-17 — every status got its own motion, and the attention ring was
+**Last touched:** 2026-10-11 — the attention choreography above. Before that, 2026-08-17 — every status got its own motion, and the attention ring was
 rebuilt to trace the silhouette's rim instead of sweeping an angular gradient across it. Both
 were verified by rendering filmstrips and sampling pixels, which found four defects no build
 could have (see STATE). The approval path is still the part that matters and it is complete.
@@ -312,7 +331,11 @@ surfaces are now exactly two — media and agents — and the notch shows both a
 - [x] **Media: lyrics** — synced lyrics from LRCLIB (`LyricsProvider`), fetched only while the
       user has lyrics on, cached per track. The panel switches to a stage layout (reel of wrapped
       lines, transport folded into a strip, one `lyricsMode` spring), and the collapsed notch
-      shows the sung line split across the camera housing, its shoulders sized to the line.
+      floats the sung line in a liquid pill underneath it (`LyricPill`) rather than splitting it
+      across the camera housing — the notch keeps its normal shoulders. When the pointer comes
+      near, the pill splashes apart into drops so whatever it covers can be clicked, and flows
+      back together when the pointer leaves. *Not yet seen with a real track playing*; the same
+      pill carries the onboarding hint, which was verified.
       Spotify's artwork is therefore no longer the app's only network request.
 - [x] **Both live activities are on screen at once, collapsed**, with the camera housing
       reserved as a real gap between them. Expanded, a `NotchTabBar` selects which one the
@@ -379,11 +402,16 @@ does nothing on macOS 26. Shelf and webcam outstanding.
       `SMAppService` registration and reflects what the service reports, not what was clicked.
       No `Defaults`/`KeyboardShortcuts`/`LaunchAtLogin` dependency was needed — `UserDefaults`
       and `ServiceManagement` cover it. Keyboard shortcuts remain unbuilt.
-- [ ] Onboarding: detect installed agent CLIs, offer one-click hook install
-      — the *install* half now happens automatically at launch (`AppDelegate.installAgentHooks`,
-      only for CLIs actually present). Nothing called `HookInstaller` before that, which is why
-      the agent surfaces never lit up on a real machine. The onboarding UI and user consent
-      before writing to their config are still missing.
+- [x] Onboarding: detect installed agent CLIs, ask, then hook them up. A first-launch intro plays
+      inside the notch (`OnboardingDirector`): it melts, opens into a band of stars, the stars
+      gather into the mascot, which says hello and asks before touching any agent config — the
+      detected agents listed with their config paths, each untickable, and the promise that
+      other hooks stay and a backup is made. Nothing is installed until the user says yes
+      (`NotchSettings.agentHookConsent`); "not now" is remembered and removes nothing already
+      there. The mascot then comes apart and rebuilds itself on a "ready" shoulder while the band
+      closes, and a hint pill drips off the notch. Replayable from Settings → Replay intro.
+      `NOTCH_DEBUG_INTRO_ANSWER=later` answers "not now" by itself in Debug builds, for watching
+      it through `LiveCapture` without touching any config.
 - [x] Developer ID signing + notarization + Hardened Runtime
       — verified on 2026-10-02 with a `workflow_dispatch` build of 1.0.0-beta.6: notarisation
       Accepted, DMG stapled, Gatekeeper reports "Notarized Developer ID" for the DMG and the app,

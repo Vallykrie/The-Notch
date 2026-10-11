@@ -41,13 +41,10 @@ final class NotchCoordinator: ObservableObject {
     @Published var hasTradingActivity = false {
         didSet { if oldValue != hasTradingActivity { stateDidChange?(state) } }
     }
-    /// Whether the sung line is on the collapsed notch — see `LyricsController.showsOnNotch`.
-    @Published var hasLyricsActivity = false {
-        didSet { if oldValue != hasLyricsActivity { stateDidChange?(state) } }
-    }
-    /// How wide each shoulder is while the sung line is on the notch; it follows the line.
-    @Published var lyricsShoulderWidth = Theme.Metrics.LiveActivity.lyricsShoulderWidth {
-        didSet { if oldValue != lyricsShoulderWidth { stateDidChange?(state) } }
+    /// The intro's closing moment, while its mascot sits on the shoulder — see
+    /// `LiveActivityLayout.welcome`.
+    @Published var isWelcoming = false {
+        didSet { if oldValue != isWelcoming { stateDidChange?(state) } }
     }
     @Published var agentNeedsAttention = false {
         didSet { if oldValue != agentNeedsAttention { stateDidChange?(state) } }
@@ -65,6 +62,28 @@ final class NotchCoordinator: ObservableObject {
     /// already be outside, in which case nothing else will ever tell it to collapse — so this
     /// announces through `stateDidChange` like the geometry-affecting properties above.
     @Published private(set) var isPinnedOpen: Bool = false
+
+    /// The first-launch intro is playing. The expanded silhouette is the wider onboarding band
+    /// while this is set, and the panel is pinned open so the pointer leaving cannot cut the
+    /// consent question off half-asked.
+    @Published private(set) var isOnboarding = false
+
+    /// The most recent thing that wants the user's eye. `NotchRootView` turns each cue into a
+    /// gesture — a pop, a drip, a breath — and the id is what makes two identical cues in a row
+    /// two gestures rather than one.
+    @Published private(set) var attentionCue: AttentionCue?
+
+    /// Set to play the first-launch intro. A fresh id each time, so "replay" from settings works
+    /// even after the intro has already played once this launch.
+    @Published private(set) var onboardingRequest: UUID?
+
+
+    /// Where the pointer is, in the panel's own top-left-origin space, and whether it is over
+    /// the live region. Written by the hosting view on every pointer move; deliberately not
+    /// published, so a moving mouse never re-renders the notch. The lyric pill and the
+    /// takeover choreography read them when they need to.
+    var pointerLocation: CGPoint?
+    var pointerIsInsideLiveRegion = false
 
     var stateDidChange: ((NotchState) -> Void)?
 
@@ -94,8 +113,7 @@ final class NotchCoordinator: ObservableObject {
             hasHUD: hasSystemHUD,
             hasTrading: hasTradingActivity,
             agentNeedsAttention: agentNeedsAttention,
-            hasLyrics: hasLyricsActivity,
-            lyricsShoulderWidth: lyricsShoulderWidth
+            isWelcoming: isWelcoming
         )
     }
 
@@ -144,8 +162,13 @@ final class NotchCoordinator: ObservableObject {
         case .collapsed:
             return collapsedSize
         case .expanded:
-            return Theme.Metrics.expandedNotchSize
+            return expandedSize
         }
+    }
+
+    /// The expanded silhouette: the onboarding band during the intro, the panel otherwise.
+    var expandedSize: CGSize {
+        isOnboarding ? Theme.Metrics.onboardingBandSize : Theme.Metrics.expandedNotchSize
     }
 
     var topCornerRadius: CGFloat {
@@ -153,7 +176,7 @@ final class NotchCoordinator: ObservableObject {
         case .collapsed:
             Theme.Metrics.collapsedTopCornerRadius
         case .expanded:
-            Theme.Metrics.expandedTopCornerRadius
+            isOnboarding ? Theme.Metrics.onboardingTopCornerRadius : Theme.Metrics.expandedTopCornerRadius
         }
     }
 
@@ -162,8 +185,23 @@ final class NotchCoordinator: ObservableObject {
         case .collapsed:
             Theme.Metrics.collapsedBottomCornerRadius
         case .expanded:
-            Theme.Metrics.expandedBottomCornerRadius
+            isOnboarding ? Theme.Metrics.onboardingBottomCornerRadius : Theme.Metrics.expandedBottomCornerRadius
         }
+    }
+
+    func raiseAttention(_ kind: AttentionCue.Kind) {
+        attentionCue = AttentionCue(kind: kind)
+    }
+
+    func requestOnboarding() {
+        onboardingRequest = UUID()
+    }
+
+    func setOnboarding(_ onboarding: Bool) {
+        guard isOnboarding != onboarding else { return }
+        isOnboarding = onboarding
+        isPinnedOpen = onboarding
+        stateDidChange?(state)
     }
 
     func setState(_ newState: NotchState) {
@@ -190,6 +228,23 @@ final class NotchCoordinator: ObservableObject {
         physicalNotchSize = collapsedSize
         self.hasPhysicalNotch = hasPhysicalNotch
     }
+}
+
+/// Something an agent did that the notch should make the user notice.
+struct AttentionCue: Equatable {
+    enum Kind: Equatable {
+        /// A permission prompt arrived: the notch pops open.
+        case approval
+        /// A question arrived: a drop forms under the notch and the notch gulps it.
+        case question
+        /// The prompt was answered or withdrawn while the notch was holding itself open for it.
+        case resolved
+        /// A run finished: the notch breathes out and drops confetti. It does not open.
+        case finished(sessionID: String)
+    }
+
+    let id = UUID()
+    let kind: Kind
 }
 
 /// What the surfaces need to know about the display they are drawing on. Content must never
