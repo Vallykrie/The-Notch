@@ -8,7 +8,7 @@ sits, so the images look like the Mac they run on rather than like cut-outs on g
 
     NOTCH_FRAMES_CLEAR=1 NOTCH_FRAMES=/tmp/frames "The Notch.app/Contents/MacOS/The Notch"
     python3 scripts/compose-readme-images.py stills /tmp/frames docs/images
-    python3 scripts/compose-readme-images.py gif /tmp/recording docs/images/attention.gif
+    python3 scripts/compose-readme-images.py gif /tmp/recording docs/images/notch-attention.gif
 
 Every frame is the 2x panel (1920x640 for the 960x320pt panel), notch centred at the top.
 """
@@ -80,12 +80,12 @@ def round_corners(image, radius):
 
 STILLS = {
     # README name: (FrameDump scenario, crop height in px, crop width in px)
-    "agents.png": ("expanded-subagents", 470, 1500),
-    "approval.png": ("expanded-approval", 470, 1500),
-    "question.png": ("expanded-approval-question", 470, 1500),
-    "media.png": ("expanded-media-lyrics", 470, 1500),
-    "crypto.png": ("expanded-trading-watchlist", 470, 1500),
-    "settings.png": ("expanded-settings", 470, 1500),
+    "panel-agents.png": ("expanded-subagents", 470, 1500),
+    "panel-permission.png": ("expanded-approval", 470, 1500),
+    "panel-question.png": ("expanded-approval-question", 470, 1500),
+    "panel-media.png": ("expanded-media-lyrics", 470, 1500),
+    "panel-crypto.png": ("expanded-trading-watchlist", 470, 1500),
+    "panel-settings.png": ("expanded-settings", 470, 1500),
 }
 
 COLLAPSED = [
@@ -117,8 +117,8 @@ def stills(frames, out):
     sheet = Image.new("RGBA", (1700, len(rows) * 140 - 20), (0, 0, 0, 0))
     for index, row in enumerate(rows):
         sheet.alpha_composite(row, (0, index * 140))
-    sheet.save(os.path.join(out, "collapsed.png"), optimize=True)
-    print("wrote collapsed.png", sheet.size)
+    sheet.save(os.path.join(out, "notch-closed.png"), optimize=True)
+    print("wrote notch-closed.png", sheet.size)
 
 
 def gif(recording, out, crop=(1500, 520), width=900, step=1, frame_ms=47):

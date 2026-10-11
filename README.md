@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/mascot-states.gif" width="600" alt="The mascot acting out all nine agent states">
+  <img src="docs/images/mascot.gif" width="600" alt="The mascot acting out all nine agent states">
 </p>
 
 The Notch lives in the notch at the top of your screen. When a coding agent is working, a small
@@ -41,21 +41,21 @@ music and crypto prices.
 **When an agent needs you**, the notch comes to you. A permission prompt pops it open, a
 question drips out of it, and a finished run spills confetti:
 
-<p align="center"><img src="docs/images/attention.gif" width="760" alt="A permission prompt popping the notch open, a question dripping out of it, and confetti when a run finishes"></p>
+<p align="center"><img src="docs/images/notch-attention.gif" width="760" alt="A permission prompt popping the notch open, a question dripping out of it, and confetti when a run finishes"></p>
 
 **Closed**, the notch shows the most important thing right now:
 
-<p align="center"><img src="docs/images/collapsed.png" width="700" alt="The closed notch in five states: agents working, needs approval, now playing, volume and a pinned crypto price"></p>
+<p align="center"><img src="docs/images/notch-closed.png" width="700" alt="The closed notch in five states: agents working, needs approval, now playing, volume and a pinned crypto price"></p>
 
 **Open** (hover over the notch), it shows the full panel:
 
 | Agents and subagents | A permission prompt |
 | --- | --- |
-| <img src="docs/images/agents.png" alt="An agent session with its host, current tool and two subagents"> | <img src="docs/images/approval.png" alt="Permission card: the mascot and the agent on the left, the blocked command in a code block, and a button to answer in Claude Code"> |
+| <img src="docs/images/panel-agents.png" alt="An agent session with its host, current tool and two subagents"> | <img src="docs/images/panel-permission.png" alt="Permission card: the mascot and the agent on the left, the blocked command in a code block, and a button to answer in Claude Code"> |
 | **A question, with its answers** | **Now playing, with synced lyrics** |
-| <img src="docs/images/question.png" alt="Question card showing the question and its numbered answers"> | <img src="docs/images/media.png" alt="Media player showing the current lyric line"> |
+| <img src="docs/images/panel-question.png" alt="Question card showing the question and its numbered answers"> | <img src="docs/images/panel-media.png" alt="Media player showing the current lyric line"> |
 | **Crypto watchlist** | **Settings** |
-| <img src="docs/images/crypto.png" alt="Crypto watchlist"> | <img src="docs/images/settings.png" alt="Settings in four columns"> |
+| <img src="docs/images/panel-crypto.png" alt="Crypto watchlist"> | <img src="docs/images/panel-settings.png" alt="Settings in four columns"> |
 
 ## Install
 
