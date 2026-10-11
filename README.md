@@ -45,7 +45,7 @@ question drips out of it, and a finished run spills confetti:
 
 **Closed**, the notch shows the most important thing right now:
 
-<p align="center"><img src="docs/images/notch-closed.png" width="700" alt="The closed notch in five states: agents working, needs approval, now playing, volume and a pinned crypto price"></p>
+<p align="center"><img src="docs/images/notch-states.png" width="700" alt="The closed notch in six states: agents working, needs approval, now playing, the synced lyric floating in its pill below the notch, volume and a pinned crypto price"></p>
 
 **Open** (hover over the notch), it shows the full panel:
 

@@ -225,6 +225,11 @@ struct NotchRootView: View {
             refreshActivity(animated: false)
             trading.setPanelVisible(tradingPanelVisible)
             updatePill(from: nil, to: pillLine)
+            #if DEBUG
+            // `NOTCH_DEBUG_PILL="a line"` floats that line in the lyric pill without a player, so the
+            // README's image can show the pill without anyone's real song in it.
+            if let line = ProcessInfo.processInfo.environment["NOTCH_DEBUG_PILL"] { fx.showPill(line: line) }
+            #endif
         }
         .onChange(of: reduceMotion) { _, value in fx.reduceMotion = value }
         // Fills the panel, which is deliberately larger than the notch so the shadow and the

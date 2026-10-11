@@ -7,10 +7,14 @@ This script places them on a desktop — a wallpaper and a menu bar — exactly 
 sits, so the images look like the Mac they run on rather than like cut-outs on grey.
 
     NOTCH_FRAMES_CLEAR=1 NOTCH_FRAMES=/tmp/frames "The Notch.app/Contents/MacOS/The Notch"
-    python3 scripts/compose-readme-images.py stills /tmp/frames docs/images
+    python3 scripts/compose-readme-images.py stills /tmp/frames docs/images [pill.png]
     python3 scripts/compose-readme-images.py gif /tmp/recording docs/images/notch-attention.gif
 
 Every frame is the 2x panel (1920x640 for the 960x320pt panel), notch centred at the top.
+
+The lyric pill is drawn by the effects layer, which `FrameDump` cannot render, so its row takes a
+`LiveCapture` frame of the running app started with `NOTCH_DEBUG_PILL="<a made-up line>"` and
+lays everything below the notch from it under the preview's now-playing notch.
 """
 import glob
 import os
@@ -89,15 +93,18 @@ STILLS = {
 }
 
 COLLAPSED = [
-    ("collapsed-agents", "Agents working"),
-    ("collapsed-approval", "Needs your approval"),
-    ("collapsed-media-playing", "Now playing"),
-    ("collapsed-hud-volume", "Volume HUD"),
-    ("collapsed-trading", "Pinned crypto price"),
+    # (FrameDump scenario, label, strip height in px, whether the lyric pill goes under it)
+    ("collapsed-agents", "Agents working", 120, False),
+    ("collapsed-approval", "Needs your approval", 120, False),
+    ("collapsed-media-playing", "Now playing", 120, False),
+    ("collapsed-media-playing", "Synced lyrics", 160, True),
+    ("collapsed-hud-volume", "Volume HUD", 120, False),
+    ("collapsed-trading", "Pinned crypto price", 120, False),
 ]
+NOTCH_BOTTOM = 32 * SCALE
 
 
-def stills(frames, out):
+def stills(frames, out, pill=None):
     for name, (scenario, height, width) in STILLS.items():
         frame = Image.open(os.path.join(frames, f"scenario-{scenario}.png")).convert("RGBA")
         image = round_corners(desktop(frame, height, width, seed=len(name)), 28)
@@ -107,18 +114,26 @@ def stills(frames, out):
     # The closed notch in five states: one slim strip of desktop per state, labelled.
     rows = []
     font = ImageFont.truetype(FONT, 30)
-    for scenario, label in COLLAPSED:
+    for scenario, label, height, with_pill in COLLAPSED:
+        if with_pill and pill is None:
+            continue
         frame = Image.open(os.path.join(frames, f"scenario-{scenario}.png")).convert("RGBA")
-        strip = desktop(frame, 120, 1200, seed=len(label))
-        row = Image.new("RGBA", (1700, 120), (0, 0, 0, 0))
+        if with_pill:
+            below = Image.open(pill).convert("RGBA").crop((0, NOTCH_BOTTOM + 2, frame.width, frame.height))
+            frame.alpha_composite(below, (0, NOTCH_BOTTOM + 2))
+        strip = desktop(frame, height, 1200, seed=len(label))
+        row = Image.new("RGBA", (1700, height), (0, 0, 0, 0))
         row.alpha_composite(round_corners(strip, 22), (0, 0))
-        ImageDraw.Draw(row).text((1250, 60), label, font=font, fill=(150, 150, 156, 255), anchor="lm")
+        ImageDraw.Draw(row).text((1250, height / 2), label, font=font, fill=(150, 150, 156, 255), anchor="lm")
         rows.append(row)
-    sheet = Image.new("RGBA", (1700, len(rows) * 140 - 20), (0, 0, 0, 0))
-    for index, row in enumerate(rows):
-        sheet.alpha_composite(row, (0, index * 140))
-    sheet.save(os.path.join(out, "notch-closed.png"), optimize=True)
-    print("wrote notch-closed.png", sheet.size)
+    gap = 20
+    sheet = Image.new("RGBA", (1700, sum(r.height for r in rows) + gap * (len(rows) - 1)), (0, 0, 0, 0))
+    y = 0
+    for row in rows:
+        sheet.alpha_composite(row, (0, y))
+        y += row.height + gap
+    sheet.save(os.path.join(out, "notch-states.png"), optimize=True)
+    print("wrote notch-states.png", sheet.size)
 
 
 def gif(recording, out, crop=(1500, 520), width=900, step=1, frame_ms=47):
@@ -152,4 +167,7 @@ def gif(recording, out, crop=(1500, 520), width=900, step=1, frame_ms=47):
 
 if __name__ == "__main__":
     mode, source, target = sys.argv[1:4]
-    stills(source, target) if mode == "stills" else gif(source, target)
+    if mode == "stills":
+        stills(source, target, sys.argv[4] if len(sys.argv) > 4 else None)
+    else:
+        gif(source, target)
