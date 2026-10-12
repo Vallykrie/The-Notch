@@ -10,16 +10,25 @@
 	<key>SUFeedURL</key>
 	<string>https://vallykrie.github.io/The-Notch/appcast.xml</string>
 	<!--
-	  EdDSA public key that signs every update. Empty until the key pair is generated (see
-	  docs/RELEASING.md). While it is empty the app does not start the updater at all, so a
-	  build without a key never offers an update it cannot verify.
+	  EdDSA public key that verifies every update. The private half lives in the maintainer's
+	  login keychain and in the SPARKLE_PRIVATE_KEY repository secret (see docs/RELEASING.md).
+	  If this is ever emptied, the app does not start the updater at all.
 	-->
 	<key>SUPublicEDKey</key>
-	<string></string>
+	<string>WCsOldyIbqExDerOJDGn+AKQO0qPDqkVzWdbkK08Bqg=</string>
 	<key>SUEnableAutomaticChecks</key>
 	<true/>
 	<!-- Six hours. Releases are weekly-ish; an hourly poll would be wasted traffic. -->
 	<key>SUScheduledCheckInterval</key>
 	<integer>21600</integer>
+	<!--
+	  Install updates silently: Sparkle downloads in the background with no prompt, and
+	  AppUpdater's delegate installs and relaunches as soon as the download is ready instead of
+	  waiting for a quit. Releases ship weekly; nobody should be left on an old build.
+	-->
+	<key>SUAllowsAutomaticUpdates</key>
+	<true/>
+	<key>SUAutomaticallyUpdate</key>
+	<true/>
 </dict>
 </plist>
