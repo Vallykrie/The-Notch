@@ -166,7 +166,16 @@ The feed is served from the `gh-pages` branch of this repo at
 `https://vallykrie.github.io/The-Notch/appcast.xml`. `release.yml` creates the branch on the first
 tagged release, and each later release appends an item. The branch holds only the appcast.
 
-### One-time setup
+Updates install silently: `SUAutomaticallyUpdate` downloads without a prompt, and `AppUpdater`
+installs and relaunches as soon as the download is ready rather than waiting for a quit.
+
+Only builds from 1.0.0-beta.13 on carry the public key. Anyone on beta.12 or older has to update
+by hand once (`brew upgrade --cask the-notch` or the DMG); after that, Sparkle takes over.
+
+Keep `auto_updates` out of the Homebrew cask until those older installs have moved on: with it set,
+`brew upgrade` skips the cask, and an install with no working updater would never be upgraded.
+
+### One-time setup (done for 1.0.0-beta.13)
 
 1. **Generate the key pair.** Download the Sparkle tools from the
    [2.10.0 release](https://github.com/sparkle-project/Sparkle/releases/tag/2.10.0) and run

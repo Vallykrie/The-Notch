@@ -11,6 +11,8 @@ import Sparkle
 @MainActor
 final class AppUpdater {
     private let controller: SPUStandardUpdaterController?
+    /// Held here because Sparkle keeps only a weak reference to its delegate.
+    private let delegate = InstallNowDelegate()
 
     init(enabled: Bool = true) {
         #if DEBUG
@@ -21,7 +23,7 @@ final class AppUpdater {
         controller = allowed
             ? SPUStandardUpdaterController(
                 startingUpdater: true,
-                updaterDelegate: nil,
+                updaterDelegate: delegate,
                 userDriverDelegate: nil
             )
             : nil
@@ -39,5 +41,21 @@ final class AppUpdater {
 
     private static var hasPublicKey: Bool {
         (Bundle.main.object(forInfoDictionaryKey: "SUPublicEDKey") as? String)?.isEmpty == false
+    }
+}
+
+/// Installs a downloaded update right away instead of waiting for the app to quit.
+///
+/// `SUAutomaticallyUpdate` downloads silently and installs on quit, but the notch app lives in
+/// the menu bar and is rarely quit, so an update could sit unapplied for weeks. Taking the
+/// immediate-install path relaunches into the new version within a second or two.
+private final class InstallNowDelegate: NSObject, SPUUpdaterDelegate {
+    func updater(
+        _ updater: SPUUpdater,
+        willInstallUpdateOnQuit item: SUAppcastItem,
+        immediateInstallationBlock immediateInstallHandler: @escaping () -> Void
+    ) -> Bool {
+        immediateInstallHandler()
+        return true
     }
 }
