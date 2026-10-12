@@ -295,12 +295,16 @@ final class LyricPill {
 
     // MARK: Drawing
 
-    /// The silhouette the drip hangs from, while it is attached.
-    func attach(at t: TimeInterval) -> NotchFX.Attachment? {
+    /// Whether the drip is hanging from the notch at `t`. The notch itself is drawn by
+    /// `NotchFX.collapsedAttachment(at:)`, not from `attachment`: that is a snapshot taken when
+    /// the pill appeared, and the silhouette can still be springing to a new width — with media
+    /// alone it always is, since play and pause add and remove the shoulders at the same moment
+    /// the pill drips and leaves.
+    func isAttached(at t: TimeInterval) -> Bool {
         switch phase {
-        case .dripping: attachment
-        case let .leaving(start) where t - start > Theme.Motion.Liquid.pillLeave * 0.45: attachment
-        default: nil
+        case .dripping: true
+        case let .leaving(start): t - start > Theme.Motion.Liquid.pillLeave * 0.45
+        default: false
         }
     }
 

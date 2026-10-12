@@ -33,8 +33,37 @@ final class NotchFX {
 
     /// Kept current by `NotchRootView`. Not observed: the canvases read it while drawing.
     @ObservationIgnored var panelSize: CGSize = .zero
-    /// The resting silhouette's height, for the lyric pill's drip.
-    @ObservationIgnored var collapsedSize: CGSize = Theme.Metrics.fauxNotchSize
+    /// The resting silhouette's size, for the lyric pill's drip. This is the *destination*;
+    /// `collapsedAttachment(at:)` is where the silhouette actually is mid-spring.
+    @ObservationIgnored private(set) var collapsedSize: CGSize = Theme.Metrics.fauxNotchSize
+    /// The resting silhouette's width as it springs between live activities.
+    ///
+    /// The metaball pass draws its own copy of the notch for anything hanging from it, and
+    /// that copy used to be a snapshot of the *destination* size. With media alone, pressing
+    /// play grows the shoulders and drips the lyric pill in the same instant — so the copy was
+    /// drawn at full width while the real aperture was still springing open, and pressing pause
+    /// left it at full width while the aperture closed. Either way a second, wider slab of black
+    /// stuck out from behind the notch for most of the gesture. With an agent running the width
+    /// does not change, which is why only the media-only case showed it.
+    @ObservationIgnored private var collapsedWidth = Track(Theme.Metrics.fauxNotchSize.width)
+
+    /// Moves the resting silhouette, on the same spring `NotchRootView` gives the aperture.
+    func setCollapsedSize(_ size: CGSize, animated: Bool) {
+        let now = Self.now
+        if animated, size.width != collapsedSize.width {
+            let current = collapsedWidth.value(at: now)
+            collapsedWidth = Track(current)
+            collapsedWidth.retarget(size.width, at: now, .damped(Theme.Motion.shouldersSpring))
+        } else if !animated {
+            collapsedWidth = Track(size.width)
+        }
+        collapsedSize = size
+    }
+
+    /// The resting silhouette as it is drawn at `t`, mid-spring included.
+    func collapsedAttachment(at t: TimeInterval) -> Attachment {
+        attachment(CGSize(width: collapsedWidth.value(at: t), height: collapsedSize.height), expanded: false)
+    }
     /// Where the pointer is, in panel space. Supplied by the coordinator.
     @ObservationIgnored var pointer: () -> CGPoint? = { nil }
     @ObservationIgnored var reduceMotion = false
@@ -624,8 +653,9 @@ final class NotchFX {
             context.fill(Path(ellipseIn: CGRect(x: center.x - r, y: center.y - r, width: r * 2, height: r * 2)), with: black)
         }
         guard pillActive else { return }
-        if let notch = pill.attach(at: t), !attached.contains(notch) {
-            context.fill(notch.path, with: black)
+        if pill.isAttached(at: t) {
+            let notch = collapsedAttachment(at: t)
+            if !attached.contains(notch) { context.fill(notch.path, with: black) }
         }
         for blob in pill.blobs(at: t) where blob.radius > 0.2 {
             context.fill(

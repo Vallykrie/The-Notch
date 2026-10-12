@@ -214,6 +214,7 @@ struct NotchRootView: View {
             withAnimation(Theme.Motion.shoulders) {
                 animatedCollapsedSize = coordinator.collapsedSize
             }
+            fx.setCollapsedSize(coordinator.collapsedSize, animated: true)
         }
         .onAppear {
             animatedState = coordinator.state
@@ -578,7 +579,7 @@ struct NotchRootView: View {
             coordinator.hasTradingActivity = trading.wantsShoulder
             coordinator.agentNeedsAttention = !store.pendingApprovals.isEmpty || store.sessions.contains { $0.status.demandsAttention }
             animatedCollapsedSize = coordinator.collapsedSize
-            fx.collapsedSize = coordinator.collapsedSize
+            fx.setCollapsedSize(coordinator.collapsedSize, animated: animated)
         }
 
         if animated {
