@@ -250,10 +250,13 @@ enum Theme {
         /// the user's pointer anywhere near the notch, so it must not snap into the corner of
         /// their eye. Critically damped for the same reason.
         static let shoulders = Animation.spring(
-            response: 0.55,
-            dampingFraction: 1.0,
+            response: shouldersSpring.response,
+            dampingFraction: shouldersSpring.damping,
             blendDuration: 0
         )
+        /// `shoulders` as raw parameters, for the liquid canvas: it cannot read a SwiftUI
+        /// animation, but it draws its own copy of the silhouette that has to keep pace with it.
+        static let shouldersSpring = (response: 0.55, damping: 1.0)
 
         /// One full cycle of the collapsed now-playing waveform.
         static let waveformPeriod: TimeInterval = 1.15
