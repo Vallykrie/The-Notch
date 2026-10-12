@@ -137,8 +137,22 @@ PROFILE="${NOTARY_KEYCHAIN_PROFILE:-}"
 if [[ -n "$IDENTITY" && -n "$PROFILE" ]]; then
   echo "==> Notarising (this waits on Apple)"
   xcrun notarytool submit "$DMG" --keychain-profile "$PROFILE" --wait
-  xcrun stapler staple "$DMG"
-  xcrun stapler validate "$DMG"
+
+  # Stapling and validating both fetch the ticket from Apple's CloudKit endpoint, which drops
+  # connections now and then ("The network connection was lost", exit 68). The submission has
+  # already succeeded by this point, so a dropped lookup is worth retrying rather than failing
+  # the whole release.
+  retry() {
+    local attempt
+    for attempt in 1 2 3 4 5; do
+      "$@" && return 0
+      echo "    attempt $attempt failed: $*" >&2
+      [[ $attempt -lt 5 ]] && sleep $((attempt * 10))
+    done
+    return 1
+  }
+  retry xcrun stapler staple "$DMG"
+  retry xcrun stapler validate "$DMG"
   spctl --assess --type open --context context:primary-signature -vv "$DMG"
 else
   echo "==> Skipping notarisation (needs CODESIGN_IDENTITY and NOTARY_KEYCHAIN_PROFILE)"
