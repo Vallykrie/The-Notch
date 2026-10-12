@@ -519,6 +519,16 @@ struct NotchRootView: View {
                 settings.restoreDefaults()
             }
 
+            // Hidden, not disabled, when the updater is off: a debug build has nothing to check.
+            if services.updater.isAvailable {
+                NotchHeaderActionButton(
+                    title: "Updates",
+                    isEnabled: services.updater.canCheckForUpdates
+                ) {
+                    services.updater.checkForUpdates()
+                }
+            }
+
             NotchHeaderActionButton(title: "Quit") {
                 NSApp.terminate(nil)
             }

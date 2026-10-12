@@ -117,7 +117,7 @@ lipo -info "/Volumes/The Notch/The Notch.app/Contents/MacOS/The Notch" # x86_64 
 
 | Repo | Holds |
 | --- | --- |
-| `Vallykrie/The-Notch` | source, and the release DMGs |
+| `Vallykrie/The-Notch` | source, the release DMGs, and the Sparkle appcast (`gh-pages`) |
 | [`Vallykrie/homebrew-tap`](https://github.com/Vallykrie/homebrew-tap) | `Casks/the-notch.rb` |
 
 `Vallykrie/the-notch-releases` is retired. It mirrored DMGs while the source repo was private;
@@ -155,6 +155,62 @@ xattr -dr com.apple.quarantine "/Applications/The Notch.app"
 The cask says this in its caveats. Notarising removes the problem entirely; nothing about the cask
 needs to change when that happens.
 
-## Still to build
+## Sparkle updates
 
-- Sparkle appcast for in-app updates (needs a signed build first).
+Installed copies check for updates every six hours (`SUScheduledCheckInterval` in
+`Config/Info.plist`). Sparkle reads one feed, `appcast.xml`, and offers any item newer than the
+running build. Each item is verified against an EdDSA signature, so the update is trusted by the
+key and not by the download location.
+
+The feed is served from the `gh-pages` branch of this repo at
+`https://vallykrie.github.io/The-Notch/appcast.xml`. `release.yml` creates the branch on the first
+tagged release, and each later release appends an item. The branch holds only the appcast.
+
+### One-time setup
+
+1. **Generate the key pair.** Download the Sparkle tools from the
+   [2.10.0 release](https://github.com/sparkle-project/Sparkle/releases/tag/2.10.0) and run
+   `generate_keys` once. It stores the private key in your login Keychain and prints the public key.
+
+   ```bash
+   ./bin/generate_keys
+   ```
+
+2. **Put the public key in the app.** Copy the `SUPublicEDKey` value into `Config/Info.plist`.
+   Until it is set, the app does not start the updater, and the "Updates" header button is hidden.
+
+3. **Export the private key and store it as a secret.** Then delete the exported file.
+
+   ```bash
+   ./bin/generate_keys -x sparkle_private.key
+   gh secret set SPARKLE_PRIVATE_KEY < sparkle_private.key
+   rm sparkle_private.key
+   ```
+
+4. **Turn on GitHub Pages** from the `gh-pages` branch, root folder. The branch appears after the
+   first tagged release, so do this step after that release, or create the branch first.
+
+   ```bash
+   gh api -X POST repos/Vallykrie/The-Notch/pages -f "source[branch]=gh-pages" -f "source[path]=/"
+   ```
+
+Keep a backup of the private key somewhere safe, such as a password manager. Installed copies only
+trust updates signed by the key they were built with. If the key is lost, nobody can ship an
+update that they will install, and each user has to download a new copy by hand.
+
+### Signing and what the build does
+
+`scripts/build-release.sh` signs Sparkle's helpers (`Downloader.xpc`, `Installer.xpc`,
+`Autoupdate` and `Updater.app`) before the framework and the app. They are signed with the same
+identity and hardened runtime as the app, and without entitlements. The app is not sandboxed, so the
+helpers do not need any. Without this step the app's signature does not verify.
+
+### Critical updates
+
+A release can be marked critical in the appcast, which shows the update prompt without a dismiss
+option. Nothing sets that flag yet; it would need a `--versions` pass or a hand edit of the feed.
+
+### Testing an update locally
+
+Build an older version, install it, then point it at a feed that lists a newer build. Check the
+update in the Updates panel, not only that the feed parses.

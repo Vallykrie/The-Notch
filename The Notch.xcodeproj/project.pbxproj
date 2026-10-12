@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		9F3A0C1E2D4B5A6900000003 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 9F3A0C1E2D4B5A6900000002 /* Sparkle */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		D8E172B6302195A400E81494 /* The Notch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "The Notch.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -23,6 +27,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9F3A0C1E2D4B5A6900000003 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -65,6 +70,7 @@
 			);
 			name = "The Notch";
 			packageProductDependencies = (
+				9F3A0C1E2D4B5A6900000002 /* Sparkle */,
 			);
 			productName = "The Notch";
 			productReference = D8E172B6302195A400E81494 /* The Notch.app */;
@@ -94,6 +100,9 @@
 			);
 			mainGroup = D8E172AD302195A400E81494;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				9F3A0C1E2D4B5A6900000001 /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = D8E172B7302195A400E81494 /* Products */;
 			projectDirPath = "";
@@ -259,6 +268,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Config/Info.plist;
 				INFOPLIST_KEY_LSMinimumSystemVersion = 14.0;
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSAppleEventsUsageDescription = "The Notch controls terminal apps to jump to the window, tab, or session that needs attention.";
@@ -294,6 +304,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Config/Info.plist;
 				INFOPLIST_KEY_LSMinimumSystemVersion = 14.0;
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSAppleEventsUsageDescription = "The Notch controls terminal apps to jump to the window, tab, or session that needs attention.";
@@ -337,6 +348,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		9F3A0C1E2D4B5A6900000001 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.10.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		9F3A0C1E2D4B5A6900000002 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9F3A0C1E2D4B5A6900000001 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = D8E172AE302195A400E81494 /* Project object */;
 }
