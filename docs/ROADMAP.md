@@ -431,7 +431,11 @@ does nothing on macOS 26. Shelf and webcam outstanding.
       one, signs, and packages a DMG with an `/Applications` symlink. A `-` in the version marks
       the release as a prerelease. `workflow_dispatch` builds the same DMG as an artifact without
       publishing anything.
-- [ ] Sparkle appcast (in-app updates)
+- [ ] Sparkle appcast (in-app updates). Built: Sparkle 2.10.0 linked by Swift Package Manager,
+      `AppUpdater` with a six-hourly check and an "Updates" header button, and `release.yml` signs
+      and publishes `appcast.xml` to `gh-pages` on every tag. Not done: the EdDSA key pair (see
+      [RELEASING.md](RELEASING.md#sparkle-updates)), GitHub Pages, and one verified update from an
+      older build to a newer one. Tick it once that update has been seen to install.
 - [x] Homebrew cask — `brew install --cask vallykrie/tap/the-notch`, from
       [Vallykrie/homebrew-tap](https://github.com/Vallykrie/homebrew-tap). Homebrew fetches over
       plain unauthenticated HTTP, so it cannot see this repository's release assets; the DMG is

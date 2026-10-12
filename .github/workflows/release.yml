@@ -30,6 +30,9 @@ jobs:
       # A fine-grained PAT with Contents: read and write on Vallykrie/homebrew-tap. The
       # built-in GITHUB_TOKEN is scoped to this repository only, so it cannot bump the cask.
       RELEASE_TOKEN: ${{ secrets.RELEASE_REPO_TOKEN }}
+      # EdDSA private key for Sparkle, from `generate_keys` (docs/RELEASING.md). Read at job level
+      # for the same reason as the others: a step-level `if` cannot read secrets.
+      SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -169,6 +172,70 @@ jobs:
             --notes-file release-notes.md \
             "${prerelease[@]}" \
             dist/*.dmg dist/*.dmg.sha256
+
+      # Sparkle polls this feed to find updates. It lives on the `gh-pages` branch of this repo,
+      # served by GitHub Pages at https://vallykrie.github.io/The-Notch/appcast.xml. The branch
+      # holds the appcast and nothing else. The existing feed is fetched and extended, so every
+      # earlier release stays in it.
+      #
+      # Each item's enclosure points at this tag's GitHub Release asset. An item without an EdDSA
+      # signature is refused by Sparkle, so the step fails before anything is pushed.
+      - name: Publish the Sparkle appcast
+        if: ${{ github.event_name == 'push' && env.SPARKLE_PRIVATE_KEY != '' }}
+        env:
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ steps.version.outputs.version }}
+          REPO_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          sparkle_version=2.10.0
+          work="$RUNNER_TEMP/appcast"
+          feed="$RUNNER_TEMP/feed"
+          remote="https://x-access-token:$REPO_TOKEN@github.com/${{ github.repository }}.git"
+          mkdir -p "$work"
+
+          # The gh-pages branch is cloned first: its appcast.xml is the feed this release extends.
+          # The branch is created the first time the step runs.
+          if ! git clone -q --depth 1 --branch gh-pages "$remote" "$feed" 2>/dev/null; then
+            git init -q "$feed"
+            git -C "$feed" checkout -q --orphan gh-pages
+            git -C "$feed" remote add origin "$remote"
+          fi
+          cp -f "$feed/appcast.xml" "$work/appcast.xml" 2>/dev/null || true
+
+          curl -fsSL "https://github.com/sparkle-project/Sparkle/releases/download/$sparkle_version/Sparkle-$sparkle_version.tar.xz" \
+            -o "$RUNNER_TEMP/sparkle.tar.xz"
+          tar -xJf "$RUNNER_TEMP/sparkle.tar.xz" -C "$RUNNER_TEMP" ./bin
+
+          cp dist/*.dmg "$work/"
+          echo "$SPARKLE_PRIVATE_KEY" | "$RUNNER_TEMP/bin/generate_appcast" \
+            --ed-key-file - \
+            --download-url-prefix "https://github.com/${{ github.repository }}/releases/download/$TAG/" \
+            --maximum-deltas 0 \
+            "$work"
+
+          if ! grep -q 'sparkle:edSignature' "$work/appcast.xml"; then
+            echo "::error::the appcast has no EdDSA signature. Does SUPublicEDKey match SPARKLE_PRIVATE_KEY?"
+            exit 1
+          fi
+
+          cp "$work/appcast.xml" "$feed/appcast.xml"
+          cd "$feed"
+          git add appcast.xml
+          if git diff --cached --quiet; then
+            echo "Appcast already lists $VERSION; nothing to do."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -qm "appcast: the-notch $VERSION"
+          git push -q origin HEAD:gh-pages
+
+      - name: Warn when the appcast was skipped
+        if: ${{ github.event_name == 'push' && env.SPARKLE_PRIVATE_KEY == '' }}
+        run: |
+          echo "::warning::SPARKLE_PRIVATE_KEY is not set, so no Sparkle appcast was published." \
+               "Installed copies will not see this release as an update."
 
       # Runs after the release exists, so the cask never points at a DMG that is not there yet.
       - name: Bump the Homebrew cask

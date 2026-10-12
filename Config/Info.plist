@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Merged into the generated Info.plist (GENERATE_INFOPLIST_FILE stays on). Only the Sparkle
+  update keys live here; everything else is still set through INFOPLIST_KEY_* build settings.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- The appcast is published by .github/workflows/release.yml to the gh-pages branch. -->
+	<key>SUFeedURL</key>
+	<string>https://vallykrie.github.io/The-Notch/appcast.xml</string>
+	<!--
+	  EdDSA public key that signs every update. Empty until the key pair is generated (see
+	  docs/RELEASING.md). While it is empty the app does not start the updater at all, so a
+	  build without a key never offers an update it cannot verify.
+	-->
+	<key>SUPublicEDKey</key>
+	<string></string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<!-- Six hours. Releases are weekly-ish; an hourly poll would be wasted traffic. -->
+	<key>SUScheduledCheckInterval</key>
+	<integer>21600</integer>
+</dict>
+</plist>

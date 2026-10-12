@@ -98,6 +98,20 @@ fi
 # Event without a prompt — Now Playing and jump-back both talk to other apps through
 # `osascript`, which is attributed to this app.
 codesign "${SIGN_ARGS[@]}" "$APP/Contents/Resources/notch-hook"
+
+# Sparkle ships its own helpers (the installer, the downloader and the Updater app). The
+# archive leaves them unsigned, so they are signed here innermost first, then the framework,
+# with no entitlements: the app is not sandboxed, so the helpers need none. `--deep` is not
+# used, because it re-signs each nested bundle with the outer bundle's entitlements.
+SPARKLE="$APP/Contents/Frameworks/Sparkle.framework/Versions/B"
+if [[ -d "$SPARKLE" ]]; then
+  echo "==> Signing Sparkle's helpers"
+  for helper in "$SPARKLE"/XPCServices/*.xpc "$SPARKLE/Autoupdate" "$SPARKLE/Updater.app"; do
+    [[ -e "$helper" ]] && codesign "${SIGN_ARGS[@]}" "$helper"
+  done
+  codesign "${SIGN_ARGS[@]}" "$APP/Contents/Frameworks/Sparkle.framework"
+fi
+
 codesign "${SIGN_ARGS[@]}" --entitlements "$ROOT/$APP_NAME/$APP_NAME.entitlements" "$APP"
 codesign --verify --deep --strict --verbose=2 "$APP"
 

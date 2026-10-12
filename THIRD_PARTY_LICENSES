@@ -1,8 +1,22 @@
 # Third-party licenses
 
-The Notch has **zero third-party code dependencies**. It bundles one third-party font, below.
+The Notch has one third-party code dependency, Sparkle, and bundles one third-party font. Both are
+listed below.
 
 ## Included
+
+### Sparkle
+
+- **Version:** 2.10.0 (`from: 2.10.0`, resolved by Swift Package Manager)
+- **Copyright:** Copyright (c) 2006-2013 Andy Matuschak, and the other contributors listed in its
+  licence text
+- **License:** MIT, with bundled components under their own permissive licences (bsdiff, BSD-2-Clause;
+  sais-lite, MIT; Ed25519, Zlib)
+- **Source:** https://github.com/sparkle-project/Sparkle
+- **Linked at:** the `Sparkle` Swift package, into `Contents/Frameworks/Sparkle.framework`
+- **Modifications:** none
+- **Licence text:** `The Notch/Resources/Licenses/Sparkle-LICENSE.txt`, copied into the app bundle
+  at build time
 
 ### Departure Mono
 
@@ -28,9 +42,5 @@ These candidates are recorded in `docs/ARCHITECTURE.md` §4a for future consider
 permissive and MIT-compatible. Every item below is **not yet included** in The Notch:
 
 - **SkyLightWindow** — MIT — not yet included
-- **Sparkle** — MIT — not yet included
-  - bundled **bsdiff** — BSD-2-Clause — not yet included
-  - bundled **sais-lite** — MIT — not yet included
-  - bundled **Ed25519** — Zlib — not yet included
 - **Defaults** — MIT — not yet included
 - **KeyboardShortcuts** — MIT — not yet included

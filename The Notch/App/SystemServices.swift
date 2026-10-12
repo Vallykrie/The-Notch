@@ -25,6 +25,8 @@ final class SystemServices {
     let trading: TradingStore
     /// Lyrics for the playing track, read by both the media panel and the collapsed notch.
     let lyrics: LyricsController
+    /// Scheduled and manual update checks. Inert in Debug builds and when no public key is set.
+    let updater: AppUpdater
 
     /// Built inside the initializer body rather than as a default argument: default arguments
     /// are evaluated in a nonisolated context and the monitors are `@MainActor`.
@@ -35,6 +37,7 @@ final class SystemServices {
         trading = TradingStore()
         lyrics = LyricsController(nowPlaying: nowPlaying)
         integrations = AgentIntegrationManager(settings: settings)
+        updater = AppUpdater()
         mediaKeys.onHandledEvent = { [weak systemHUD] event in
             systemHUD?.presentIntercepted(event)
         }
@@ -55,5 +58,6 @@ final class SystemServices {
         self.trading = trading ?? TradingPreviewData.emptyStore()
         lyrics = LyricsController(nowPlaying: nowPlaying)
         integrations = AgentIntegrationManager()
+        updater = AppUpdater(enabled: false)
     }
 }
