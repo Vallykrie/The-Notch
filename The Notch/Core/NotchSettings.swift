@@ -16,6 +16,22 @@ import ServiceManagement
 /// than duplicating it — see ``soundCuesEnabled``.
 @MainActor
 final class NotchSettings: ObservableObject {
+    // MARK: Features
+    //
+    // A feature switched off is *off*, not hidden: its tab goes, its shoulder goes, and the
+    // monitor behind it stops — no player is scripted, no price socket is open, and the hook
+    // socket closes so agent hooks fail open straight back to the agent's own prompt. Someone
+    // who installed The Notch for one of the three should not pay for the other two.
+
+    /// Now playing: the media tab, its shoulder, the lyric pill, and the player polling.
+    @Published var mediaEnabled: Bool { didSet { commit(mediaEnabled, .mediaEnabled) } }
+
+    /// Coding agents: the agents tab, its shoulder, approvals, and the hook socket.
+    @Published var agentsEnabled: Bool { didSet { commit(agentsEnabled, .agentsEnabled) } }
+
+    /// The crypto watchlist: its tab, the pinned price, and the price feed.
+    @Published var cryptoEnabled: Bool { didSet { commit(cryptoEnabled, .cryptoEnabled) } }
+
     // MARK: Media
 
     /// Whether media earns a collapsed shoulder at all.
@@ -29,6 +45,15 @@ final class NotchSettings: ObservableObject {
     /// "shoulders are earned" rule in `LiveActivityLayout` exists to prevent.
     @Published var hideMediaWhenPaused: Bool { didSet { commit(hideMediaWhenPaused, .hideMediaWhenPaused) } }
 
+    /// Whether the sung line floats in the pill under the collapsed notch. The lyrics button in
+    /// the media panel still decides whether lyrics are fetched at all; this only keeps them
+    /// off the desktop for someone who wants them in the panel and nowhere else.
+    @Published var lyricsOnNotch: Bool { didSet { commit(lyricsOnNotch, .lyricsOnNotch) } }
+
+    /// Which players The Notch reads. A player left out is never scripted, so it never raises
+    /// an Automation prompt either.
+    @Published var mediaPlayers: MediaPlayers { didSet { commit(mediaPlayers.rawValue, .mediaPlayers) } }
+
     // MARK: Agents
 
     /// Whether agent sessions earn a collapsed shoulder.
@@ -41,6 +66,11 @@ final class NotchSettings: ObservableObject {
     /// default: the app is what tells two sessions apart at a glance, and the model is detail
     /// most people only want once they run several models side by side.
     @Published var showAgentModel: Bool { didSet { commit(showAgentModel, .showAgentModel) } }
+
+    /// Whether an approval or a question opens the notch by itself. Off, the notch stays
+    /// closed and the attention ring and the sound carry the request instead — for someone
+    /// who would rather not have a panel spring open over what they are reading.
+    @Published var openOnApproval: Bool { didSet { commit(openOnApproval, .openOnApproval) } }
 
     /// Mirrors `SoundEffects.isEnabled` rather than shadowing it. That object already owns the
     /// key and reads it on every cue; a second copy here would go stale the moment either side
@@ -131,7 +161,7 @@ final class NotchSettings: ObservableObject {
 
     // MARK: Change notification
 
-    /// Bumped on every change. Views observe this one value rather than eleven separate ones.
+    /// Bumped on every change. Views observe this one value rather than one per preference.
     @Published private(set) var revision: Int = 0
 
     /// Called after `revision` is bumped, for the things SwiftUI cannot re-render: the level
@@ -149,11 +179,19 @@ final class NotchSettings: ObservableObject {
         // Direct assignment inside `init` does not run `didSet`, which is exactly what is wanted
         // here: loading stored values must not write them straight back, nor announce a change
         // to an `onChange` that has not been installed yet.
+        mediaEnabled = defaults.bool(forKey: Key.mediaEnabled.rawValue)
+        agentsEnabled = defaults.bool(forKey: Key.agentsEnabled.rawValue)
+        cryptoEnabled = defaults.bool(forKey: Key.cryptoEnabled.rawValue)
         showMediaActivity = defaults.bool(forKey: Key.showMediaActivity.rawValue)
         hideMediaWhenPaused = defaults.bool(forKey: Key.hideMediaWhenPaused.rawValue)
+        lyricsOnNotch = defaults.bool(forKey: Key.lyricsOnNotch.rawValue)
+        mediaPlayers = MediaPlayers(
+            rawValue: defaults.string(forKey: Key.mediaPlayers.rawValue) ?? ""
+        ) ?? .default
         showAgentActivity = defaults.bool(forKey: Key.showAgentActivity.rawValue)
         showAttentionRing = defaults.bool(forKey: Key.showAttentionRing.rawValue)
         showAgentModel = defaults.bool(forKey: Key.showAgentModel.rawValue)
+        openOnApproval = defaults.bool(forKey: Key.openOnApproval.rawValue)
         celebrateFinishedRuns = defaults.bool(forKey: Key.celebrateFinishedRuns.rawValue)
         hasSeenIntro = defaults.bool(forKey: StateKey.hasSeenIntro.rawValue)
         agentHookConsent = AgentHookConsent(
@@ -196,8 +234,14 @@ final class NotchSettings: ObservableObject {
     /// defaults must not silently unregister a login item the user set up on purpose.
     private static var registeredDefaults: [String: Any] {
         [
+            Key.mediaEnabled.rawValue: true,
+            Key.agentsEnabled.rawValue: true,
+            Key.cryptoEnabled.rawValue: true,
             Key.showMediaActivity.rawValue: true,
             Key.hideMediaWhenPaused.rawValue: true,
+            Key.lyricsOnNotch.rawValue: true,
+            Key.mediaPlayers.rawValue: MediaPlayers.default.rawValue,
+            Key.openOnApproval.rawValue: true,
             Key.showAgentActivity.rawValue: true,
             Key.showAttentionRing.rawValue: true,
             Key.showAgentModel.rawValue: false,
@@ -214,8 +258,14 @@ final class NotchSettings: ObservableObject {
     /// Whether every preference currently matches the shipped behaviour. The Restore Defaults
     /// button reads this so it can dim itself rather than pretending there is something to undo.
     var isAtDefaults: Bool {
-        showMediaActivity
+        mediaEnabled
+            && agentsEnabled
+            && cryptoEnabled
+            && showMediaActivity
             && hideMediaWhenPaused
+            && lyricsOnNotch
+            && mediaPlayers == .default
+            && openOnApproval
             && showAgentActivity
             && showAttentionRing
             && !showAgentModel
@@ -238,8 +288,14 @@ final class NotchSettings: ObservableObject {
         // Assigned through the properties, not the backing store, so every observer sees the
         // reset. `bump()` fires once per assignment; that is a handful of no-op refreshes on a
         // button the user presses once, which is cheaper than a second write path to get wrong.
+        mediaEnabled = true
+        agentsEnabled = true
+        cryptoEnabled = true
         showMediaActivity = true
         hideMediaWhenPaused = true
+        lyricsOnNotch = true
+        mediaPlayers = .default
+        openOnApproval = true
         showAgentActivity = true
         showAttentionRing = true
         showAgentModel = false
@@ -264,19 +320,39 @@ final class NotchSettings: ObservableObject {
     /// supported player is running with a track loaded, which stays true for hours after the
     /// music stops.
     func showsMedia(_ status: NowPlayingStatus) -> Bool {
-        guard showMediaActivity, status.isActive else { return false }
+        guard mediaEnabled, showMediaActivity, status.isActive else { return false }
         return status.isPlaying || !hideMediaWhenPaused
     }
 
     func showsAgents(sessionCount: Int) -> Bool {
-        showAgentActivity && sessionCount > 0
+        agentsEnabled && showAgentActivity && sessionCount > 0
+    }
+
+    /// Whether a surface's feature is switched on. A surface whose feature is off has no tab.
+    func isEnabled(_ surface: NotchSurface) -> Bool {
+        switch surface {
+        case .media: mediaEnabled
+        case .agents: agentsEnabled
+        case .trading: cryptoEnabled
+        }
+    }
+
+    /// The tabs the expanded panel offers, in tab-bar order.
+    var enabledSurfaces: [NotchSurface] {
+        NotchSurface.allCases.filter(isEnabled)
     }
 
     // MARK: Storage
 
     private enum Key: String, CaseIterable {
+        case mediaEnabled = "NotchMediaEnabled"
+        case agentsEnabled = "NotchAgentsEnabled"
+        case cryptoEnabled = "NotchCryptoEnabled"
         case showMediaActivity = "NotchShowMediaActivity"
         case hideMediaWhenPaused = "NotchHideMediaWhenPaused"
+        case lyricsOnNotch = "NotchLyricsOnNotch"
+        case mediaPlayers = "NotchMediaPlayers"
+        case openOnApproval = "NotchOpenOnApproval"
         case showAgentActivity = "NotchShowAgentActivity"
         case showAttentionRing = "NotchShowAttentionRing"
         case showAgentModel = "NotchShowAgentModel"
@@ -370,6 +446,32 @@ nonisolated enum FinishedRetention: String, CaseIterable, Identifiable, Sendable
         // Not `.infinity`: `Date.addingTimeInterval(-.infinity)` is not a usable date, and the
         // prune cutoff is computed by subtraction. A decade outlives any session.
         case .keep: 10 * 365 * 24 * 60 * 60
+        }
+    }
+}
+
+nonisolated enum MediaPlayers: String, CaseIterable, Identifiable, Sendable {
+    case all
+    case music
+    case spotify
+
+    static let `default` = MediaPlayers.all
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .all: "All"
+        case .music: "Music"
+        case .spotify: "Spotify"
+        }
+    }
+
+    var players: Set<NowPlayingStatus.Player> {
+        switch self {
+        case .all: [.music, .spotify]
+        case .music: [.music]
+        case .spotify: [.spotify]
         }
     }
 }

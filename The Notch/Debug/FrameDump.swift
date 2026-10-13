@@ -547,10 +547,9 @@ enum FrameDump {
                 }(),
                 false
             ),
-            // The tightest vertical budget in the app: every preference the app has, laid out
-            // inside the same 190pt panel as everything else, with no scroll view to overflow
-            // into. This frame is the check that it still fits — a preference added without
-            // retiring one shows up here as a clipped bottom row and nowhere else.
+            // Settings opened from the agents tab, so on the Agents section — the longest one.
+            // Every section is also rendered on its own below; a row added to a full section
+            // shows up there as a clipped bottom row and nowhere else.
             (
                 "expanded-settings",
                 .agents,
@@ -612,7 +611,37 @@ enum FrameDump {
             write(view, to: directory, name: "scenario-\(scenario.name).png")
         }
 
-        return scenarios.count + tradingScenarios.count
+        // One frame per settings section — each is its own tight vertical budget now — plus
+        // a switched-off feature, whose rows dim and whose rail icon tips over.
+        let settingsSections: [(name: String, section: SettingsSection, featureOff: Bool)] =
+            SettingsSection.allCases.map { ("expanded-settings-\($0.rawValue)", $0, false) }
+            + [("expanded-settings-media-off", .media, true)]
+        for item in settingsSections {
+            let services = SystemServices(
+                nowPlaying: MediaPreviewData.playingMonitor(),
+                systemHUD: .previewIdle(),
+                trading: TradingPreviewData.populatedStore()
+            )
+            if item.featureOff { services.settings.mediaEnabled = false }
+            let coordinator = NotchCoordinator(
+                state: .expanded,
+                currentSurface: .agents,
+                collapsedSize: geometry.collapsedNotchSize,
+                hasPhysicalNotch: geometry.hasPhysicalNotch
+            )
+            let view = NotchRootView(
+                coordinator: coordinator,
+                store: AgentsPreviewData.concurrentStore(),
+                services: services,
+                debugShowsSettings: true,
+                debugSettingsSection: item.section
+            )
+            .frame(width: geometry.panelFrame.width, height: geometry.panelFrame.height)
+            .background(backdrop)
+            write(view, to: directory, name: "scenario-\(item.name).png")
+        }
+
+        return scenarios.count + tradingScenarios.count + settingsSections.count
     }
 
     /// A playing track with lyrics already loaded, no network.

@@ -402,6 +402,15 @@ does nothing on macOS 26. Shelf and webcam outstanding.
       `SMAppService` registration and reflects what the service reports, not what was clicked.
       No `Defaults`/`KeyboardShortcuts`/`LaunchAtLogin` dependency was needed — `UserDefaults`
       and `ServiceManagement` cover it. Keyboard shortcuts remain unbuilt.
+- [x] Settings split per feature (2026-10-13). The four-column grid was full, so settings now
+      have a rail — Media, Agents, Crypto, General — and each section gets two columns. Each
+      feature is headed by its own on/off switch, and off means off: the tab and shoulder go,
+      `NowPlayingMonitor` stops scripting players, `TradingStore` drops its socket, and the hook
+      socket closes so agent hooks fail open. New: Lyrics on notch, Players (All / Music /
+      Spotify), Open on approval, and Crypto's "Pinned on notch" moved out of the panel. Restore
+      Defaults moved to the header's leading edge while settings are open. Switch knobs squash
+      and throw sparks, values roll over, the rail pill glides; every curve is in
+      `Theme.Motion.Settings`. Mockup: `docs/design/settings-per-feature-v1.html` (option B).
 - [x] Onboarding: detect installed agent CLIs, ask, then hook them up. A first-launch intro plays
       inside the notch (`OnboardingDirector`): it melts, opens into a band of stars, the stars
       gather into the mascot, which says hello and asks before touching any agent config — the

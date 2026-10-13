@@ -19,6 +19,9 @@ import SwiftUI
 @MainActor
 struct NotchTabBar: View {
     @Binding var selection: NotchSurface
+    /// The tabs to offer: every surface whose feature is switched on. A feature switched off
+    /// in settings has no tab at all — unlike an empty surface, which keeps its dimmed tab.
+    var surfaces: [NotchSurface] = NotchSurface.allCases
     /// Tabs with nothing behind them are still shown, not hidden. A switch whose options
     /// appear and disappear as tracks start and agents exit is a moving target; a dimmed tab
     /// that says "nothing here" is honest and stays put.
@@ -26,7 +29,7 @@ struct NotchTabBar: View {
 
     var body: some View {
         HStack(spacing: Theme.Metrics.TabBar.spacing) {
-            ForEach(NotchSurface.allCases) { surface in
+            ForEach(surfaces) { surface in
                 tab(surface)
             }
         }

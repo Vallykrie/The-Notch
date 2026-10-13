@@ -34,6 +34,9 @@ struct NotchRootView: View {
     /// must not survive a collapse — three exceptions that would have to be written into every
     /// `switch` over `NotchSurface` if it were a case there.
     @State private var isShowingSettings = false
+    /// The section settings open on. Normally the one matching the current tab; `FrameDump`
+    /// pins it so each section can be rendered.
+    private let debugSettingsSection: SettingsSection?
 
     /// Every drawn effect — liquid, stars, pixels in flight, sparks, the lyric pill.
     @State private var fx = NotchFX()
@@ -63,7 +66,8 @@ struct NotchRootView: View {
         coordinator: NotchCoordinator,
         store: AgentSessionStore,
         services: SystemServices,
-        debugShowsSettings: Bool = false
+        debugShowsSettings: Bool = false,
+        debugSettingsSection: SettingsSection? = nil
     ) {
         self.coordinator = coordinator
         self.store = store
@@ -75,6 +79,7 @@ struct NotchRootView: View {
         _lyrics = ObservedObject(wrappedValue: services.lyrics)
         _animatedCollapsedSize = State(initialValue: coordinator.collapsedSize)
         _isShowingSettings = State(initialValue: debugShowsSettings)
+        self.debugSettingsSection = debugSettingsSection
     }
 
     var body: some View {
@@ -191,7 +196,10 @@ struct NotchRootView: View {
         .onChange(of: nowPlaying.status) { _, _ in refreshActivity() }
         .onChange(of: store.sessions.count) { _, _ in refreshActivity() }
         .onChange(of: systemHUD.event) { _, _ in refreshActivity() }
-        .onChange(of: settings.revision) { _, _ in refreshActivity() }
+        .onChange(of: settings.revision) { _, _ in
+            refreshActivity()
+            reconcileSurface()
+        }
         .onChange(of: trading.wantsShoulder) { _, _ in refreshActivity() }
         .onChange(of: attentionFlags) { _, _ in refreshActivity() }
         .onChange(of: store.pendingApprovals.count) { _, _ in refreshActivity() }
@@ -438,8 +446,18 @@ struct NotchRootView: View {
                         mediaKeys: services.mediaKeys,
                         integrations: services.integrations,
                         store: store,
-                        onReplayIntro: { coordinator.requestOnboarding() }
+                        trading: trading,
+                        initialSection: debugSettingsSection
+                            ?? SettingsSection(surface: coordinator.currentSurface),
+                        onReplayIntro: { coordinator.requestOnboarding() },
+                        onEditWatchlist: {
+                            isShowingSettings = false
+                            coordinator.setPinnedOpen(false)
+                            coordinator.show(.trading)
+                        }
                     )
+                } else if !settings.isEnabled(coordinator.currentSurface) {
+                    allFeaturesOff
                 } else {
                     switch coordinator.currentSurface {
                     case .media:
@@ -476,22 +494,29 @@ struct NotchRootView: View {
     ///
     /// Both ends, and nothing in the middle: the centre of the header sits behind the physical
     /// camera housing. `NotchTabBar` carries the same constraint and the longer explanation.
+    ///
+    /// While settings are open the tab bar steps aside — the settings rail does its job — and
+    /// Restore Defaults takes the leading edge it leaves, so the trailing edge does not have to
+    /// carry four buttons.
     private var header: some View {
         HStack(spacing: Theme.Metrics.TabBar.spacing) {
-            NotchTabBar(
-                selection: Binding(
-                    get: { coordinator.currentSurface },
-                    set: { surface in
-                        // Picking a tab is also how you leave settings. Otherwise the tab bar
-                        // stays live under an open settings panel and changes a selection the
-                        // user cannot see the result of.
-                        isShowingSettings = false
-                        coordinator.setPinnedOpen(false)
-                        coordinator.show(surface)
-                    }
-                ),
-                activeSurfaces: activeSurfaces
-            )
+            if isShowingSettings {
+                NotchHeaderActionButton(
+                    title: "Restore Defaults",
+                    isEnabled: !settings.isAtDefaults
+                ) {
+                    settings.restoreDefaults()
+                }
+            } else if !settings.enabledSurfaces.isEmpty {
+                NotchTabBar(
+                    selection: Binding(
+                        get: { coordinator.currentSurface },
+                        set: { surface in coordinator.show(surface) }
+                    ),
+                    surfaces: settings.enabledSurfaces,
+                    activeSurfaces: activeSurfaces
+                )
+            }
 
             Spacer(minLength: Theme.Metrics.expandedContentSpacing)
 
@@ -513,13 +538,6 @@ struct NotchRootView: View {
     @ViewBuilder
     private var headerActions: some View {
         if isShowingSettings {
-            NotchHeaderActionButton(
-                title: "Restore Defaults",
-                isEnabled: !settings.isAtDefaults
-            ) {
-                settings.restoreDefaults()
-            }
-
             // Hidden, not disabled, when the updater is off: a debug build has nothing to check.
             if services.updater.isAvailable {
                 NotchHeaderActionButton(
@@ -576,7 +594,7 @@ struct NotchRootView: View {
                 sessionCount: store.sessions.count
             )
             coordinator.hasSystemHUD = settings.replaceSystemHUD && systemHUD.event != nil
-            coordinator.hasTradingActivity = trading.wantsShoulder
+            coordinator.hasTradingActivity = settings.cryptoEnabled && trading.wantsShoulder
             coordinator.agentNeedsAttention = !store.pendingApprovals.isEmpty || store.sessions.contains { $0.status.demandsAttention }
             animatedCollapsedSize = coordinator.collapsedSize
             fx.setCollapsedSize(coordinator.collapsedSize, animated: animated)
@@ -587,6 +605,30 @@ struct NotchRootView: View {
         } else {
             apply()
         }
+    }
+
+    /// Moves the panel off a tab whose feature was just switched off, onto the first one still
+    /// on. With every feature off there is nowhere to go, and the panel says so instead.
+    private func reconcileSurface() {
+        guard !settings.isEnabled(coordinator.currentSurface),
+              let first = settings.enabledSurfaces.first else { return }
+        coordinator.show(first)
+    }
+
+    /// The panel with every feature switched off. The HUD and the gear still work, so this is
+    /// a legitimate way to run the app, not an error.
+    private var allFeaturesOff: some View {
+        VStack(spacing: Theme.Metrics.Settings.headerSpacing) {
+            Text("Every feature is switched off.")
+                .font(Theme.Text.caption)
+                .foregroundStyle(Theme.Colors.textSecondary)
+            Text("The notch still shows volume and brightness. Turn a feature back on in settings.")
+                .font(Theme.Text.micro)
+                .foregroundStyle(Theme.Colors.textTertiary)
+        }
+        .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, Theme.Metrics.expandedHorizontalPadding)
     }
 
     // The tab is the user's. It used to be re-picked on every collapse — forced to Crypto
@@ -672,6 +714,12 @@ extension NotchRootView {
     /// around under the pointer is worse than a missed flourish. Closed: the full gesture.
     private func present(_ kind: Takeover) {
         let tint = kind == .approval ? Theme.Colors.Status.needsApproval : Theme.Colors.Status.question
+        // "Open on approval" off: a closed notch stays closed. The attention ring, the shoulder
+        // mascot and the sound already carry the request; this adds one pulse of the rim.
+        guard settings.openOnApproval || coordinator.state == .expanded else {
+            if !reduceMotion { fx.rim(tint, mode: .pulse) }
+            return
+        }
         takeover = kind
 
         if coordinator.state == .expanded {
@@ -888,7 +936,7 @@ extension NotchRootView {
     /// The line the pill should be showing, or `nil` when there should be no pill: lyrics on,
     /// synced, playing, and the notch at rest. An instrumental break keeps the pill with a note.
     private var pillLine: String? {
-        guard settings.showsMedia(nowPlaying.status), lyrics.showsOnNotch,
+        guard settings.showsMedia(nowPlaying.status), settings.lyricsOnNotch, lyrics.showsOnNotch,
               coordinator.state == .collapsed, !coordinator.isOnboarding else { return nil }
         let line = lyrics.currentLine ?? ""
         return line.isEmpty ? "♪" : line

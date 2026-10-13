@@ -177,6 +177,19 @@ nonisolated struct PixelGlyph: Equatable, Sendable {
         0b0001_1000,
     ])
 
+    /// A coin standing on its edge-lit rim, with the slot of an embossed bar down its face.
+    /// The crypto feature's mark in the settings rail.
+    static let coin = PixelGlyph(rows: [
+        0b0011_1100,
+        0b0111_1110,
+        0b1110_0111,
+        0b1110_0111,
+        0b1110_0111,
+        0b1110_0111,
+        0b0111_1110,
+        0b0011_1100,
+    ])
+
     // MARK: Chrome
 
     /// Cog: a hollow body with four teeth on the axes and four bulges on the diagonals.

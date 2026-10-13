@@ -58,6 +58,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         services.systemHUD.dwell = Theme.Metrics.HUD.dwell(settings.hudDwell)
 
+        // Each feature's monitor follows its switch. All three calls are idempotent.
+        services.nowPlaying.configure(
+            suspended: !settings.mediaEnabled,
+            allowedPlayers: settings.mediaPlayers.players
+        )
+        services.trading.setSuspended(!settings.cryptoEnabled)
+        bridge?.setEnabled(settings.agentsEnabled)
+
         if let store = bridge?.store {
             store.doneSessionRetention = settings.finishedRetention.interval
             // Applied to what is already on screen, not just to future events. Shortening the
@@ -147,7 +155,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.notchWindow = notchWindow
         notchWindow.orderFrontRegardless()
 
-        bridge.start()
+        // The bridge is not started here: `applyPreferences()` below starts it, and only when
+        // the agents feature is on.
         services.integrations.start()
         services.trading.start()
 

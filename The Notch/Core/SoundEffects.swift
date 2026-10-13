@@ -71,8 +71,8 @@ final class SoundEffects {
 
     // MARK: - Preference
 
-    /// User-facing mute switch. There is no settings UI yet, so this is the whole surface:
-    /// on by default, and flippable from a debugger or with
+    /// User-facing mute switch: Settings → Agents → Sound cues, which `NotchSettings` mirrors.
+    /// On by default; also flippable with
     /// `defaults write com.thenotch.TheNotch NotchSoundEffectsEnabled -bool false`.
     ///
     /// Defaulting to on is the right call for a cue set this quiet and this rare — the cues
