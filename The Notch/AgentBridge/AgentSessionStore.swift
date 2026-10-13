@@ -442,6 +442,14 @@ final class AgentSessionStore: ObservableObject {
         return removable.count
     }
 
+    /// Forgets every session and every pending prompt. Only for the agents feature being
+    /// switched off: the server has already closed each connection by then, so every blocked
+    /// hook has failed open and the prompts here are answering nobody.
+    func clearAllSessions() {
+        sessionsByID.removeAll()
+        pendingApprovals.removeAll()
+    }
+
     /// Periodic maintenance also retires inactive turns, independently of "Keep done".
     func pruneDoneSessions(
         olderThan retention: TimeInterval? = nil,

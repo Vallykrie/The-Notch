@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settings Per Feature</title>
+<style>
+@font-face{font-family:'Departure';src:url('../../The%20Notch/Resources/Fonts/DepartureMono-Regular.otf') format('opentype')}
+:root{
+  --bg:#141418; --page:#1b1b21; --line:#2a2a33; --text:#ecece4; --muted:#8a8a94; --amber:#ffaa1e; --green:#5fe08a;
+  --w:#fff; --w62:rgba(255,255,255,.62); --w38:rgba(255,255,255,.38); --w14:rgba(255,255,255,.14); --w08:rgba(255,255,255,.08);
+  --px:'Departure', ui-monospace, 'SF Mono', Menlo, monospace;
+  --spring:cubic-bezier(.34,1.56,.64,1); --ease:cubic-bezier(.2,.8,.2,1);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:13px/1.55 var(--px)}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 16px 80px}
+h1{font:400 24px/1.1 var(--px);margin:0 0 8px;letter-spacing:.5px}
+h2{font:400 15px var(--px);margin:32px 0 10px;letter-spacing:.5px}
+p{margin:0 0 12px}
+.sub{color:var(--muted);max-width:820px}
+.bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;position:sticky;top:0;background:var(--bg);padding:10px 0;z-index:20;border-bottom:1px solid var(--line);margin-bottom:22px}
+.bar .lab{color:var(--muted);margin-right:4px}
+.opt{font:400 12px var(--px);background:var(--page);color:var(--muted);border:1px solid var(--line);padding:8px 11px;cursor:pointer;border-radius:3px}
+.opt[aria-pressed=true]{color:#000;background:var(--text);border-color:var(--text)}
+.opt .rec{color:var(--amber)} .opt[aria-pressed=true] .rec{color:#8a4b00}
+.sp{flex:1}
+.chk{display:flex;gap:6px;align-items:center;color:var(--muted);font-size:12px;cursor:pointer}
+
+/* desktop strip the notch hangs from */
+.desk{position:relative;border-radius:10px;overflow:hidden;background:
+  linear-gradient(180deg,#2b2f3a 0,#2b2f3a 24px,transparent 24px),
+  radial-gradient(120% 140% at 20% 0%,#3a3550 0%,#1d2230 55%,#141822 100%);
+  padding-bottom:26px;border:1px solid var(--line)}
+.menubar{height:24px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font:11px -apple-system,system-ui,sans-serif;color:#d8d8e0}
+.menubar b{font-weight:600}
+.stageBox{position:relative;margin:0 auto}
+.stage{position:absolute;left:0;top:0;transform-origin:0 0;width:680px}
+
+/* ---- the notch panel, drawn in points ---- */
+.panel{position:relative;margin:0 auto;width:640px;height:200px;background:#000;color:var(--w);
+  border-radius:0 0 26px 26px;margin-top:-24px;padding:30px 18px 14px;overflow:hidden;
+  transition:height .45s var(--spring)}
+.panel:before,.panel:after{content:"";position:absolute;top:0;width:14px;height:14px}
+.hdr{display:flex;align-items:center;gap:6px;height:26px;position:relative;z-index:2}
+.tabs{display:flex;gap:2px;padding:2px;border-radius:9px;background:var(--w08);position:relative}
+.tabs .pill{position:absolute;top:2px;bottom:2px;border-radius:7px;background:var(--w14);transition:left .42s var(--spring),width .42s var(--spring),opacity .2s}
+.tab{position:relative;z-index:1;font:400 10.5px var(--px);color:var(--w38);background:none;border:0;padding:4px 10px;cursor:pointer;border-radius:7px;white-space:nowrap;transition:color .2s, max-width .45s var(--spring), padding .45s var(--spring), opacity .3s;max-width:120px;overflow:hidden}
+.tab.on{color:var(--w)}
+.tab.gone{max-width:0;padding-left:0;padding-right:0;opacity:0;pointer-events:none}
+.tab .dot{display:inline-block;width:4px;height:4px;border-radius:1px;background:var(--w38);margin-left:5px;vertical-align:2px;transition:background .3s}
+.tab .dot.off{background:transparent;box-shadow:inset 0 0 0 1px var(--w38)}
+.hbtn{font:400 10px var(--px);color:var(--w);background:var(--w08);border:0;border-radius:7px;padding:5px 9px;cursor:pointer}
+.hbtn.dim{color:var(--w38)}
+.gear{width:24px;height:24px;border-radius:7px;border:0;background:transparent;display:grid;place-items:center;cursor:pointer;transition:background .2s, transform .5s var(--spring)}
+.gear.on{background:var(--w14);transform:rotate(90deg)}
+.body{position:relative;height:140px;margin-top:10px}
+.view{position:absolute;inset:0}
+
+/* rows */
+.cols{display:flex;gap:18px;height:100%}
+.col{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.colh{font:400 9px var(--px);color:var(--w38);letter-spacing:.6px;margin-bottom:3px;height:12px}
+.row{display:flex;align-items:center;gap:8px;height:21px;font:400 10.5px var(--px);color:var(--w62);cursor:pointer;user-select:none;border-radius:5px;padding:0 4px;margin:0 -4px;transition:background .15s, opacity .35s, transform .35s var(--ease), filter .35s}
+.row:hover{background:var(--w08)}
+.row.lit{color:var(--w)}
+.row .lbl{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .new{font-size:7.5px;color:#000;background:var(--amber);border-radius:2px;padding:0 3px;margin-left:5px;vertical-align:1px}
+.row.link{color:var(--w62)} .row.link:hover{color:var(--w)}
+.off .row:not(.master){opacity:.08;filter:blur(1px);pointer-events:none}
+.off .row:not(.master):nth-child(odd){transform:translateX(-3px)}
+.off .row:not(.master):nth-child(even){transform:translateX(3px)}
+
+/* switch with squash */
+.sw{position:relative;width:22px;height:12px;border-radius:6px;background:var(--w14);box-shadow:inset 0 0 0 1px var(--w14);flex:none;transition:background .25s}
+.sw i{position:absolute;top:2px;left:2px;width:8px;height:8px;border-radius:4px;background:var(--w62);transition:left .38s var(--spring), background .25s, width .18s var(--ease)}
+.sw.on{background:rgba(255,255,255,.82)} .sw.on i{left:12px;background:#000}
+.sw.go i{width:13px} .sw.go.on i{left:7px}
+.spark{position:absolute;width:2px;height:2px;background:var(--w);pointer-events:none;z-index:9}
+
+/* choice: slot roll */
+.ch{position:relative;height:17px;min-width:44px;padding:0 7px;border-radius:5px;background:var(--w08);color:var(--w);overflow:hidden;display:grid;place-items:center;flex:none}
+.ch span{grid-area:1/1;white-space:nowrap}
+.ch .in{animation:rollIn .42s var(--spring) both}
+.ch .out{animation:rollOut .3s var(--ease) both}
+@keyframes rollIn{from{transform:translateY(110%) scale(.9);opacity:0}to{transform:none;opacity:1}}
+@keyframes rollOut{to{transform:translateY(-110%) scale(.9);opacity:0}}
+
+/* hero (feature master card) */
+.hero{width:150px;flex:none;border-radius:12px;background:var(--w08);padding:10px;display:flex;flex-direction:column;gap:6px;position:relative;overflow:hidden;transition:background .4s}
+.hero .ic{width:28px;height:28px;transition:transform .5s var(--spring), opacity .3s}
+.hero .nm{font:400 13px var(--px);color:var(--w)}
+.hero .ds{font:400 9px/1.35 var(--px);color:var(--w38);flex:1}
+.hero .row{margin:0;padding:0 6px;background:var(--w08);height:24px;color:var(--w)}
+.hero.dead{background:rgba(255,255,255,.03)}
+.hero.dead .ic{transform:rotate(-12deg) scale(.85);opacity:.35}
+.hero.dead .nm{color:var(--w38)}
+.ghost{position:absolute;inset:0;background:radial-gradient(closest-side,#000 40%,transparent);display:grid;place-items:center;text-align:center;font:400 10px/1.5 var(--px);color:var(--w38);opacity:0;pointer-events:none;transition:opacity .35s .1s}
+.off .ghost{opacity:1}
+.ghost b{display:block;color:var(--w62);font-weight:400;font-size:11px}
+
+/* option B rail */
+.railwrap{display:flex;gap:14px;height:100%}
+.rail{width:96px;flex:none;display:flex;flex-direction:column;gap:2px;position:relative}
+.rail .pill{position:absolute;left:0;right:0;height:26px;border-radius:7px;background:var(--w14);transition:top .42s var(--spring)}
+.ri{position:relative;z-index:1;display:flex;align-items:center;gap:7px;height:26px;padding:0 7px;border-radius:7px;font:400 10.5px var(--px);color:var(--w38);cursor:pointer;border:0;background:none;text-align:left}
+.ri.on{color:var(--w)}
+.ri svg{width:12px;height:12px;flex:none}
+.ri .st{margin-left:auto;width:5px;height:5px;border-radius:1px;background:var(--green);transition:background .3s, box-shadow .3s}
+.ri .st.off{background:transparent;box-shadow:inset 0 0 0 1px var(--w38)}
+.railbody{flex:1;position:relative;min-width:0}
+
+/* option C cartridges */
+.carts{display:flex;gap:10px;height:100%}
+.cart{flex:1;border-radius:12px;background:var(--w08);padding:10px;display:flex;flex-direction:column;gap:5px;cursor:pointer;position:relative;overflow:hidden;transition:transform .45s var(--spring), background .3s, opacity .3s}
+.cart:hover{transform:translateY(-3px) rotate(-.6deg)}
+.cart:nth-child(even):hover{transform:translateY(-3px) rotate(.6deg)}
+.cart .ic{width:30px;height:30px;transition:transform .5s var(--spring), opacity .3s}
+.cart .nm{font:400 12px var(--px)}
+.cart .ds{font:400 9px/1.35 var(--px);color:var(--w38);flex:1}
+.cart .ft{display:flex;align-items:center;justify-content:space-between;font:400 9px var(--px);color:var(--w38)}
+.cart.dead{background:rgba(255,255,255,.03)} .cart.dead .ic{opacity:.3;transform:rotate(-14deg) scale(.85)} .cart.dead .nm{color:var(--w38)}
+.cart .notch{position:absolute;top:0;left:50%;width:34px;height:5px;margin-left:-17px;background:#000;border-radius:0 0 4px 4px}
+.back{font:400 10px var(--px);color:var(--w62);background:none;border:0;cursor:pointer;padding:0;margin-bottom:6px}
+.drill{animation:drillIn .45s var(--spring) both}
+@keyframes drillIn{from{opacity:0;transform:scale(.92) translateY(6px)}to{opacity:1;transform:none}}
+
+.slideL{animation:slideL .4s var(--ease) both} .slideR{animation:slideR .4s var(--ease) both}
+@keyframes slideL{from{opacity:0;transform:translateX(26px)}to{opacity:1;transform:none}}
+@keyframes slideR{from{opacity:0;transform:translateX(-26px)}to{opacity:1;transform:none}}
+.stagger .row{animation:rowIn .38s var(--ease) both}
+@keyframes rowIn{from{opacity:0;transform:translateY(5px)}to{opacity:1}}
+
+/* collapsed notch preview */
+.mini{display:flex;justify-content:center;margin-top:18px}
+.cnotch{height:32px;background:#000;border-radius:0 0 12px 12px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;gap:10px;transition:width .5s var(--spring);overflow:hidden;font:400 10px var(--px);color:var(--w)}
+.sh{display:flex;align-items:center;gap:6px;white-space:nowrap;transition:opacity .3s, transform .45s var(--spring)}
+.sh.hide{opacity:0;transform:scale(.6)}
+.art{width:16px;height:16px;border-radius:4px;background:linear-gradient(135deg,#ff7a59,#a14bff)}
+.eq{display:flex;gap:2px;align-items:flex-end;height:12px}
+.eq i{width:2px;background:var(--w);animation:eq 1s infinite ease-in-out alternate}
+.eq i:nth-child(2){animation-delay:-.3s}.eq i:nth-child(3){animation-delay:-.6s}
+@keyframes eq{from{height:3px}to{height:12px}}
+.up{color:var(--green)}
+.caption{text-align:center;color:#c9c9d6;font-size:11px;margin-top:6px;opacity:.75}
+
+.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:18px}
+.card{background:var(--page);border:1px solid var(--line);border-radius:6px;padding:14px}
+.card h3{font:400 13px var(--px);margin:0 0 6px}
+.card ul{margin:0;padding-left:16px;color:var(--muted)} .card li{margin:3px 0}
+.card .pro{color:var(--green)} .card .con{color:#ff8a7a}
+table{border-collapse:collapse;width:100%;font-size:12px}
+td,th{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+th{color:var(--muted);font-weight:400}
+.tag{font-size:10px;color:#000;background:var(--amber);border-radius:2px;padding:0 4px}
+@media (prefers-reduced-motion: reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Settings, split per feature</h1>
+  <p class="sub">Today all 14 controls share one 640×190 grid. These mockups split them by feature, give each feature an on/off switch (so someone who only uses agents can switch Media and Crypto off completely), and leave room for more settings. Everything below is clickable: switches, value fields, tabs, and the feature switches. Turning a feature off removes its tab and its shoulder from the notch below. Rows tagged <span class="tag">NEW</span> are settings that don't exist yet.</p>
+
+  <div class="bar" role="toolbar">
+    <span class="lab">Layout</span>
+    <button class="opt" data-opt="A" aria-pressed="true">A · Tabs become sections <span class="rec">★ rec</span></button>
+    <button class="opt" data-opt="B" aria-pressed="false">B · Side rail</button>
+    <button class="opt" data-opt="C" aria-pressed="false">C · Cartridges</button>
+    <span class="sp"></span>
+    <label class="chk"><input type="checkbox" id="inSettings" checked> settings open</label>
+  </div>
+
+  <div class="desk">
+    <div class="menubar"><span><b></b>&nbsp;&nbsp;<b>Finder</b>&nbsp;&nbsp;File&nbsp;&nbsp;Edit&nbsp;&nbsp;View</span><span>Mon 13 Oct&nbsp;&nbsp;09:41</span></div>
+    <div class="stageBox" id="stageBox"><div class="stage" id="stage">
+      <div class="panel" id="panel">
+        <div class="hdr" id="hdr"></div>
+        <div class="body" id="body"></div>
+      </div>
+    </div></div>
+    <div class="mini"><div class="cnotch" id="cnotch">
+      <div class="sh" id="shMedia"><span class="art"></span><span class="eq"><i></i><i></i><i></i></span></div>
+      <div class="sh" id="shCrypto">BTC <span class="up">▲67.2k</span></div>
+      <div class="sh" id="shAgents"><svg width="14" height="14" viewBox="0 0 7 7" shape-rendering="crispEdges"><g fill="#ffaa1e"><rect x="1" y="1" width="5" height="4"/><rect x="1" y="5" width="1" height="1"/><rect x="5" y="5" width="1" height="1"/></g><g fill="#000"><rect x="2" y="2" width="1" height="1"/><rect x="4" y="2" width="1" height="1"/></g></svg> 2 running</div>
+    </div></div>
+    <div class="caption">the collapsed notch: each feature you switch off takes its shoulder with it</div>
+  </div>
+
+  <h2 id="optTitle"></h2>
+  <div class="notes" id="optNotes"></div>
+
+  <h2>What goes where</h2>
+  <table>
+    <tr><th>Section</th><th>Existing settings (moved)</th><th>New settings proposed</th></tr>
+    <tr><td>Media</td><td>Show on notch, Hide when paused</td><td><b>Media feature on/off</b>, Lyrics on notch, Artwork glow, Players (All / Music / Spotify)</td></tr>
+    <tr><td>Agents</td><td>Show on notch, Attention ring, Show model, Sound cues, Celebrate done, Keep done, Connections…</td><td><b>Agents feature on/off</b>, Open on approval</td></tr>
+    <tr><td>Crypto</td><td>Show pinned price (today it sits inside the Crypto panel)</td><td><b>Crypto feature on/off</b>, Flash on move, Refresh rate, Edit watchlist…</td></tr>
+    <tr><td>General</td><td>Replace OS HUD, HUD dwell, Expand on hover, Hover speed, Launch at login, Replay intro, Donate</td><td>None. This is where the old System and Behaviour columns end up.</td></tr>
+  </table>
+  <p class="sub" style="margin-top:12px">Rules that apply to every option: switching a feature off stops its monitor (no polling Music, no price feed), hides its tab and shoulder, and keeps its settings for when it's switched back on. If every feature is off, the notch still does the HUD and hover, and settings stay reachable from the gear. The intro could also ask "what will you use The Notch for?" and set these switches.</p>
+
+  <h2>Animations in this mockup</h2>
+  <div class="notes">
+    <div class="card"><h3>Feature off: pixel crumble</h3><ul><li>The feature's tab breaks into Departure-sized pixels that fall and fade, and the tab bar closes the gap on the shoulders spring.</li><li>Switching it back on reverses this: the pixels fly back up and reassemble into the tab.</li><li>The section's rows dim and drift a few points sideways, odd rows left and even rows right.</li></ul></div>
+    <div class="card"><h3>Switches: squash and spark</h3><ul><li>The knob stretches while it travels, then settles with a little overshoot.</li><li>Turning one on throws four 1pt sparks. Turning it off is quiet on purpose.</li></ul></div>
+    <div class="card"><h3>Value fields: slot roll</h3><ul><li>Clicking a value rolls the old one up and out while the new one springs in from below, like a split-flap counter.</li><li>Section changes slide in the direction of the tab you picked, and the highlight pill glides between tabs.</li></ul></div>
+  </div>
+</div>
+
+<script>
+const ICON = {
+  media:  ["..XXXX.","..X..X.","..X..X.","..X..X.","XXX.XXX","XXX.XXX","......."],
+  agents: [".XXXXX.","X.....X","X.X.X.X","X.....X",".XXXXX.",".X...X.","......."],
+  crypto: ["..X.X..",".XXXXX.","XX.X...",".XXXXX.","...X.XX",".XXXXX.","..X.X.."],
+  general:["...X...",".XXXXX.",".X...X.","XX.X.XX",".X...X.",".XXXXX.","...X..."],
+};
+function icon(name, color="#fff"){
+  const r = ICON[name].map((row,y)=>[...row].map((c,x)=>c==="X"?`<rect x="${x}" y="${y}" width="1" height="1"/>`:"").join("")).join("");
+  return `<svg viewBox="0 0 7 7" shape-rendering="crispEdges"><g fill="${color}">${r}</g></svg>`;
+}
+
+const S = {
+  media:  {title:"Media",  feature:true, ds:"Now playing, controls and synced lyrics.", rows:[
+    {k:"mShow",label:"Show on notch",t:"toggle",v:true},
+    {k:"mPaused",label:"Hide when paused",t:"toggle",v:true},
+    {k:"mLyrics",label:"Lyrics on notch",t:"toggle",v:true,n:1},
+    {k:"mGlow",label:"Artwork glow",t:"toggle",v:false,n:1},
+    {k:"mPlayers",label:"Players",t:"choice",o:["All","Music","Spotify"],v:0,n:1},
+  ]},
+  agents: {title:"Agents", feature:true, ds:"Live status, approvals and questions from your coding agents.", rows:[
+    {k:"aShow",label:"Show on notch",t:"toggle",v:true},
+    {k:"aRing",label:"Attention ring",t:"toggle",v:true},
+    {k:"aModel",label:"Show model",t:"toggle",v:false},
+    {k:"aSound",label:"Sound cues",t:"toggle",v:true},
+    {k:"aOpen",label:"Open on approval",t:"toggle",v:false,n:1},
+    {k:"aParty",label:"Celebrate done",t:"toggle",v:true},
+    {k:"aKeep",label:"Keep done",t:"choice",o:["5 min","15 min","1 hour","Keep"],v:1},
+    {k:"aConn",label:"Connections…",t:"link"},
+  ]},
+  crypto: {title:"Crypto", feature:true, ds:"A watchlist and one pinned price on the notch.", rows:[
+    {k:"cShow",label:"Pinned on notch",t:"toggle",v:true},
+    {k:"cFlash",label:"Flash on move",t:"toggle",v:true,n:1},
+    {k:"cRate",label:"Refresh",t:"choice",o:["5s","15s","60s"],v:1,n:1},
+    {k:"cEdit",label:"Edit watchlist…",t:"link",n:1},
+  ]},
+  general:{title:"General", feature:false, ds:"", rows:[
+    {k:"gHud",label:"Replace OS HUD",t:"toggle",v:true,col:"System"},
+    {k:"gDwell",label:"HUD dwell",t:"choice",o:["0.8s","1.5s","3.0s"],v:1},
+    {k:"gAx",label:"Keyboard connected",t:"note"},
+    {k:"gReplay",label:"Replay intro…",t:"link"},
+    {k:"gHover",label:"Expand on hover",t:"toggle",v:true,col:"Behaviour"},
+    {k:"gSpeed",label:"Hover speed",t:"choice",o:["Instant","Normal","Relaxed"],v:1},
+    {k:"gLogin",label:"Launch at login",t:"toggle",v:true},
+    {k:"gDonate",label:"Donate…",t:"link"},
+  ]},
+};
+const ORDER = ["media","agents","crypto","general"];
+const FEATURES = ["media","agents","crypto"];
+const on = {media:true,agents:true,crypto:true};
+const vals = {}; for (const s of ORDER) for (const r of S[s].rows) if ("v" in r) vals[r.k]=r.v;
+
+let opt = "A", section = "media", inSettings = true, cHome = true, lastIdx = 0;
+const $ = s => document.querySelector(s);
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* ---------- rows ---------- */
+function rowHTML(r){
+  const n = r.n ? `<span class="new">NEW</span>` : "";
+  if (r.t==="toggle") return `<div class="row ${vals[r.k]?"lit":""}" data-k="${r.k}"><span class="lbl">${r.label}${n}</span><span class="sw ${vals[r.k]?"on":""}"><i></i></span></div>`;
+  if (r.t==="choice") return `<div class="row" data-k="${r.k}"><span class="lbl">${r.label}${n}</span><span class="ch"><span>${r.o[vals[r.k]]}</span></span></div>`;
+  if (r.t==="note") return `<div class="row" style="cursor:default;color:var(--w38)"><span class="lbl">${r.label}</span></div>`;
+  return `<div class="row link"><span class="lbl">${r.label}${n}</span></div>`;
+}
+function colsHTML(sec, nCols){
+  const rows = S[sec].rows;
+  let groups;
+  if (sec==="general") { const i = rows.findIndex(r=>r.col==="Behaviour"); groups=[["System",rows.slice(0,i)],["Behaviour",rows.slice(i)]]; }
+  else { const h = Math.ceil(rows.length/nCols); groups=[]; for(let c=0;c<nCols;c++) groups.push(["",rows.slice(c*h,(c+1)*h)]); }
+  return `<div class="cols">${groups.map(([h,rs])=>`<div class="col">${h?`<div class="colh">${h.toUpperCase()}</div>`:""}${rs.map(rowHTML).join("")}</div>`).join("")}</div>`;
+}
+function masterRow(sec){ return `<div class="row master lit" data-feature="${sec}"><span class="lbl">${on[sec]?"Enabled":"Off"}</span><span class="sw ${on[sec]?"on":""}"><i></i></span></div>`; }
+function ghost(sec){ return `<div class="ghost"><div><b>${S[sec].title} is switched off</b>its tab and shoulder are gone<br>and nothing is being polled</div></div>`; }
+
+/* ---------- header ---------- */
+function renderHeader(){
+  const tabs = inSettings && opt==="A" ? ORDER : FEATURES;
+  const showTabs = !(inSettings && opt!=="A");
+  const sel = inSettings ? section : (on[section] && section!=="general" ? section : FEATURES.find(f=>on[f]) || "media");
+  $("#hdr").innerHTML = `
+    <div class="tabs" id="tabs" style="${showTabs?"":"visibility:hidden"}"><span class="pill"></span>
+      ${tabs.map(t=>{
+        const gone = (!inSettings && S[t].feature && !on[t]);
+        const dot = inSettings && S[t].feature ? `<span class="dot ${on[t]?"":"off"}"></span>` : "";
+        return `<button class="tab ${t===sel?"on":""} ${gone?"gone":""}" data-tab="${t}">${S[t].title}${dot}</button>`;
+      }).join("")}
+    </div>
+    <span style="flex:1"></span>
+    ${inSettings ? `<button class="hbtn dim">Restore Defaults</button><button class="hbtn">Updates</button><button class="hbtn">Quit</button>` : ""}
+    <button class="gear ${inSettings?"on":""}" id="gear">${icon("general", inSettings?"#fff":"rgba(255,255,255,.62)").replace("<svg","<svg width='13' height='13'")}</button>`;
+  requestAnimationFrame(movePill);
+}
+function movePill(){
+  const tabs=$("#tabs"); if(!tabs) return; const p=tabs.querySelector(".pill"); const t=tabs.querySelector(".tab.on:not(.gone)");
+  if(!t){p.style.opacity=0;return} p.style.opacity=1; p.style.left=t.offsetLeft+"px"; p.style.width=t.offsetWidth+"px";
+}
+
+/* ---------- bodies ---------- */
+function bodyA(dir){
+  const sec = section, s = S[sec];
+  const anim = dir ? (dir>0?"slideL":"slideR") : "";
+  if (!s.feature) return `<div class="view ${anim}">${colsHTML(sec,2)}</div>`;
+  return `<div class="view ${anim} ${on[sec]?"":"off"}" style="display:flex;gap:16px">
+    <div class="hero ${on[sec]?"":"dead"}"><div class="ic">${icon(sec)}</div><div class="nm">${s.title}</div><div class="ds">${s.ds}</div>${masterRow(sec)}</div>
+    <div style="flex:1;position:relative;min-width:0">${colsHTML(sec,2)}${ghost(sec)}</div></div>`;
+}
+function bodyB(dir){
+  const sec = section, s = S[sec];
+  const anim = dir ? (dir>0?"slideL":"slideR") : "";
+  const rail = `<div class="rail" id="rail"><span class="pill" style="top:${ORDER.indexOf(sec)*28}px"></span>${ORDER.map(t=>
+    `<button class="ri ${t===sec?"on":""}" data-tab="${t}">${icon(t, t===sec?"#fff":"rgba(255,255,255,.38)")}${S[t].title}${S[t].feature?`<span class="st ${on[t]?"":"off"}"></span>`:""}</button>`).join("")}</div>`;
+  const content = s.feature
+    ? `<div class="view ${anim} ${on[sec]?"":"off"}"><div class="cols"><div class="col">${masterRow(sec).replace('class="row master','class="row master" style="background:var(--w08);padding:0 6px;margin:0 0 4px" data-x="')}${S[sec].rows.slice(0,Math.ceil(S[sec].rows.length/2)).map(rowHTML).join("")}</div><div class="col"><div style="height:25px"></div>${S[sec].rows.slice(Math.ceil(S[sec].rows.length/2)).map(rowHTML).join("")}</div></div>${ghost(sec).replace('class="ghost"','class="ghost" style="top:30px"')}</div>`
+    : `<div class="view ${anim}">${colsHTML(sec,2)}</div>`;
+  return `<div class="railwrap">${rail}<div class="railbody">${content}</div></div>`;
+}
+function bodyC(){
+  if (cHome) return `<div class="view drill"><div class="carts">${ORDER.map(t=>{
+    const s=S[t], count=s.rows.filter(r=>r.t!=="note").length;
+    return `<div class="cart ${s.feature&&!on[t]?"dead":""}" data-cart="${t}"><span class="notch"></span><div class="ic">${icon(t)}</div><div class="nm">${s.title}</div><div class="ds">${s.feature?s.ds:"HUD, hover, login, intro."}</div>
+      <div class="ft"><span>${count} settings ›</span>${s.feature?`<span class="sw ${on[t]?"on":""}" data-feature="${t}"><i></i></span>`:""}</div></div>`}).join("")}</div></div>`;
+  const sec=section, s=S[sec];
+  return `<div class="view drill ${s.feature&&!on[sec]?"off":""}"><button class="back" id="back">‹ All settings · <span style="color:#fff">${s.title}</span></button>
+    <div style="position:relative;height:118px">${colsHTML(sec, s.feature?2:2)}${s.feature?ghost(sec):""}</div></div>`;
+}
+function renderBody(dir=0){
+  if (!inSettings) { $("#body").innerHTML = `<div class="view" style="display:grid;place-items:center;color:var(--w38);font-size:10.5px">${FEATURES.some(f=>on[f])?"(the "+(S[FEATURES.find(f=>on[f]&&f===section)||FEATURES.find(f=>on[f])].title)+" panel shows here)":"every feature is off · the notch is just the HUD now"}</div>`; return; }
+  $("#body").innerHTML = opt==="A" ? bodyA(dir) : opt==="B" ? bodyB(dir) : bodyC();
+  if (dir) $("#body").querySelector(".view")?.classList.add("stagger");
+  $("#body").querySelectorAll(".stagger .row").forEach((r,i)=>r.style.animationDelay=(i*22)+"ms");
+}
+function renderMini(){
+  const show = {media:on.media&&vals.mShow, agents:on.agents&&vals.aShow, crypto:on.crypto&&vals.cShow};
+  $("#shMedia").classList.toggle("hide",!show.media); $("#shAgents").classList.toggle("hide",!show.agents); $("#shCrypto").classList.toggle("hide",!show.crypto);
+  ["shMedia","shCrypto","shAgents"].forEach(id=>{$("#"+id).style.display="";});
+  const w = 150 + (show.media?52:0) + (show.agents?86:0) + (show.crypto?96:0);
+  $("#cnotch").style.width = w+"px";
+  setTimeout(()=>["Media","Crypto","Agents"].forEach(n=>{const e=$("#sh"+n); if(e.classList.contains("hide")) e.style.display="none";}), 320);
+}
+function render(dir=0){ renderHeader(); renderBody(dir); renderMini(); }
+
+/* ---------- fx ---------- */
+function sparks(el){
+  if (reduce) return; const b = el.getBoundingClientRect(), host=document.body;
+  for (let i=0;i<4;i++){ const d=document.createElement("i"); d.className="spark"; d.style.position="fixed";
+    d.style.left=(b.right-4)+"px"; d.style.top=(b.top+b.height/2)+"px"; host.appendChild(d);
+    const a = (-60 + i*40) * Math.PI/180, r = 10+Math.random()*6;
+    d.animate([{transform:"translate(0,0)",opacity:1},{transform:`translate(${Math.cos(a)*r}px,${Math.sin(a)*r}px)`,opacity:0}],{duration:420,easing:"cubic-bezier(.2,.8,.2,1)"}).onfinish=()=>d.remove(); }
+}
+function squash(sw){ sw.classList.add("go"); setTimeout(()=>sw.classList.remove("go"),180); }
+function crumble(el, reverse=false){
+  if (reduce || !el) return; const b = el.getBoundingClientRect(); const sz = 3*currentScale;
+  const cols = Math.max(4,Math.floor(b.width/sz)), rows = Math.max(2,Math.floor(b.height/sz));
+  for (let y=0;y<rows;y++) for (let x=0;x<cols;x++){ if (Math.random()<.45) continue;
+    const d=document.createElement("i"); d.className="spark"; Object.assign(d.style,{position:"fixed",width:sz+"px",height:sz+"px",left:(b.left+x*sz)+"px",top:(b.top+y*sz)+"px",background:"rgba(255,255,255,.8)"}); document.body.appendChild(d);
+    const dx=(Math.random()-.5)*30*currentScale, dy=(20+Math.random()*40)*currentScale, delay=(x/cols)*180+Math.random()*80;
+    const k=[{transform:"translate(0,0) rotate(0)",opacity:.9},{transform:`translate(${dx}px,${dy}px) rotate(${(Math.random()-.5)*180}deg)`,opacity:0}];
+    d.animate(reverse?k.reverse():k,{duration:620,delay,easing:reverse?"cubic-bezier(.2,.8,.2,1)":"cubic-bezier(.5,0,.8,.4)",fill:"both"}).onfinish=()=>d.remove(); }
+}
+
+/* ---------- interaction ---------- */
+document.addEventListener("click", e=>{
+  const o = e.target.closest(".opt");
+  if (o){ opt=o.dataset.opt; document.querySelectorAll(".opt").forEach(b=>b.setAttribute("aria-pressed",b===o)); cHome=true; if(opt!=="A"&&section==="general"&&false){} render(); notes(); return; }
+  if (e.target.closest("#gear")){ inSettings=!inSettings; $("#inSettings").checked=inSettings; render(); return; }
+  const tab = e.target.closest("[data-tab]");
+  if (tab){ const t=tab.dataset.tab; if(t===section&&inSettings) return; const ni=ORDER.indexOf(t), dir = ni>ORDER.indexOf(section)?1:-1; section=t;
+    if(!inSettings){ renderHeader(); renderBody(); return; } render(dir); return; }
+  if (e.target.closest("#back")){ cHome=true; render(); return; }
+  const feat = e.target.closest("[data-feature]");
+  if (feat){ e.stopPropagation(); const f=feat.dataset.feature; const sw=feat.classList.contains("sw")?feat:feat.querySelector(".sw");
+    const tabEl = document.querySelector(`.tab[data-tab="${f}"]`);
+    on[f]=!on[f]; squash(sw); sw.classList.toggle("on",on[f]);
+    if (on[f]) sparks(sw);
+    setTimeout(()=>{ render(); if (tabEl && !on[f]) {} }, 160);
+    // crumble the matching shoulder/tab where it lives outside settings: show it on the mini notch
+    const sh = {media:"#shMedia",agents:"#shAgents",crypto:"#shCrypto"}[f];
+    if (!on[f]) crumble($(sh)); else setTimeout(()=>crumble($(sh),true),120);
+    return; }
+  const cart = e.target.closest("[data-cart]");
+  if (cart){ section=cart.dataset.cart; cHome=false; render(); return; }
+  const row = e.target.closest(".row[data-k]");
+  if (row){ const k=row.dataset.k, r=ORDER.flatMap(s=>S[s].rows).find(x=>x.k===k);
+    if (r.t==="toggle"){ vals[k]=!vals[k]; const sw=row.querySelector(".sw"); squash(sw); sw.classList.toggle("on",vals[k]); row.classList.toggle("lit",vals[k]); if(vals[k]) sparks(sw); renderMini(); }
+    else if (r.t==="choice"){ vals[k]=(vals[k]+1)%r.o.length; const ch=row.querySelector(".ch"); const old=ch.querySelector("span:last-child"); old.className="out"; const n=document.createElement("span"); n.className="in"; n.textContent=r.o[vals[k]]; ch.appendChild(n); setTimeout(()=>old.remove(),300); }
+  }
+});
+// tab crumble when leaving settings with features off
+$("#inSettings").addEventListener("change", e=>{ inSettings=e.target.checked; render(); });
+// when a feature is turned off while settings are closed-preview, crumble its tab: hook render of header
+const _rh = renderHeader;
+
+/* ---------- notes per option ---------- */
+const NOTES = {
+  A:{t:"A · The tab bar becomes the section switcher (recommended)", cards:[
+    ["How it works",["The gear opens settings for whatever tab you were on, so settings follow what you're looking at.","A General tab slides in while settings are open and slides out when they close.","Each feature gets a card on the left with its icon, a short description and an Enabled switch."]],
+    ["Why",["No new chrome. The tab bar already sits on the visible side of the camera housing.","Each feature has room for up to 10 rows across two columns, with no scrolling.","The dots on the tabs show at a glance which features are switched off."]],
+    ["Costs",["Tabs mean two things depending on whether settings are open. The gear's active state and the General tab are what tell the user which mode they're in.","The feature card takes about 150pt of width."]],
+  ]},
+  B:{t:"B · A side rail inside settings", cards:[
+    ["How it works",["The tab bar hides while settings are open, and a vertical rail of pixel icons takes its place.","Each feature has a green or hollow status dot, and its first row is the Enabled switch."]],
+    ["Why",["It's the most familiar settings pattern, and more sections (Lyrics, Shortcuts, About…) fit later.","The tabs never change meaning."]],
+    ["Costs",["The rail takes about 110pt, so a feature fits fewer rows.","It looks like a standard settings window, which ARCHITECTURE argues against."]],
+  ]},
+  C:{t:"C · Cartridges: a home screen of feature cards", cards:[
+    ["How it works",["Settings opens to four cards, each with a small switch on its foot. You switch a feature off right on the home screen.","Clicking a card drills into its settings, and a back link returns home."]],
+    ["Why",["Choosing which features you use becomes the first thing you see, which is ideal for an agents-only user.","Most playful of the three: cards tilt on hover and a dead cartridge tips over."]],
+    ["Costs",["Every setting is one extra click away.","Two levels of navigation in a panel that closes when the pointer leaves it."]],
+  ]},
+};
+function notes(){ const n=NOTES[opt]; $("#optTitle").textContent=n.t; $("#optNotes").innerHTML=n.cards.map(([h,l],i)=>`<div class="card"><h3 class="${i===2?"con":i===1?"pro":""}">${h}</h3><ul>${l.map(x=>`<li>${x}</li>`).join("")}</ul></div>`).join(""); }
+
+/* ---------- scale to fit ---------- */
+let currentScale = 1;
+function fit(){ const box=$("#stageBox"), w=box.parentElement.clientWidth; currentScale=Math.min(1.6, w/680); $("#stage").style.transform=`scale(${currentScale})`; box.style.width=(680*currentScale)+"px"; box.style.height=(200*currentScale - 24*currentScale + 24)+"px"; $("#stage").style.left="0"; }
+addEventListener("resize", fit);
+fit(); render(); notes();
+</script>
+</body>
+</html>

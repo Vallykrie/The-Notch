@@ -84,6 +84,35 @@ final class AgentBridgeController {
         }
     }
 
+    /// Starts or stops the bridge with the agents feature.
+    ///
+    /// Serialised through one task chain: `stop()` is async, and a quick off-on would otherwise
+    /// start the server while the previous stop was still unlinking its socket. A stopped
+    /// bridge is safe for the user's agents — the hook finds no socket and fails open, so each
+    /// agent falls back to its own permission prompt.
+    func setEnabled(_ enabled: Bool) {
+        guard wantsEnabled != enabled else { return }
+        wantsEnabled = enabled
+        let previous = enablement
+        enablement = Task { @MainActor [weak self] in
+            await previous?.value
+            guard let self, wantsEnabled == enabled else { return }
+            if enabled {
+                start()
+            } else {
+                await stop()
+                // A session list frozen at the moment the feature went off would greet the user
+                // with stale sessions when it comes back.
+                store.clearAllSessions()
+            }
+        }
+    }
+
+    /// `nil` until the first call, so launch starts the bridge through here like every later
+    /// change does, rather than through a second start path.
+    private var wantsEnabled: Bool?
+    private var enablement: Task<Void, Never>?
+
     func stop() async {
         startTask?.cancel()
         startTask = nil

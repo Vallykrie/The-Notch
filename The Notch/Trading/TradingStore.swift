@@ -16,6 +16,8 @@ import Foundation
     @Published private(set) var connections: [TradingFeed: TradingConnection] = [:]
     private var panelVisible = false
     private var sleeping = false
+    /// The crypto feature is switched off: no socket, and no shoulder.
+    private(set) var isSuspended = false
     private var subscribed: [String] = []
     private var pending: [String: MarketQuote] = [:]
     private var flush: Task<Void, Never>?
@@ -53,7 +55,7 @@ import Foundation
 
     var pinnedInstrument: TradingInstrument? { watchlist.first { $0.id == pinnedID } }
     var selectedInstrument: TradingInstrument? { watchlist.first { $0.id == selectedID } ?? watchlist.first }
-    var wantsShoulder: Bool { showInNotch && pinnedInstrument != nil }
+    var wantsShoulder: Bool { !isSuspended && showInNotch && pinnedInstrument != nil }
 
     func start() {
         guard observers.isEmpty else { return }
@@ -73,6 +75,14 @@ import Foundation
         streams.values.forEach { $0.stop() }; flush?.cancel(); flush = nil; pending.removeAll(); subscribed = []; activeGroups.removeAll()
     }
 
+    /// Switches the feed off with the feature, and back on with it. `objectWillChange` is sent
+    /// by hand because `wantsShoulder` reads this and the collapsed notch observes that.
+    func setSuspended(_ value: Bool) {
+        guard isSuspended != value else { return }
+        objectWillChange.send()
+        isSuspended = value
+        reconcile(force: true)
+    }
     func setSleeping(_ value: Bool) { sleeping = value; reconcile(force: true) }
     func setPanelVisible(_ value: Bool) { guard panelVisible != value else { return }; panelVisible = value; reconcile() }
     func setShowInNotch(_ value: Bool) { showInNotch = value; persist(); reconcile() }
@@ -122,7 +132,7 @@ import Foundation
     }
 
     private func reconcile(force: Bool = false) {
-        let wanted = sleeping ? [] : (panelVisible ? watchlist : (showInNotch ? pinnedInstrument.map { [$0] } ?? [] : []))
+        let wanted = sleeping || isSuspended ? [] : (panelVisible ? watchlist : (showInNotch ? pinnedInstrument.map { [$0] } ?? [] : []))
         let supported = wanted.filter { $0.feed == .binance }
         let old = subscribed
         subscribed = supported.map(\.id).sorted()

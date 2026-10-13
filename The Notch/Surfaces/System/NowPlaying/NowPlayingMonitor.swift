@@ -36,6 +36,11 @@ final class NowPlayingMonitor: ObservableObject {
     private var cachedArtworkIdentity: String?
     private var cachedArtwork: Data?
     private var isSleeping = false
+    /// The media feature is switched off. Nothing is polled or scripted while this is set.
+    private var isSuspended = false
+    /// The players the user lets The Notch read. One left out is treated as if it were not
+    /// running, so it is never addressed from AppleScript.
+    private var allowedPlayers: Set<NowPlayingStatus.Player> = [.music, .spotify]
 
     /// These are defensive engineering limits rather than visual tuning, so they stay with
     /// the network boundary instead of becoming design tokens in `Theme`.
@@ -147,6 +152,14 @@ final class NowPlayingMonitor: ObservableObject {
         return player
     }
 
+    /// Applies the media preferences. Idempotent, so it can run on every settings change.
+    func configure(suspended: Bool, allowedPlayers: Set<NowPlayingStatus.Player>) {
+        guard suspended != isSuspended || allowedPlayers != self.allowedPlayers else { return }
+        isSuspended = suspended
+        self.allowedPlayers = allowedPlayers
+        reconcilePolling()
+    }
+
     private func installWorkspaceObservers() {
         let workspaceCenter = NSWorkspace.shared.notificationCenter
         let names: [Notification.Name] = [
@@ -192,7 +205,7 @@ final class NowPlayingMonitor: ObservableObject {
     private func reconcilePolling() {
         guard !isPreview else { return }
 
-        guard !isSleeping else {
+        guard !isSleeping, !isSuspended else {
             stopPolling()
             publish(.inactive)
             return
@@ -432,7 +445,7 @@ final class NowPlayingMonitor: ObservableObject {
     }
 
     private func eligibleRunningPlayers() -> [NowPlayingStatus.Player] {
-        runningPlayers().filter { !deniedPlayers.contains($0) }
+        runningPlayers().filter { !deniedPlayers.contains($0) && allowedPlayers.contains($0) }
     }
 
     private static let playerPreference: [NowPlayingStatus.Player] = [.spotify, .music]

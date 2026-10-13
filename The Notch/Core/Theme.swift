@@ -86,6 +86,39 @@ enum Theme {
         )
         static let content = Animation.smooth(duration: 0.22)
 
+        /// The settings surface. Every curve its controls use, so the panel stays one motion
+        /// language with the rest of the notch.
+        enum Settings {
+            /// The rail's selection pill gliding between sections, and the section's rows
+            /// sliding in from the side the pill came from. Slightly under-damped: the pill
+            /// lands with a small overshoot, the way the tab pill does.
+            static let section = Animation.spring(response: 0.36, dampingFraction: 0.78)
+            /// How far the incoming section's rows travel, in points.
+            static let sectionTravel: CGFloat = 14
+
+            /// The switch knob. It travels on an under-damped spring and stretches while it
+            /// moves, then snaps back to round — squash and stretch, at 6pt.
+            static let knob = Animation.spring(response: 0.3, dampingFraction: 0.62)
+            /// The knob's widest point mid-travel, as a multiple of its resting width.
+            static let knobStretch: CGFloat = 1.6
+            static let knobStretchDuration: Double = 0.09
+            static let knobSettleDuration: Double = 0.16
+
+            /// The four 1pt sparks a switch throws when it turns on. Turning off is quiet.
+            static let sparkDuration: Double = 0.42
+            static let sparkDistance: CGFloat = 9
+
+            /// A cycling value rolling over like a split-flap counter: the old value leaves
+            /// upwards, the new one springs in from below.
+            static let roll = Animation.spring(response: 0.34, dampingFraction: 0.7)
+
+            /// A feature's rows dimming when it is switched off, and its rail icon tipping
+            /// over. Slow enough to read as the feature powering down.
+            static let power = Animation.spring(response: 0.5, dampingFraction: 0.72)
+            /// The tilt of a switched-off feature's icon, in degrees.
+            static let deadIconTilt: Double = -14
+        }
+
         /// The media panel turning into its lyrics view and back. One spring for the whole
         /// change: the scrubber and transport buttons travel from their rows under the title to
         /// the strip along the bottom (shrinking as they go), the title rows fade out and the
@@ -792,6 +825,29 @@ enum Theme {
             static let gearGlyphSize: CGFloat = 12
             static let gearHitSize: CGFloat = 22
             static let gearActiveFillOpacity: CGFloat = 0.14
+
+            /// The section rail down the leading edge of the settings surface.
+            static let railWidth: CGFloat = 104
+            static let railItemHeight: CGFloat = 24
+            static let railItemSpacing: CGFloat = 3
+            static let railIconSize: CGFloat = 8
+            static let railIconSpacing: CGFloat = 7
+            static let railStatusSize: CGFloat = 5
+            /// Between the rail and the section it shows.
+            static let railContentSpacing: CGFloat = 16
+            /// A section's settings sit in two columns; this is the gap between them.
+            static let sectionColumnSpacing: CGFloat = 16
+
+            /// The feature's own on/off row, which heads its section on a faint fill so it
+            /// reads as the switch the rest of the section depends on.
+            static let masterFillOpacity: CGFloat = 0.08
+            static let masterCornerRadius: CGFloat = 5
+            static let masterHorizontalPadding: CGFloat = 6
+            /// Rows of a switched-off feature. Still legible, clearly not operable.
+            static let disabledRowOpacity: CGFloat = 0.22
+            /// The "switched on" dot beside a feature in the rail.
+            static let statusOnColor = Color(red: 0.37, green: 0.88, blue: 0.54)
+            static let statusOffBorderOpacity: CGFloat = 0.38
 
             /// The hide control on a session row. Dim until the row is hovered — it is a
             /// destructive-looking mark sitting next to every session, and at full strength it
