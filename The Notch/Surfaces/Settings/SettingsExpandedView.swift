@@ -214,8 +214,6 @@ struct SettingsExpandedView: View {
 
     private var calendarSection: some View {
         featureColumns(.calendar) {
-            SettingsChoiceRow(label: "Look ahead", selection: $settings.calendarRange)
-                .help("How many days the agenda lists.")
             SettingsToggleRow(label: "All-day events", isOn: $settings.calendarShowsAllDay)
         } right: {
             SettingsLinkRow(label: calendar.access == .granted ? "Calendars…" : "Connect calendars…") {
@@ -659,4 +657,3 @@ extension HoverSensitivity: SettingsOption {}
 extension MediaPlayers: SettingsOption {}
 extension PanelSize: SettingsOption {}
 extension AnimationSpeed: SettingsOption {}
-extension CalendarRange: SettingsOption {}

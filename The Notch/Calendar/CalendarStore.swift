@@ -15,17 +15,15 @@ import EventKit
 @MainActor
 final class CalendarStore: ObservableObject {
     @Published private(set) var access: CalendarAccess
-    /// Events still to come (or under way) within ``range``, in display order.
-    @Published private(set) var events: [CalendarEvent] = []
+    /// Every event in the week strip's span (``CalendarWeeks``), past ones included, filed under
+    /// each day it touches. Grouped once per refresh rather than per draw: the strip asks for
+    /// seventy days at a time.
+    @Published private(set) var eventsByDay: [Date: [CalendarEvent]] = [:]
     /// Every event calendar on the Mac, hidden ones included, for the settings list.
     @Published private(set) var calendars: [CalendarSource] = []
     /// Calendars the user switched off. Stored as hidden rather than shown, so a calendar added
     /// to the Mac later appears by default.
     @Published private(set) var hiddenCalendarIDs: Set<String>
-
-    var range: CalendarRange = .default {
-        didSet { if oldValue != range { refresh() } }
-    }
 
     var showsAllDay = true {
         didSet { if oldValue != showsAllDay { refresh() } }
@@ -52,7 +50,7 @@ final class CalendarStore: ObservableObject {
         defaults = UserDefaults(suiteName: "com.thenotch.TheNotch.ephemeral") ?? .standard
         eventStore = nil
         self.access = access
-        self.events = events
+        eventsByDay = CalendarWeeks.groupByDay(events)
         self.calendars = calendars
         hiddenCalendarIDs = []
     }
@@ -71,7 +69,7 @@ final class CalendarStore: ObservableObject {
         isSuspended = suspended
         if suspended {
             stopObserving()
-            events = []
+            eventsByDay = [:]
             calendars = []
         } else {
             access = Self.currentAccess()
@@ -123,30 +121,35 @@ final class CalendarStore: ObservableObject {
 
         let visible = all.filter { !hiddenCalendarIDs.contains($0.calendarIdentifier) }
         guard !visible.isEmpty else {
-            events = []
+            eventsByDay = [:]
             return
         }
 
-        let window = range.window(from: now)
+        let window = CalendarWeeks.window(around: now)
         let predicate = eventStore.predicateForEvents(withStart: window.start, end: window.end, calendars: visible)
-        let fresh = eventStore.events(matching: predicate)
-            .filter { event in
-                event.endDate > now
-                    && event.status != .canceled
-                    && (showsAllDay || !event.isAllDay)
-                    && !Self.isDeclined(event)
-            }
-            .map(Self.snapshot)
-            .sorted(by: CalendarEvent.order)
+        let fresh = CalendarWeeks.groupByDay(
+            eventStore.events(matching: predicate)
+                .filter { event in
+                    event.status != .canceled
+                        && (showsAllDay || !event.isAllDay)
+                        && !Self.isDeclined(event)
+                }
+                .map(Self.snapshot)
+        )
         // Only published when something changed: the ticker refreshes every minute, and a
         // republish of identical events re-renders the panel for nothing.
-        if fresh != events { events = fresh }
+        if fresh != eventsByDay { eventsByDay = fresh }
     }
 
-    /// The event under way now, or failing that the next one to start — timed events only. An
-    /// all-day "Office closed" is not what anyone means by "what's next".
+    /// The events touching `day`, all-day first, then by start.
+    func events(on day: Date) -> [CalendarEvent] {
+        eventsByDay[Calendar.current.startOfDay(for: day)] ?? []
+    }
+
+    /// The event under way now, or failing that the next one to start today — timed events
+    /// only. An all-day "Office closed" is not what anyone means by "what's next".
     func nextEvent(at now: Date = Date()) -> CalendarEvent? {
-        events.first { !$0.isAllDay && $0.end > now }
+        events(on: now).first { !$0.isAllDay && $0.end > now }
     }
 
     // MARK: Calendars

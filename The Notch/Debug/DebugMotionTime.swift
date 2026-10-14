@@ -14,4 +14,7 @@ import SwiftUI
 /// every view falls back to the display link as usual.
 extension EnvironmentValues {
     @Entry var debugMotionTime: Double?
+    /// True while `FrameDump` renders. `ImageRenderer` draws a scroll view as empty, so a surface
+    /// built on one (the calendar's week strip) lays out its first page statically instead.
+    @Entry var rendersOffscreen = false
 }

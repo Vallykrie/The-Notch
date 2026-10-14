@@ -37,14 +37,22 @@ enum CalendarPreviewData {
         }
 
         let soon = now.addingTimeInterval(12 * 60)
+        let birthday = CGColor(red: 1, green: 0.36, blue: 0.42, alpha: 1)
         let events = [
+            event("Standup", now.addingTimeInterval(-2 * 3600), minutes: 15, account: "Google", color: work),
             event("Design review", soon, minutes: 45, account: "Google", color: work, meeting: "https://meet.google.com/abc-defg-hij"),
-            event("1:1 with Sam", soon.addingTimeInterval(90 * 60), minutes: 30, account: "Outlook", color: team, meeting: "https://teams.microsoft.com/l/meetup-join/x"),
-            event("Gym", at(1, 7, 30), minutes: 60, account: "iCloud", color: personal),
+            event("Lunch with Ana", soon.addingTimeInterval(60 * 60), minutes: 60, account: "iCloud", color: personal),
+            event("1:1 with Sam", soon.addingTimeInterval(3 * 3600), minutes: 30, account: "Outlook", color: team, meeting: "https://teams.microsoft.com/l/meetup-join/x"),
+            event("Gym", soon.addingTimeInterval(6 * 3600), minutes: 60, account: "iCloud", color: personal),
+            event("Planning", at(-2, 10), minutes: 60, account: "Outlook", color: team),
+            event("Review", at(-2, 14), minutes: 30, account: "Google", color: work),
+            event("Yoga", at(-1, 18), minutes: 60, account: "iCloud", color: personal),
             event("Sprint planning", at(1, 10), minutes: 60, account: "Outlook", color: team),
-            event("Dentist", at(2, 15), minutes: 30, account: "iCloud", color: personal),
-        ].sorted(by: CalendarEvent.order)
-
+            event("Dentist", at(1, 15), minutes: 30, account: "iCloud", color: personal),
+            event("Mum's birthday", at(2, 0), minutes: 24 * 60 - 1, account: "iCloud", color: birthday, allDay: true),
+            event("Release review", at(2, 11), minutes: 60, account: "Google", color: work),
+            event("Brunch", at(4, 11), minutes: 90, account: "iCloud", color: personal),
+        ]
         let sources = [
             CalendarSource(id: "google", title: "Work", accountTitle: "you@gmail.com", color: work),
             CalendarSource(id: "icloud", title: "Personal", accountTitle: "iCloud", color: personal),

@@ -375,25 +375,40 @@ enum Theme {
     }
 
     enum Metrics {
-        /// The calendar panel. Two columns like the crypto panel, so the tabs share a rhythm.
+        /// The calendar panel: a week strip over the selected day's events.
         enum CalendarPanel {
-            static let contentInset: CGFloat = 12
+            static let contentInset: CGFloat = 6
+            /// The access pitch's two columns, shared with the crypto panel's rhythm.
             static let detailWidth: CGFloat = 200
             static let columnSpacing: CGFloat = 18
             static let hairlineOpacity: CGFloat = 0.25
-            static let rowSpacing: CGFloat = 6
-            static let rowHorizontalPadding: CGFloat = 6
-            /// "TODAY", "TMRW", "FRI 16" at micro size.
-            static let dayColumnWidth: CGFloat = 36
-            /// Extra air above the first event of each new day.
-            static let daySpacing: CGFloat = 4
-            /// Two days of a typical calendar fit without scrolling at 2; at 3 they did not.
-            static let rowVerticalPadding: CGFloat = 2
+
+            static let stripHeight: CGFloat = 38
+            static let dayCellSpacing: CGFloat = 4
+            static let dayCornerRadius: CGFloat = 6
+            static let selectedDayFillOpacity: CGFloat = 0.12
+            static let dayDotSize: CGFloat = 4
+            static let dayDotSpacing: CGFloat = 2
+            /// More dots than this stop reading as a count and start reading as a bar.
+            static let maxDayDots = 4
+            /// Between the strip, the day's summary line and its events.
+            static let sectionSpacing: CGFloat = 7
+
+            /// Two columns of four rows fit under the strip; a fifth row scrolls.
+            static let listColumnSpacing: CGFloat = 20
+            static let rowHeight: CGFloat = 16
+            static let rowSpacing: CGFloat = 1
+            static let rowHorizontalPadding: CGFloat = 5
+            static let rowCornerRadius: CGFloat = 4
+            static let nextRowFillOpacity: CGFloat = 0.08
+            static let pastOpacity: CGFloat = 0.38
             /// Fits "12:45 PM" and "all-day" at micro size.
-            static let timeColumnWidth: CGFloat = 44
-            static let accountMaxWidth: CGFloat = 70
+            static let timeColumnWidth: CGFloat = 40
             static let colorMarkWidth: CGFloat = 3
             static let colorMarkHeight: CGFloat = 9
+            static let joinHeight: CGFloat = 14
+            static let joinHorizontalPadding: CGFloat = 5
+            static let joinCornerRadius: CGFloat = 4
         }
         enum Trading {
             static let shoulderWidth: CGFloat = 72
