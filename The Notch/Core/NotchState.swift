@@ -28,9 +28,7 @@ enum NotchSurface: String, Equatable, CaseIterable, Identifiable {
         case .media: "Media"
         case .agents: "Agents"
         case .trading: "Crypto"
-        // "Agenda", not "Calendar": the tab bar hugs the leading edge and must end before the
-        // camera housing, and four tabs leave no room for an eight-letter title.
-        case .calendar: "Agenda"
+        case .calendar: "Calendar"
         }
     }
 }

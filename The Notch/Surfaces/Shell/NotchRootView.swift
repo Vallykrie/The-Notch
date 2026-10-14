@@ -597,7 +597,7 @@ struct NotchRootView: View {
     private var activeSurfaces: Set<NotchSurface> {
         var surfaces: Set<NotchSurface> = []
         surfaces.insert(.trading)
-        if !calendar.events.isEmpty {
+        if !calendar.events(on: Date()).isEmpty {
             surfaces.insert(.calendar)
         }
         if settings.showsMedia(nowPlaying.status) {

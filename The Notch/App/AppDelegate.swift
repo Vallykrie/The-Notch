@@ -64,7 +64,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             allowedPlayers: settings.mediaPlayers.players
         )
         services.trading.setSuspended(!settings.cryptoEnabled)
-        services.calendar.range = settings.calendarRange
         services.calendar.showsAllDay = settings.calendarShowsAllDay
         services.calendar.setSuspended(!settings.calendarEnabled)
         bridge?.setEnabled(settings.agentsEnabled)

@@ -37,9 +37,6 @@ final class NotchSettings: ObservableObject {
 
     // MARK: Calendar
 
-    /// How many days ahead the agenda lists.
-    @Published var calendarRange: CalendarRange { didSet { commit(calendarRange.rawValue, .calendarRange) } }
-
     /// Whether all-day events (holidays, birthdays, "Out of office") are listed.
     @Published var calendarShowsAllDay: Bool { didSet { commit(calendarShowsAllDay, .calendarShowsAllDay) } }
 
@@ -214,9 +211,6 @@ final class NotchSettings: ObservableObject {
         agentsEnabled = defaults.bool(forKey: Key.agentsEnabled.rawValue)
         cryptoEnabled = defaults.bool(forKey: Key.cryptoEnabled.rawValue)
         calendarEnabled = defaults.bool(forKey: Key.calendarEnabled.rawValue)
-        calendarRange = CalendarRange(
-            rawValue: defaults.string(forKey: Key.calendarRange.rawValue) ?? ""
-        ) ?? .default
         calendarShowsAllDay = defaults.bool(forKey: Key.calendarShowsAllDay.rawValue)
         showMediaActivity = defaults.bool(forKey: Key.showMediaActivity.rawValue)
         hideMediaWhenPaused = defaults.bool(forKey: Key.hideMediaWhenPaused.rawValue)
@@ -282,7 +276,6 @@ final class NotchSettings: ObservableObject {
             Key.agentsEnabled.rawValue: true,
             Key.cryptoEnabled.rawValue: true,
             Key.calendarEnabled.rawValue: true,
-            Key.calendarRange.rawValue: CalendarRange.default.rawValue,
             Key.calendarShowsAllDay.rawValue: true,
             Key.showMediaActivity.rawValue: true,
             Key.hideMediaWhenPaused.rawValue: true,
@@ -313,7 +306,6 @@ final class NotchSettings: ObservableObject {
             && agentsEnabled
             && cryptoEnabled
             && calendarEnabled
-            && calendarRange == .default
             && calendarShowsAllDay
             && showMediaActivity
             && hideMediaWhenPaused
@@ -350,7 +342,6 @@ final class NotchSettings: ObservableObject {
         agentsEnabled = true
         cryptoEnabled = true
         calendarEnabled = true
-        calendarRange = .default
         calendarShowsAllDay = true
         showMediaActivity = true
         hideMediaWhenPaused = true
@@ -429,7 +420,6 @@ final class NotchSettings: ObservableObject {
         case agentsEnabled = "NotchAgentsEnabled"
         case cryptoEnabled = "NotchCryptoEnabled"
         case calendarEnabled = "NotchCalendarEnabled"
-        case calendarRange = "NotchCalendarRange"
         case calendarShowsAllDay = "NotchCalendarShowsAllDay"
         case showMediaActivity = "NotchShowMediaActivity"
         case hideMediaWhenPaused = "NotchHideMediaWhenPaused"

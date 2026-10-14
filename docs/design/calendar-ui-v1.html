@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calendar Panel Concepts</title>
+<style>
+@font-face{font-family:'Departure';src:url('../../The%20Notch/Resources/Fonts/DepartureMono-Regular.otf') format('opentype')}
+:root{
+  --bg:#07070a; --line:#22222a; --text:#ecece4; --muted:#8a8a94; --amber:#ffaa1e;
+  --px:'Departure', ui-monospace, 'SF Mono', Menlo, monospace;
+  /* calendar colours, as EventKit would hand them over */
+  --work:#4f8cff; --home:#ff9f33; --team:#5fd17a; --bday:#ff5d6c;
+  --t1:#fff; --t2:rgba(255,255,255,.62); --t3:rgba(255,255,255,.38); --live:#5fd17a;
+  --z:1.5;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:13px/1.55 var(--px)}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 16px 80px}
+h1{font:400 24px/1.1 var(--px);margin:0 0 8px;letter-spacing:.5px}
+.sub{color:var(--muted);margin:0 0 20px;max-width:820px}
+.bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;position:sticky;top:0;background:var(--bg);padding:10px 0;z-index:5;border-bottom:1px solid var(--line);margin-bottom:26px}
+.bar .lab{color:var(--muted);margin:0 4px 0 10px}
+.bar .lab:first-child{margin-left:0}
+.bar a,.chip{font:400 12px var(--px);background:#0e0e12;color:var(--muted);border:1px solid var(--line);padding:7px 10px;border-radius:3px;cursor:pointer;text-decoration:none}
+.bar a:hover,.chip:hover{border-color:var(--muted);color:var(--text)}
+.chip[aria-pressed=true]{color:#000;background:var(--text);border-color:var(--text)}
+section{margin:0 0 54px}
+section h2{font:400 16px var(--px);margin:0 0 4px;letter-spacing:.5px}
+section h2 .rec{color:var(--amber);font-size:12px;margin-left:8px}
+section .pitch{color:var(--muted);margin:0 0 14px;max-width:820px}
+.stage{background:#5a5a60;border-radius:8px;padding:0 0 28px;overflow-x:auto;display:flex}
+.stage .panel{margin:0 auto}
+.notes{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:12px;font-size:12px;color:var(--muted)}
+.notes b{color:var(--text);font-weight:400;display:block;margin-bottom:2px}
+@media (max-width:700px){.notes{grid-template-columns:1fr}}
+
+/* ---------- the panel, 1px = 1pt, scaled by --z ---------- */
+.panel{zoom:var(--z);width:640px;height:190px;background:#000;border-radius:0 0 30px 30px;position:relative;color:var(--t1);font-family:var(--px);overflow:hidden;flex:none;box-shadow:0 18px 40px rgba(0,0,0,.45)}
+.housing{position:absolute;top:0;left:227px;width:186px;height:32px;border-radius:0 0 11px 11px;background:repeating-linear-gradient(45deg,rgba(255,93,108,.22) 0 3px,transparent 3px 6px);outline:1px dashed rgba(255,93,108,.55);outline-offset:-1px;pointer-events:none;display:none;z-index:9}
+body.show-housing .housing{display:block}
+.hd{position:absolute;top:6px;left:28px;right:28px;height:26px;display:flex;align-items:center;justify-content:space-between}
+.tabs{display:inline-flex;gap:3px;padding:3px;background:rgba(255,255,255,.06);border-radius:8px}
+.tabs span{height:20px;line-height:20px;padding:0 3px;font-size:8px;color:var(--t3);border-radius:5px}
+.tabs span.on{background:rgba(255,255,255,.14);color:var(--t1)}
+.tabs span.act{color:var(--t2)}
+.gear{width:12px;height:12px;border-radius:3px;border:3px solid var(--t2);margin-right:5px}
+.bd{position:absolute;top:42px;left:34px;right:34px;bottom:18px}
+
+.micro{font-size:8px;line-height:10px}
+.cap{font-size:9px;line-height:12px}
+.bod{font-size:11px;line-height:14px}
+.ttl{font-size:13px;line-height:16px}
+.hl{font-size:16px;line-height:19px}
+.big{font-size:24px;line-height:26px}
+.t2{color:var(--t2)} .t3{color:var(--t3)} .live{color:var(--live)}
+.up{text-transform:uppercase;letter-spacing:.02em}
+.ell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.btn{display:inline-flex;align-items:center;height:18px;padding:0 8px;font-size:9px;border-radius:5px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.14);color:var(--t1);white-space:nowrap}
+.btn.pri{background:var(--t1);color:#000;border-color:var(--t1)}
+.btn.sm{height:14px;padding:0 5px;font-size:8px;border-radius:4px}
+.mark{display:inline-block;width:3px;height:9px;border-radius:1px;flex:none}
+.dot{display:inline-block;width:4px;height:4px;border-radius:1px;flex:none}
+.cam{display:inline-block;width:9px;height:6px;border:1px solid currentColor;border-radius:1px;position:relative;margin-left:3px;opacity:.7;flex:none}
+.cam:after{content:'';position:absolute;right:-4px;top:0;border:2px solid transparent;border-left:3px solid currentColor}
+.hair{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,.1)}
+.row{display:flex;align-items:center;gap:6px;height:16px;padding:0 5px;border-radius:4px}
+.row.hi{background:rgba(255,255,255,.08)}
+.past{opacity:.38}
+
+/* ---------- A · Timeline ---------- */
+.a-top{position:absolute;left:0;right:0;top:0;height:34px;display:flex;align-items:center;gap:16px}
+.a-date{width:84px;flex:none}
+.a-next{flex:1;min-width:0}
+.a-track{position:absolute;left:0;right:0;top:44px;height:56px}
+.a-hours{position:absolute;left:0;right:0;top:0;height:10px}
+.a-hours span{position:absolute;transform:translateX(-50%)}
+.a-grid{position:absolute;top:13px;bottom:0;width:1px;background:rgba(255,255,255,.06)}
+.a-past{position:absolute;top:13px;bottom:0;left:0;background:repeating-linear-gradient(135deg,rgba(255,255,255,.035) 0 2px,transparent 2px 5px);border-right:none}
+.a-bar{position:absolute;top:16px;height:6px;border-radius:2px}
+.a-lab{position:absolute;top:26px;padding-right:6px}
+.a-now{position:absolute;top:11px;bottom:-2px;width:1px;background:var(--t1)}
+.a-now:before{content:'';position:absolute;top:-2px;left:-2px;width:5px;height:5px;background:var(--t1);border-radius:1px}
+.a-foot{position:absolute;left:0;right:0;bottom:0;height:14px;display:flex;align-items:center;gap:8px}
+
+/* ---------- B · Week strip ---------- */
+.b-strip{position:absolute;left:0;right:0;top:0;height:38px;display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.b-day{border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--t3)}
+.b-day .n{font-size:11px;line-height:12px;color:var(--t2)}
+.b-day.sel{background:rgba(255,255,255,.12)}
+.b-day.sel .n,.b-day.sel{color:var(--t1)}
+.b-day.past .n{color:var(--t3)}
+.b-dots{display:flex;gap:2px;height:4px}
+.b-sum{position:absolute;left:5px;right:5px;top:46px;height:12px;display:flex;justify-content:space-between}
+.b-list{position:absolute;left:0;right:0;top:62px;bottom:0;display:grid;grid-template-columns:1fr 1fr;column-gap:20px;align-content:start;row-gap:1px}
+.time{width:30px;flex:none}
+
+/* ---------- C · Month + day ---------- */
+.c-month{position:absolute;left:0;top:0;width:146px;bottom:0}
+.c-grid{display:grid;grid-template-columns:repeat(7,20px);grid-auto-rows:14px;margin-top:4px}
+.c-grid span{font-size:8px;line-height:14px;text-align:center;color:var(--t3);border-radius:3px;position:relative}
+.c-grid span.ev{color:var(--t2)}
+.c-grid span.ev:after{content:'';position:absolute;left:9px;bottom:1px;width:2px;height:1px;background:var(--t2)}
+.c-grid span.today{background:var(--t1);color:#000}
+.c-grid span.today:after{display:none}
+.c-grid span.wk{color:var(--t3);opacity:.7}
+.c-day{position:absolute;left:166px;right:0;top:0;bottom:0}
+
+/* ---------- D · Next-up hero ---------- */
+.d-hero{position:absolute;left:0;top:0;bottom:0;width:250px;display:flex;flex-direction:column;justify-content:center;gap:4px}
+.d-rail{position:absolute;left:280px;right:0;top:0;bottom:0}
+.d-rail .ln{position:absolute;left:7px;top:8px;bottom:6px;width:1px;background:rgba(255,255,255,.12)}
+.d-item{position:relative;display:flex;align-items:center;gap:8px;height:16px;padding-left:4px}
+.d-item .dot{width:7px;height:7px;border-radius:2px;box-shadow:0 0 0 2px #000}
+.d-sep{height:16px;padding-left:20px;display:flex;align-items:flex-end;padding-bottom:2px}
+
+/* ---------- E · Three days ---------- */
+.e-cols{position:absolute;inset:0;display:grid;grid-template-columns:1fr 1fr 1fr;column-gap:21px}
+.e-col{position:relative;min-width:0}
+.e-col + .e-col:before{content:'';position:absolute;left:-11px;top:0;bottom:0;width:1px;background:rgba(255,255,255,.1)}
+.e-head{display:flex;justify-content:space-between;align-items:baseline;height:16px}
+.e-chip{position:relative;border-left:2px solid;border-radius:4px;padding:2px 5px 2px 6px;margin-top:3px;height:25px;overflow:hidden}
+.e-chip.allday{height:15px;padding-top:1px}
+.e-chip.next{outline:1px solid rgba(255,255,255,.5);outline-offset:-1px}
+.e-chip .tr{position:absolute;right:4px;top:3px}
+</style>
+</head>
+<body class="show-housing">
+<div class="wrap">
+  <h1>Calendar panel · five directions</h1>
+  <p class="sub">Each panel is the real 640 × 190 pt notch panel, drawn at 1 px = 1 pt in Departure Mono at the app's type sizes (8 / 9 / 11 / 13 / 16 / 24). Every concept shows the same day so they can be compared directly: it is <b>Wed 14 Oct, 11:48</b>, the next event is Design review at 12:00 on Google Meet, and the day runs from a past 09:30 standup to an 18:00 gym session. The red hatching is the camera housing, which nothing below the tab bar may need.</p>
+
+  <div class="bar">
+    <span class="lab">Jump</span>
+    <a href="#a">A Timeline</a><a href="#b">B Week strip</a><a href="#c">C Month</a><a href="#d">D Next up</a><a href="#e">E Three days</a>
+    <span class="lab">Zoom</span>
+    <button class="chip" data-z="1">1×</button><button class="chip" data-z="1.5" aria-pressed="true">1.5×</button><button class="chip" data-z="2">2×</button>
+    <span class="lab">Housing</span>
+    <button class="chip" id="hous" aria-pressed="true">shown</button>
+  </div>
+
+  <!-- ===================== A ===================== -->
+  <section id="a">
+    <h2>A · Timeline <span class="rec">★ recommended</span></h2>
+    <p class="pitch">The rest of today as a horizontal ruler, starting just before now and running into the evening, which suits the panel's wide, short shape. The slice already past is hatched, a white "now" line marks the time, and each event is a coloured block where it actually falls. The next event and its Join button sit above the ruler, and tomorrow fits on one line below it.</p>
+    <div class="stage"><div class="panel">
+      <div class="housing"></div>
+      <div class="hd"><div class="tabs"><span>Media</span><span class="act">Agents</span><span class="act">Crypto</span><span class="on">Calendar</span></div><div class="gear"></div></div>
+      <div class="bd">
+        <div class="a-top">
+          <div class="a-date"><div class="micro t3 up">Wednesday</div><div class="ttl">14 Oct</div></div>
+          <div class="a-next">
+            <div class="micro live up">Next · in 12 min</div>
+            <div class="cap ell"><span class="mark" style="background:var(--work);vertical-align:-1px;margin-right:5px"></span>Design review <span class="t3">· 12:00 – 12:45</span></div>
+          </div>
+          <span class="btn pri">Join</span><span class="btn">Open</span>
+        </div>
+        <div class="a-track">
+          <div class="a-hours micro t3">
+            <span style="left:7.14%">12</span><span style="left:35.71%">14</span><span style="left:64.29%">16</span><span style="left:92.86%">18</span>
+          </div>
+          <div class="a-grid" style="left:7.14%"></div><div class="a-grid" style="left:35.71%"></div><div class="a-grid" style="left:64.29%"></div><div class="a-grid" style="left:92.86%"></div>
+          <div class="a-past" style="width:4.29%"></div>
+          <div class="a-bar" style="left:7.14%;width:10.71%;background:var(--work)"></div>
+          <div class="a-lab" style="left:7.14%;width:14.2%"><div class="cap ell">Design review</div><div class="micro t3 ell">12:00 · Meet</div></div>
+          <div class="a-bar" style="left:21.43%;width:14.29%;background:var(--home)"></div>
+          <div class="a-lab" style="left:21.43%;width:35%"><div class="cap ell">Lunch with Ana</div><div class="micro t3 ell">13:00 · 1 h</div></div>
+          <div class="a-bar" style="left:57.14%;width:7.14%;background:var(--team)"></div>
+          <div class="a-lab" style="left:57.14%;width:35%"><div class="cap ell">1:1 with Sam</div><div class="micro t3 ell">15:30 · Teams</div></div>
+          <div class="a-bar" style="left:92.86%;width:7.14%;background:var(--home)"></div>
+          <div class="a-lab" style="left:92.86%;width:7.14%"><div class="cap ell">Gym</div><div class="micro t3 ell">18:00</div></div>
+          <div class="a-now" style="left:4.29%"></div>
+        </div>
+        <div class="a-foot micro">
+          <span class="t3 up">Tomorrow</span><span class="t2">10:00 Sprint planning</span><span class="t3">·</span><span class="t2">15:00 Dentist</span>
+          <span style="flex:1"></span><span class="dot" style="background:var(--bday)"></span><span class="t3">Fri · Mum's birthday</span>
+        </div>
+      </div>
+    </div></div>
+    <div class="notes">
+      <div><b>Good for</b>Seeing at a glance how full the day is and where the gaps are, without reading anything. It is the layout that makes most use of a panel this wide.</div>
+      <div><b>Trade-off</b>Short events become slivers; their titles sit under the bar and run until the next event starts, so two back-to-back 15-minute meetings get cramped. Overlapping meetings need a second lane, which costs a row.</div>
+    </div>
+  </section>
+
+  <!-- ===================== B ===================== -->
+  <section id="b">
+    <h2>B · Week strip</h2>
+    <p class="pitch">A seven-day strip across the top, with a dot for each event in its calendar's colour. Click a day to list its events in two columns underneath. It's the iPhone Calendar week header, sized for the notch.</p>
+    <div class="stage"><div class="panel">
+      <div class="housing"></div>
+      <div class="hd"><div class="tabs"><span>Media</span><span class="act">Agents</span><span class="act">Crypto</span><span class="on">Calendar</span></div><div class="gear"></div></div>
+      <div class="bd">
+        <div class="b-strip">
+          <div class="b-day past"><span class="micro up">Mon</span><span class="n">12</span><span class="b-dots"><i class="dot" style="background:var(--work)"></i><i class="dot" style="background:var(--team)"></i></span></div>
+          <div class="b-day past"><span class="micro up">Tue</span><span class="n">13</span><span class="b-dots"><i class="dot" style="background:var(--home)"></i></span></div>
+          <div class="b-day sel"><span class="micro up">Wed</span><span class="n">14</span><span class="b-dots"><i class="dot" style="background:var(--work)"></i><i class="dot" style="background:var(--work)"></i><i class="dot" style="background:var(--home)"></i><i class="dot" style="background:var(--team)"></i></span></div>
+          <div class="b-day"><span class="micro up">Thu</span><span class="n">15</span><span class="b-dots"><i class="dot" style="background:var(--team)"></i><i class="dot" style="background:var(--home)"></i></span></div>
+          <div class="b-day"><span class="micro up">Fri</span><span class="n">16</span><span class="b-dots"><i class="dot" style="background:var(--bday)"></i><i class="dot" style="background:var(--work)"></i></span></div>
+          <div class="b-day"><span class="micro up">Sat</span><span class="n">17</span><span class="b-dots"></span></div>
+          <div class="b-day"><span class="micro up">Sun</span><span class="n">18</span><span class="b-dots"><i class="dot" style="background:var(--home)"></i></span></div>
+        </div>
+        <div class="b-sum micro"><span class="t3 up">Wednesday 14 October · 5 events</span><span class="live up">Next in 12 min</span></div>
+        <div class="b-list">
+          <div class="row past"><span class="micro time t2">09:30</span><span class="mark" style="background:var(--work)"></span><span class="cap ell">Standup</span></div>
+          <div class="row"><span class="micro time t2">15:30</span><span class="mark" style="background:var(--team)"></span><span class="cap ell" style="flex:1">1:1 with Sam</span><span class="cam t3"></span></div>
+          <div class="row hi"><span class="micro time">12:00</span><span class="mark" style="background:var(--work)"></span><span class="cap ell" style="flex:1">Design review</span><span class="btn sm pri">Join</span></div>
+          <div class="row"><span class="micro time t2">18:00</span><span class="mark" style="background:var(--home)"></span><span class="cap ell">Gym</span></div>
+          <div class="row"><span class="micro time t2">13:00</span><span class="mark" style="background:var(--home)"></span><span class="cap ell">Lunch with Ana</span></div>
+        </div>
+      </div>
+    </div></div>
+    <div class="notes">
+      <div><b>Good for</b>Planning the rest of the week and spotting busy days. The strip doubles as navigation, so any day is one click away.</div>
+      <div><b>Trade-off</b>It shows one day at a time, and "what's next" is a single line rather than the focus. It adds one interaction (picking a day) to a panel that otherwise only reacts to hover.</div>
+    </div>
+  </section>
+
+  <!-- ===================== C ===================== -->
+  <section id="c">
+    <h2>C · Month + day</h2>
+    <p class="pitch">The classic calendar: a month grid on the left with today filled in and a tick under days that have events, and today's list on the right with the next event highlighted. This is the most familiar of the five.</p>
+    <div class="stage"><div class="panel">
+      <div class="housing"></div>
+      <div class="hd"><div class="tabs"><span>Media</span><span class="act">Agents</span><span class="act">Crypto</span><span class="on">Calendar</span></div><div class="gear"></div></div>
+      <div class="bd">
+        <div class="c-month">
+          <div class="micro" style="display:flex;justify-content:space-between"><span class="up">October</span><span class="t3">2026</span></div>
+          <div class="c-grid">
+            <span class="wk">M</span><span class="wk">T</span><span class="wk">W</span><span class="wk">T</span><span class="wk">F</span><span class="wk">S</span><span class="wk">S</span>
+            <span></span><span></span><span></span><span class="ev">1</span><span class="ev">2</span><span>3</span><span>4</span>
+            <span class="ev">5</span><span class="ev">6</span><span>7</span><span class="ev">8</span><span>9</span><span>10</span><span>11</span>
+            <span class="ev">12</span><span class="ev">13</span><span class="today">14</span><span class="ev">15</span><span class="ev">16</span><span>17</span><span class="ev">18</span>
+            <span class="ev">19</span><span class="ev">20</span><span>21</span><span class="ev">22</span><span>23</span><span>24</span><span>25</span>
+            <span class="ev">26</span><span>27</span><span class="ev">28</span><span>29</span><span class="ev">30</span><span>31</span><span></span>
+          </div>
+        </div>
+        <div class="hair" style="left:150px"></div>
+        <div class="c-day">
+          <div class="micro" style="display:flex;justify-content:space-between;height:14px"><span class="t3 up">Today · Wed 14</span><span class="live up">Next in 12 min</span></div>
+          <div class="row past"><span class="micro time t2">09:30</span><span class="mark" style="background:var(--work)"></span><span class="cap ell" style="flex:1">Standup</span><span class="micro t3">Google</span></div>
+          <div class="row hi" style="height:20px"><span class="micro time">12:00</span><span class="mark" style="background:var(--work)"></span><span class="cap ell" style="flex:1">Design review</span><span class="btn sm pri">Join</span><span class="btn sm">Open</span></div>
+          <div class="row"><span class="micro time t2">13:00</span><span class="mark" style="background:var(--home)"></span><span class="cap ell" style="flex:1">Lunch with Ana</span><span class="micro t3">iCloud</span></div>
+          <div class="row"><span class="micro time t2">15:30</span><span class="mark" style="background:var(--team)"></span><span class="cap ell" style="flex:1">1:1 with Sam</span><span class="cam t3"></span><span class="micro t3">Outlook</span></div>
+          <div class="row"><span class="micro time t2">18:00</span><span class="mark" style="background:var(--home)"></span><span class="cap ell" style="flex:1">Gym</span><span class="micro t3">iCloud</span></div>
+          <div class="micro t3" style="padding:4px 5px 0"><span class="up">Tomorrow</span> · 2 events</div>
+        </div>
+      </div>
+    </div></div>
+    <div class="notes">
+      <div><b>Good for</b>Recognition: nobody needs telling how it works. It also answers "what's the date on Friday?", which none of the others do.</div>
+      <div><b>Trade-off</b>The grid uses a quarter of the panel to say mostly "it's the 14th". At 8pt the day numbers are small, and the grid's height fixes the panel's whole rhythm.</div>
+    </div>
+  </section>
+
+  <!-- ===================== D ===================== -->
+  <section id="d">
+    <h2>D · Next up</h2>
+    <p class="pitch">The next meeting is the whole message: a large countdown, the title at headline size, and a solid Join button. Everything after it hangs off a thin rail on the right, ending in a tomorrow divider. It's built for someone who opens the notch to ask "do I need to go now?"</p>
+    <div class="stage"><div class="panel">
+      <div class="housing"></div>
+      <div class="hd"><div class="tabs"><span>Media</span><span class="act">Agents</span><span class="act">Crypto</span><span class="on">Calendar</span></div><div class="gear"></div></div>
+      <div class="bd">
+        <div class="d-hero">
+          <div class="micro t3 up" style="display:flex;align-items:center;gap:5px"><span class="mark" style="background:var(--work);height:8px"></span>Next · Google Meet</div>
+          <div style="display:flex;align-items:baseline;gap:6px"><span class="micro t2">in</span><span class="big">12</span><span class="cap t2">min</span></div>
+          <div class="hl ell">Design review</div>
+          <div class="micro t3">12:00 – 12:45 · Work · 4 guests</div>
+          <div style="display:flex;gap:6px;margin-top:4px"><span class="btn pri">Join call</span><span class="btn">Open</span></div>
+        </div>
+        <div class="hair" style="left:262px"></div>
+        <div class="d-rail">
+          <div class="ln"></div>
+          <div class="micro t3 up" style="padding-left:20px;height:14px">Later today</div>
+          <div class="d-item"><span class="dot" style="background:var(--home)"></span><span class="micro t2 time">13:00</span><span class="cap ell">Lunch with Ana</span></div>
+          <div class="d-item"><span class="dot" style="background:var(--team)"></span><span class="micro t2 time">15:30</span><span class="cap ell">1:1 with Sam</span><span class="cam t3"></span></div>
+          <div class="d-item"><span class="dot" style="background:var(--home)"></span><span class="micro t2 time">18:00</span><span class="cap ell">Gym</span></div>
+          <div class="d-sep micro t3 up">Tomorrow</div>
+          <div class="d-item"><span class="dot" style="background:var(--team)"></span><span class="micro t2 time">10:00</span><span class="cap ell">Sprint planning</span></div>
+          <div class="d-item"><span class="dot" style="background:var(--home)"></span><span class="micro t2 time">15:00</span><span class="cap ell">Dentist</span></div>
+        </div>
+      </div>
+    </div></div>
+    <div class="notes">
+      <div><b>Good for</b>The single most common reason to look: whether to leave now. The countdown reads from across the room, and Join is the largest target on the panel.</div>
+      <div><b>Trade-off</b>On a day with no next meeting, the hero has nothing to show and needs its own designed empty state. It shows less of the week than B or E.</div>
+    </div>
+  </section>
+
+  <!-- ===================== E ===================== -->
+  <section id="e">
+    <h2>E · Three days</h2>
+    <p class="pitch">Today, tomorrow and the day after, side by side as columns of tinted event chips. The next event gets a white outline and a small Join button. All-day events sit as slim chips at the top of their day.</p>
+    <div class="stage"><div class="panel">
+      <div class="housing"></div>
+      <div class="hd"><div class="tabs"><span>Media</span><span class="act">Agents</span><span class="act">Crypto</span><span class="on">Calendar</span></div><div class="gear"></div></div>
+      <div class="bd">
+        <div class="e-cols">
+          <div class="e-col">
+            <div class="e-head"><span class="cap">Today</span><span class="micro t3">Wed 14 · 4</span></div>
+            <div class="e-chip next" style="background:rgba(79,140,255,.2);border-color:var(--work)"><div class="micro live">12:00 · in 12 min</div><div class="cap ell">Design review</div><span class="btn sm pri tr">Join</span></div>
+            <div class="e-chip" style="background:rgba(255,159,51,.16);border-color:var(--home)"><div class="micro t2">13:00</div><div class="cap ell">Lunch with Ana</div></div>
+            <div class="e-chip" style="background:rgba(95,209,122,.16);border-color:var(--team)"><div class="micro t2">15:30</div><div class="cap ell">1:1 with Sam</div><span class="cam t3 tr" style="top:5px"></span></div>
+            <div class="micro t3" style="margin-top:3px;padding-left:6px">+1 more · Gym 18:00</div>
+          </div>
+          <div class="e-col">
+            <div class="e-head"><span class="cap t2">Tomorrow</span><span class="micro t3">Thu 15 · 2</span></div>
+            <div class="e-chip" style="background:rgba(95,209,122,.16);border-color:var(--team)"><div class="micro t2">10:00</div><div class="cap ell">Sprint planning</div></div>
+            <div class="e-chip" style="background:rgba(255,159,51,.16);border-color:var(--home)"><div class="micro t2">15:00</div><div class="cap ell">Dentist</div></div>
+          </div>
+          <div class="e-col">
+            <div class="e-head"><span class="cap t2">Friday</span><span class="micro t3">Fri 16 · 2</span></div>
+            <div class="e-chip allday" style="background:rgba(255,93,108,.18);border-color:var(--bday)"><div class="micro">Mum's birthday</div></div>
+            <div class="e-chip" style="background:rgba(79,140,255,.16);border-color:var(--work)"><div class="micro t2">11:00</div><div class="cap ell">Release review</div></div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <div class="notes">
+      <div><b>Good for</b>A balanced view: today stays in focus, and the next two days are visible without clicking. The chips feel like a real calendar app, and colour carries the account.</div>
+      <div><b>Trade-off</b>Each column is only about 175pt wide, so long titles truncate early. Only three to four events fit per day, so a busy day has to collapse into "+N more".</div>
+    </div>
+  </section>
+</div>
+<script>
+// Fit the default zoom to the window, so a narrow window still shows whole panels.
+(function(){const fit=Math.min(1.5,Math.max(1,(innerWidth-40)/640));const z=fit>=1.5?1.5:1;
+document.documentElement.style.setProperty('--z',z);
+document.querySelectorAll('[data-z]').forEach(o=>o.setAttribute('aria-pressed',o.dataset.z==String(z)));})();
+document.querySelectorAll('[data-z]').forEach(b=>b.addEventListener('click',()=>{
+  document.documentElement.style.setProperty('--z',b.dataset.z);
+  document.querySelectorAll('[data-z]').forEach(o=>o.setAttribute('aria-pressed',o===b));
+}));
+const h=document.getElementById('hous');
+h.addEventListener('click',()=>{const on=document.body.classList.toggle('show-housing');h.setAttribute('aria-pressed',on);h.textContent=on?'shown':'hidden'});
+</script>
+</body>
+</html>

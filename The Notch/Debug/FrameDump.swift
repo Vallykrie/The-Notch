@@ -712,7 +712,7 @@ enum FrameDump {
     }
 
     private static func write(_ view: some View, to directory: URL, name: String) {
-        let renderer = ImageRenderer(content: view)
+        let renderer = ImageRenderer(content: view.environment(\.rendersOffscreen, true))
         renderer.scale = 2
         guard let image = renderer.cgImage else {
             FileHandle.standardError.write(Data("FrameDump: render failed for \(name)\n".utf8))

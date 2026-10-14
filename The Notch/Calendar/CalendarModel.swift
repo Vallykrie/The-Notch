@@ -28,13 +28,9 @@ nonisolated struct CalendarEvent: Identifiable, Equatable, Sendable {
         start <= date && date < end
     }
 
-    /// All-day events first within a day, then by start time, then by title so two events at the
-    /// same minute never swap places between refreshes.
+    /// All-day events first, then by start time, then by title so two events at the same minute
+    /// never swap places between refreshes.
     static func order(_ lhs: CalendarEvent, _ rhs: CalendarEvent) -> Bool {
-        let calendar = Calendar.current
-        let lhsDay = calendar.startOfDay(for: lhs.start)
-        let rhsDay = calendar.startOfDay(for: rhs.start)
-        if lhsDay != rhsDay { return lhsDay < rhsDay }
         if lhs.isAllDay != rhs.isAllDay { return lhs.isAllDay }
         if lhs.start != rhs.start { return lhs.start < rhs.start }
         return lhs.title.localizedCompare(rhs.title) == .orderedAscending
@@ -57,38 +53,56 @@ nonisolated enum CalendarAccess: Equatable, Sendable {
     case denied
 }
 
-/// How far ahead the panel looks.
-nonisolated enum CalendarRange: String, CaseIterable, Identifiable, Sendable {
-    case today
-    case threeDays
-    case week
+/// The span of weeks the panel's week strip can page through, and the day arithmetic it needs.
+///
+/// A fixed span rather than an endless strip: EventKit is queried once for the whole of it, so
+/// paging between weeks never waits on a fetch, and ten weeks is far more than anyone pages
+/// through from the top of the screen.
+nonisolated enum CalendarWeeks {
+    static let weeksBack = 2
+    static let weeksAhead = 8
 
-    static let `default` = CalendarRange.threeDays
+    /// The first day of the week holding `date`, honouring the user's first weekday.
+    static func startOfWeek(for date: Date, calendar: Calendar = .current) -> Date {
+        calendar.dateInterval(of: .weekOfYear, for: date)?.start ?? calendar.startOfDay(for: date)
+    }
 
-    var id: String { rawValue }
-
-    var label: String {
-        switch self {
-        case .today: "Today"
-        case .threeDays: "3 days"
-        case .week: "7 days"
+    /// The first day of every week the strip offers, oldest first.
+    static func weekStarts(around now: Date, calendar: Calendar = .current) -> [Date] {
+        let current = startOfWeek(for: now, calendar: calendar)
+        return (-weeksBack...weeksAhead).compactMap { offset in
+            calendar.date(byAdding: .weekOfYear, value: offset, to: current)
         }
     }
 
-    var days: Int {
-        switch self {
-        case .today: 1
-        case .threeDays: 3
-        case .week: 7
-        }
-    }
-
-    /// From the start of today to the end of the last day in range — whole days, so an event
-    /// tonight is still listed this morning.
-    func window(from now: Date, calendar: Calendar = .current) -> DateInterval {
-        let start = calendar.startOfDay(for: now)
-        let end = calendar.date(byAdding: .day, value: days, to: start) ?? start.addingTimeInterval(Double(days) * 86_400)
+    /// From the first day of the earliest week to the end of the last one.
+    static func window(around now: Date, calendar: Calendar = .current) -> DateInterval {
+        let weeks = weekStarts(around: now, calendar: calendar)
+        let start = weeks.first ?? calendar.startOfDay(for: now)
+        let last = weeks.last ?? start
+        let end = calendar.date(byAdding: .day, value: 7, to: last) ?? last.addingTimeInterval(7 * 86_400)
         return DateInterval(start: start, end: end)
+    }
+
+    /// The seven days of the week starting at `start`.
+    static func days(ofWeekStarting start: Date, calendar: Calendar = .current) -> [Date] {
+        (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: start) }
+    }
+
+    /// Every event filed under each day it touches, keyed by the start of that day. An event
+    /// running from 23:00 to 01:00 is listed on both days, as Calendar.app lists it.
+    static func groupByDay(_ events: [CalendarEvent], calendar: Calendar = .current) -> [Date: [CalendarEvent]] {
+        var byDay: [Date: [CalendarEvent]] = [:]
+        for event in events {
+            var day = calendar.startOfDay(for: event.start)
+            // An event ending exactly at midnight does not touch the next day.
+            while day < event.end || day == calendar.startOfDay(for: event.start) {
+                byDay[day, default: []].append(event)
+                guard let next = calendar.date(byAdding: .day, value: 1, to: day) else { break }
+                day = next
+            }
+        }
+        return byDay.mapValues { $0.sorted(by: CalendarEvent.order) }
     }
 }
 
