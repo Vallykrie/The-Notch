@@ -32,6 +32,8 @@ music and crypto prices.
   you, celebrates when it is done, and falls asleep when it has been idle for a while.
 - **Media, HUD and crypto.** Now playing with controls and synced lyrics, a volume and
   brightness HUD that replaces the macOS one, and pinned Binance prices.
+- **Your calendar.** What's next and the days ahead from iCloud, Google, Microsoft and any
+  CalDAV account on your Mac, with a one-click **Join** for Meet, Zoom and Teams calls.
 - **Asks before it touches anything.** On first launch the notch introduces itself and lists the
   agents it found; nothing is written to their config until you say yes.
 - **Works on any Mac.** Macs without a notch get a drawn notch in the same place.
@@ -86,8 +88,8 @@ are.
 
 ### 1. Open the panel
 
-Move your pointer onto the notch and the panel opens. Move away and it closes. It has three tabs
-at the top: **Media**, **Agents** and **Crypto**. The gear on the right opens **Settings**.
+Move your pointer onto the notch and the panel opens. Move away and it closes. It has four tabs
+at the top: **Media**, **Agents**, **Crypto** and **Agenda**. The gear on the right opens **Settings**.
 
 ### 2. Connect your coding agents
 
@@ -179,12 +181,30 @@ In the **Crypto** tab, use **Add pair** to search Binance Spot pairs (such as `B
 build a watchlist. Pin a pair to keep its live price in the closed notch. It uses Binance's
 public feed, so there is no account or API key. See [Crypto feed details](docs/TRADING.md).
 
-### 8. Settings
+### 8. Calendar
+
+The **Agenda** tab shows today's date, the next event with a countdown, and everything coming up
+in the next few days. Click **Connect calendars** once and macOS asks for calendar access; the
+notch never asks on its own.
+
+It reads the calendars macOS already syncs, so one connection covers every account:
+
+- **Apple:** iCloud and On My Mac calendars appear straight away.
+- **Google, Microsoft (Outlook.com, Exchange, Office 365) and CalDAV:** add the account in
+  **System Settings › Internet Accounts** (or use **Add account…** in the notch) and turn on
+  **Calendars** for it.
+
+Click an event to open it in Calendar. If it has a Meet, Zoom, Teams, Webex or similar link,
+**Join** opens the call. In **Settings › Calendar** you can pick which calendars are shown, how
+far ahead to look and whether to list all-day events. Nothing leaves your Mac.
+
+### 9. Settings
 
 | Section | Options |
 | --- | --- |
 | Media | Show media, Hide when paused |
 | Agents | Show agents, Attention ring, Sound cues, Keep done (how long finished sessions stay), Connections… |
+| Calendar | Look ahead (today, 3 or 7 days), All-day events, Calendars… (show or hide each one), Add account… |
 | System | Replace OS HUD, HUD dwell (how long it stays on screen) |
 | Behaviour | Expand on hover, Hover speed, Launch at login, Celebrate done, Replay intro…, Donate… |
 
@@ -226,6 +246,7 @@ Releases are built by CI from `v*` tags; see [Releasing](docs/RELEASING.md).
 | `bash tools/hook-harness/run-all.sh` | The hook bridge: happy path, allow, deny, timeout, concurrent sessions, malformed input. It never touches the real socket or agent config. Needs Go 1.22+. |
 | `bash tools/session-tests/run.sh` | The session lifecycle (idle after 5 min, removed after 15 min, what is always kept) |
 | `bash tools/trading-tests/run.sh` | The crypto store and watchlist migration |
+| `bash tools/calendar-tests/run.sh` | Calendar meeting-link detection, look-ahead window and agenda order |
 | `NOTCH_FRAMES=<dir> "<app>/Contents/MacOS/The Notch"` | Renders every surface to PNGs. The screenshots above come from this. |
 | `python3 scripts/render-app-icon.py` | Regenerates the app icon. See [App icon](docs/APP-ICON.md). |
 

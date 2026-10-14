@@ -564,6 +564,10 @@ enum FrameDump {
             ("expanded-trading-empty", .trading, .expanded, AgentsPreviewData.emptyStore(), SystemServices(nowPlaying: MediaPreviewData.inactiveMonitor(), systemHUD: .previewIdle()), false),
             ("expanded-trading-watchlist", .trading, .expanded, AgentsPreviewData.emptyStore(), SystemServices(nowPlaying: MediaPreviewData.inactiveMonitor(), systemHUD: .previewIdle(), trading: TradingPreviewData.populatedStore()), false),
             ("collapsed-trading", .trading, .collapsed, AgentsPreviewData.emptyStore(), SystemServices(nowPlaying: MediaPreviewData.inactiveMonitor(), systemHUD: .previewIdle(), trading: TradingPreviewData.populatedStore()), false),
+            ("expanded-calendar-connect", .calendar, .expanded, AgentsPreviewData.emptyStore(), SystemServices(nowPlaying: MediaPreviewData.inactiveMonitor(), systemHUD: .previewIdle()), false),
+            ("expanded-calendar-denied", .calendar, .expanded, AgentsPreviewData.emptyStore(), SystemServices(nowPlaying: MediaPreviewData.inactiveMonitor(), systemHUD: .previewIdle(), calendar: CalendarPreviewData.emptyStore(access: .denied)), false),
+            ("expanded-calendar-clear", .calendar, .expanded, AgentsPreviewData.emptyStore(), SystemServices(nowPlaying: MediaPreviewData.inactiveMonitor(), systemHUD: .previewIdle(), calendar: CalendarPreviewData.emptyStore(access: .granted)), false),
+            ("expanded-calendar-agenda", .calendar, .expanded, AgentsPreviewData.emptyStore(), SystemServices(nowPlaying: MediaPreviewData.inactiveMonitor(), systemHUD: .previewIdle(), calendar: CalendarPreviewData.populatedStore()), false),
         ]
         for scenario in scenarios + tradingScenarios {
             let coordinator = NotchCoordinator(
@@ -641,6 +645,9 @@ enum FrameDump {
             .frame(width: geometry.panelFrame.width, height: geometry.panelFrame.height)
             .background(backdrop)
             write(view, to: directory, name: "scenario-\(item.name).png")
+            // The ephemeral suite outlives this loop, and a later run would otherwise render
+            // every scenario with media switched off.
+            if item.featureOff { services.settings.mediaEnabled = true }
         }
 
         for size in panelSizes {

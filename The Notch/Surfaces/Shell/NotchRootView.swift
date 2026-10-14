@@ -10,6 +10,7 @@ struct NotchRootView: View {
     @ObservedObject private var systemHUD: SystemHUDMonitor
     @ObservedObject private var settings: NotchSettings
     @ObservedObject private var trading: TradingStore
+    @ObservedObject private var calendar: CalendarStore
     @ObservedObject private var lyrics: LyricsController
     private let services: SystemServices
     @Namespace private var contentNamespace
@@ -83,6 +84,7 @@ struct NotchRootView: View {
         _systemHUD = ObservedObject(wrappedValue: services.systemHUD)
         _settings = ObservedObject(wrappedValue: services.settings)
         _trading = ObservedObject(wrappedValue: services.trading)
+        _calendar = ObservedObject(wrappedValue: services.calendar)
         _lyrics = ObservedObject(wrappedValue: services.lyrics)
         _animatedCollapsedSize = State(initialValue: coordinator.collapsedSize)
         _isShowingSettings = State(initialValue: debugShowsSettings)
@@ -466,6 +468,7 @@ struct NotchRootView: View {
                         integrations: services.integrations,
                         store: store,
                         trading: trading,
+                        calendar: calendar,
                         initialSection: debugSettingsSection
                             ?? SettingsSection(surface: coordinator.currentSurface),
                         onReplayIntro: { coordinator.requestOnboarding() },
@@ -492,6 +495,8 @@ struct NotchRootView: View {
                         TradingExpandedView(store: trading, isVisible: tradingPanelVisible) { editing in
                             if !isShowingSettings { coordinator.setPinnedOpen(editing) }
                         }
+                    case .calendar:
+                        CalendarExpandedView(store: calendar)
                     }
                 }
             }
@@ -592,6 +597,9 @@ struct NotchRootView: View {
     private var activeSurfaces: Set<NotchSurface> {
         var surfaces: Set<NotchSurface> = []
         surfaces.insert(.trading)
+        if !calendar.events.isEmpty {
+            surfaces.insert(.calendar)
+        }
         if settings.showsMedia(nowPlaying.status) {
             surfaces.insert(.media)
         }

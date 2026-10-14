@@ -10,7 +10,7 @@ import SwiftUI
 /// inside the same 640x190 silhouette as the others.
 ///
 /// It used to be one grid of four columns, which was full: a fifteenth preference had nowhere
-/// to go. Now a rail down the leading edge picks a section — Media, Agents, Crypto, Display, General —
+/// to go. Now a rail down the leading edge picks a section — Media, Agents, Crypto, Calendar, Display, General —
 /// and the section gets the rest of the panel as two columns. Each feature section is headed
 /// by that feature's own on/off switch, because someone who installed The Notch for agents
 /// alone should be able to make the other two disappear, not merely look quieter.
@@ -28,6 +28,7 @@ struct SettingsExpandedView: View {
     @ObservedObject var integrations: AgentIntegrationManager
     @ObservedObject var store: AgentSessionStore
     @ObservedObject var trading: TradingStore
+    @ObservedObject var calendar: CalendarStore
     var onReplayIntro: () -> Void = {}
     /// Leaves settings for the crypto panel, where the watchlist is edited.
     var onEditWatchlist: () -> Void = {}
@@ -37,6 +38,7 @@ struct SettingsExpandedView: View {
     /// down the rail, -1 from the leading edge when moving up it.
     @State private var direction: CGFloat = 1
     @State private var showingConnections = false
+    @State private var showingCalendars = false
     @Namespace private var railNamespace
 
     init(
@@ -45,6 +47,7 @@ struct SettingsExpandedView: View {
         integrations: AgentIntegrationManager,
         store: AgentSessionStore,
         trading: TradingStore,
+        calendar: CalendarStore,
         initialSection: SettingsSection = .media,
         onReplayIntro: @escaping () -> Void = {},
         onEditWatchlist: @escaping () -> Void = {}
@@ -54,6 +57,7 @@ struct SettingsExpandedView: View {
         self.integrations = integrations
         self.store = store
         self.trading = trading
+        self.calendar = calendar
         self.onReplayIntro = onReplayIntro
         self.onEditWatchlist = onEditWatchlist
         _section = State(initialValue: initialSection)
@@ -63,6 +67,8 @@ struct SettingsExpandedView: View {
         Group {
             if showingConnections {
                 AgentConnectionsView(integrations: integrations, store: store) { showingConnections = false }
+            } else if showingCalendars {
+                CalendarSourcesView(store: calendar) { showingCalendars = false }
             } else {
                 HStack(alignment: .top, spacing: Theme.Metrics.Settings.railContentSpacing) {
                     rail
@@ -164,6 +170,7 @@ struct SettingsExpandedView: View {
         case .media: mediaSection
         case .agents: agentsSection
         case .crypto: cryptoSection
+        case .calendar: calendarSection
         case .display: displaySection
         case .general: generalSection
         }
@@ -202,6 +209,25 @@ struct SettingsExpandedView: View {
             .help("Shows the pinned pair's price on the notch. Pin a pair from the watchlist.")
         } right: {
             SettingsLinkRow(label: "Edit watchlist…", action: onEditWatchlist)
+        }
+    }
+
+    private var calendarSection: some View {
+        featureColumns(.calendar) {
+            SettingsChoiceRow(label: "Look ahead", selection: $settings.calendarRange)
+                .help("How many days the agenda lists.")
+            SettingsToggleRow(label: "All-day events", isOn: $settings.calendarShowsAllDay)
+        } right: {
+            SettingsLinkRow(label: calendar.access == .granted ? "Calendars…" : "Connect calendars…") {
+                if calendar.access == .granted {
+                    showingCalendars = true
+                } else {
+                    calendar.requestAccess()
+                }
+            }
+            .help("Choose which calendars the notch shows.")
+            SettingsLinkRow(label: "Add account…") { CalendarStore.openInternetAccounts() }
+                .help("Google, Microsoft Exchange / Outlook and CalDAV accounts are added in System Settings › Internet Accounts. Turn on Calendars for the account and it appears here.")
         }
     }
 
@@ -263,6 +289,7 @@ struct SettingsExpandedView: View {
                     case .media: settings.mediaEnabled = value
                     case .agents: settings.agentsEnabled = value
                     case .trading: settings.cryptoEnabled = value
+                    case .calendar: settings.calendarEnabled = value
                     }
                 }
             }
@@ -315,6 +342,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     case media
     case agents
     case crypto
+    case calendar
     case display
     case general
 
@@ -323,6 +351,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .media: self = .media
         case .agents: self = .agents
         case .trading: self = .crypto
+        case .calendar: self = .calendar
         }
     }
 
@@ -335,6 +364,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .media: "Media"
         case .agents: "Agents"
         case .crypto: "Crypto"
+        case .calendar: "Calendar"
         case .display: "Display"
         case .general: "General"
         }
@@ -345,6 +375,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .media: .musicNote
         case .agents: .chip
         case .crypto: .coin
+        case .calendar: .calendar
         case .display: .openWindow
         case .general: .gear
         }
@@ -356,6 +387,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .media: .media
         case .agents: .agents
         case .crypto: .trading
+        case .calendar: .calendar
         case .display, .general: nil
         }
     }
@@ -627,3 +659,4 @@ extension HoverSensitivity: SettingsOption {}
 extension MediaPlayers: SettingsOption {}
 extension PanelSize: SettingsOption {}
 extension AnimationSpeed: SettingsOption {}
+extension CalendarRange: SettingsOption {}

@@ -21,6 +21,21 @@ Last touched: 2026-09-26. Current scope: Binance Spot crypto only.
 
 See [crypto feed details](TRADING.md). The earlier multi-asset plan is historical.
 
+## Calendar `[~]`
+
+Last touched: 2026-10-14. Added on user request: see the calendar from the notch, across accounts.
+
+- [x] `CalendarStore` on EventKit: one source for iCloud, Google, Microsoft Exchange / Outlook and
+      CalDAV (whatever macOS Internet Accounts syncs). No OAuth secrets shipped, no tokens held.
+- [x] Agenda tab: today, next event with countdown, look-ahead list, open-in-Calendar, Join for
+      Meet/Zoom/Teams/Webex links. Access is only requested from a button, never at launch.
+- [x] Settings › Calendar: feature switch, look-ahead range, all-day toggle, per-calendar
+      visibility, Add account… shortcut. Usage strings + `personal-information.calendars`
+      entitlement for the hardened runtime.
+- [x] `tools/calendar-tests` (meeting links, window, ordering); FrameDump scenarios for every state.
+- [ ] Verify the TCC prompt and live sync on a signed build with real Google and Exchange accounts.
+- [ ] Optional collapsed shoulder for an event starting soon (needs a `LiveActivityLayout` slot).
+
 ## Phase 0 — Foundation `[~]`
 
 Repo, docs, build config. No app behaviour.
