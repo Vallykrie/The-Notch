@@ -411,6 +411,12 @@ does nothing on macOS 26. Shelf and webcam outstanding.
       Defaults moved to the header's leading edge while settings are open. Switch knobs squash
       and throw sparks, values roll over, the rail pill glides; every curve is in
       `Theme.Motion.Settings`. Mockup: `docs/design/settings-per-feature-v1.html` (option B).
+- [x] Display settings and a faster close (2026-10-14, from user feedback). New Display section:
+      panel Size (S / M / L — L is the panel as designed; M and S scale it to 0.9 / 0.8 whole),
+      Shadow, Animations on/off (off behaves like Reduce Motion), and Speed (Slow / Normal /
+      Fast, applied as a pace over the tuned curves via `Theme.Motion.Preference`). The close
+      was waiting ~300ms before visibly moving — a 220ms exit debounce plus an ease-in head on
+      the close curve — so the debounce is now 80ms and the close starts promptly (0.24s).
 - [x] Onboarding: detect installed agent CLIs, ask, then hook them up. A first-launch intro plays
       inside the notch (`OnboardingDirector`): it melts, opens into a band of stars, the stars
       gather into the mascot, which says hello and asks before touching any agent config — the
