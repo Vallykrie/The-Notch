@@ -118,19 +118,43 @@ codesign --verify --deep --strict --verbose=2 "$APP"
 # --- 4. Package as a DMG -------------------------------------------------------------
 echo "==> Building DMG"
 ln -sf /Applications "$STAGE/Applications"
-rm -f "$DMG"
-hdiutil create \
-  -volname "$APP_NAME" \
-  -srcfolder "$STAGE" \
-  -fs HFS+ \
-  -format UDZO \
-  -imagekey zlib-level=9 \
-  -ov \
-  "$DMG" >/dev/null
+
+# Whether "$DMG" is a disk image notarytool will accept: a UDIF image ends in a 512-byte
+# trailer that starts with "koly", and `hdiutil verify` checks the image's own checksums.
+# The beta.15 release failed because hdiutil exited 0 having written a file that was neither,
+# and nothing noticed until notarytool refused it.
+dmg_is_valid() {
+  [[ -s "$DMG" ]] || return 1
+  [[ "$(tail -c 512 "$DMG" | head -c 4)" == "koly" ]] || return 1
+  hdiutil verify "$DMG" >/dev/null 2>&1
+}
+
+for attempt in 1 2 3; do
+  rm -f "$DMG"
+  hdiutil create \
+    -volname "$APP_NAME" \
+    -srcfolder "$STAGE" \
+    -fs HFS+ \
+    -format UDZO \
+    -imagekey zlib-level=9 \
+    -ov \
+    "$DMG" >/dev/null && dmg_is_valid && break
+  echo "    attempt $attempt produced no valid disk image" >&2
+  if [[ $attempt -eq 3 ]]; then
+    echo "error: hdiutil could not build a valid DMG in three attempts" >&2
+    exit 1
+  fi
+  sleep $((attempt * 5))
+done
 
 # --- 5. Notarise and staple ----------------------------------------------------------
 if [[ -n "$IDENTITY" ]]; then
   codesign "${SIGN_ARGS[@]}" "$DMG"
+  # Signing writes into the image, so it is checked again before Apple sees it.
+  if ! dmg_is_valid; then
+    echo "error: the DMG is no longer a valid disk image after signing" >&2
+    exit 1
+  fi
 fi
 
 PROFILE="${NOTARY_KEYCHAIN_PROFILE:-}"
