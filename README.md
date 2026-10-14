@@ -89,7 +89,7 @@ are.
 ### 1. Open the panel
 
 Move your pointer onto the notch and the panel opens. Move away and it closes. It has four tabs
-at the top: **Media**, **Agents**, **Crypto** and **Agenda**. The gear on the right opens **Settings**.
+at the top: **Media**, **Agents**, **Crypto** and **Calendar**. The gear on the right opens **Settings**.
 
 ### 2. Connect your coding agents
 
@@ -183,7 +183,7 @@ public feed, so there is no account or API key. See [Crypto feed details](docs/T
 
 ### 8. Calendar
 
-The **Agenda** tab shows today's date, the next event with a countdown, and everything coming up
+The **Calendar** tab shows today's date, the next event with a countdown, and everything coming up
 in the next few days. Click **Connect calendars** once and macOS asks for calendar access; the
 notch never asks on its own.
 

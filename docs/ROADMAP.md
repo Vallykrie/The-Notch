@@ -27,7 +27,7 @@ Last touched: 2026-10-14. Added on user request: see the calendar from the notch
 
 - [x] `CalendarStore` on EventKit: one source for iCloud, Google, Microsoft Exchange / Outlook and
       CalDAV (whatever macOS Internet Accounts syncs). No OAuth secrets shipped, no tokens held.
-- [x] Agenda tab: today, next event with countdown, look-ahead list, open-in-Calendar, Join for
+- [x] Calendar tab: today, next event with countdown, look-ahead list, open-in-Calendar, Join for
       Meet/Zoom/Teams/Webex links. Access is only requested from a button, never at launch.
 - [x] Settings › Calendar: feature switch, look-ahead range, all-day toggle, per-calendar
       visibility, Add account… shortcut. Usage strings + `personal-information.calendars`

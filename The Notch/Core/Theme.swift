@@ -784,8 +784,9 @@ enum Theme {
             static let cornerRadius: CGFloat = 5
             static let horizontalPadding: CGFloat = 8
             /// With four tabs at 8 the bar ran up to the camera housing's edge, and the S and M
-            /// panel sizes (scaled about the centre) pushed the last tab underneath it.
-            static let compactHorizontalPadding: CGFloat = 5
+            /// panel sizes (scaled about the centre) pushed the last tab underneath it. 3 is what
+            /// lets "Calendar" keep its full name and still clear the housing at size S.
+            static let compactHorizontalPadding: CGFloat = 3
             static let compactTabThreshold = 4
             static let spacing: CGFloat = 3
             static let selectedFillOpacity: CGFloat = 0.14

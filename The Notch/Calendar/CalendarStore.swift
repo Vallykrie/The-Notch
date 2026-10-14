@@ -206,15 +206,21 @@ final class CalendarStore: ObservableObject {
         guard observers.isEmpty else { return }
         let center = NotificationCenter.default
         let workspace = NSWorkspace.shared.notificationCenter
-        let handler: (Notification) -> Void = { [weak self] _ in
-            Task { @MainActor [weak self] in self?.refresh() }
-        }
         // A sync from any account, an edit in Calendar.app, midnight, and waking from sleep —
         // the four ways the list goes stale without the user touching the notch.
+        //
+        // One closure literal per observer rather than one shared `let`: a stored closure is not
+        // `@Sendable`, and passing it where `addObserver` wants one is a data-race warning.
         observers = [
-            (center, center.addObserver(forName: .EKEventStoreChanged, object: eventStore, queue: .main, using: handler)),
-            (center, center.addObserver(forName: .NSCalendarDayChanged, object: nil, queue: .main, using: handler)),
-            (workspace, workspace.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main, using: handler)),
+            (center, center.addObserver(forName: .EKEventStoreChanged, object: eventStore, queue: .main) { [weak self] _ in
+                Task { @MainActor [weak self] in self?.refresh() }
+            }),
+            (center, center.addObserver(forName: .NSCalendarDayChanged, object: nil, queue: .main) { [weak self] _ in
+                Task { @MainActor [weak self] in self?.refresh() }
+            }),
+            (workspace, workspace.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
+                Task { @MainActor [weak self] in self?.refresh() }
+            }),
         ]
         // Once a minute, so a meeting that ended drops off and "in 5 min" counts down. EventKit
         // is a local database; this is a cheap read, not a network call.
