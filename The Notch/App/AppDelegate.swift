@@ -58,12 +58,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         services.systemHUD.dwell = Theme.Metrics.HUD.dwell(settings.hudDwell)
 
-        // Each feature's monitor follows its switch. All three calls are idempotent.
+        // Each feature's monitor follows its switch. All four calls are idempotent.
         services.nowPlaying.configure(
             suspended: !settings.mediaEnabled,
             allowedPlayers: settings.mediaPlayers.players
         )
         services.trading.setSuspended(!settings.cryptoEnabled)
+        services.calendar.range = settings.calendarRange
+        services.calendar.showsAllDay = settings.calendarShowsAllDay
+        services.calendar.setSuspended(!settings.calendarEnabled)
         bridge?.setEnabled(settings.agentsEnabled)
 
         if let store = bridge?.store {
@@ -98,6 +101,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         services?.mediaKeys.stop()
         services?.integrations.stop()
         services?.trading.stop()
+        services?.calendar.setSuspended(true)
 
         if let screenParametersObserver {
             NotificationCenter.default.removeObserver(screenParametersObserver)

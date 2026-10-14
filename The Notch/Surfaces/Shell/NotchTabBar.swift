@@ -66,7 +66,12 @@ struct NotchTabBar: View {
                             ? Theme.Colors.textSecondary
                             : Theme.Colors.textTertiary
                 )
-                .padding(.horizontal, Theme.Metrics.TabBar.horizontalPadding)
+                .padding(
+                    .horizontal,
+                    surfaces.count >= Theme.Metrics.TabBar.compactTabThreshold
+                        ? Theme.Metrics.TabBar.compactHorizontalPadding
+                        : Theme.Metrics.TabBar.horizontalPadding
+                )
                 .frame(height: Theme.Metrics.TabBar.height)
                 .background(selectionBackground(for: surface))
                 // Applied *after* the frame so the hit area is the whole drawn pill, not just

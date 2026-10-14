@@ -272,6 +272,8 @@
 				INFOPLIST_KEY_LSMinimumSystemVersion = 14.0;
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSAppleEventsUsageDescription = "The Notch controls terminal apps to jump to the window, tab, or session that needs attention.";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "The Notch shows your upcoming events from the calendars on this Mac, including iCloud, Google and Microsoft accounts. Nothing leaves your Mac.";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "The Notch shows your upcoming events from the calendars on this Mac, including iCloud, Google and Microsoft accounts. Nothing leaves your Mac.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright (c) 2026 Vallykrie. MIT License.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -308,6 +310,8 @@
 				INFOPLIST_KEY_LSMinimumSystemVersion = 14.0;
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSAppleEventsUsageDescription = "The Notch controls terminal apps to jump to the window, tab, or session that needs attention.";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "The Notch shows your upcoming events from the calendars on this Mac, including iCloud, Google and Microsoft accounts. Nothing leaves your Mac.";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "The Notch shows your upcoming events from the calendars on this Mac, including iCloud, Google and Microsoft accounts. Nothing leaves your Mac.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright (c) 2026 Vallykrie. MIT License.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

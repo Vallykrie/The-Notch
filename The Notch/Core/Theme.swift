@@ -375,6 +375,26 @@ enum Theme {
     }
 
     enum Metrics {
+        /// The calendar panel. Two columns like the crypto panel, so the tabs share a rhythm.
+        enum CalendarPanel {
+            static let contentInset: CGFloat = 12
+            static let detailWidth: CGFloat = 200
+            static let columnSpacing: CGFloat = 18
+            static let hairlineOpacity: CGFloat = 0.25
+            static let rowSpacing: CGFloat = 6
+            static let rowHorizontalPadding: CGFloat = 6
+            /// "TODAY", "TMRW", "FRI 16" at micro size.
+            static let dayColumnWidth: CGFloat = 36
+            /// Extra air above the first event of each new day.
+            static let daySpacing: CGFloat = 4
+            /// Two days of a typical calendar fit without scrolling at 2; at 3 they did not.
+            static let rowVerticalPadding: CGFloat = 2
+            /// Fits "12:45 PM" and "all-day" at micro size.
+            static let timeColumnWidth: CGFloat = 44
+            static let accountMaxWidth: CGFloat = 70
+            static let colorMarkWidth: CGFloat = 3
+            static let colorMarkHeight: CGFloat = 9
+        }
         enum Trading {
             static let shoulderWidth: CGFloat = 72
             static let fauxHousingGap: CGFloat = 8
@@ -763,6 +783,10 @@ enum Theme {
             static let height: CGFloat = 20
             static let cornerRadius: CGFloat = 5
             static let horizontalPadding: CGFloat = 8
+            /// With four tabs at 8 the bar ran up to the camera housing's edge, and the S and M
+            /// panel sizes (scaled about the centre) pushed the last tab underneath it.
+            static let compactHorizontalPadding: CGFloat = 5
+            static let compactTabThreshold = 4
             static let spacing: CGFloat = 3
             static let selectedFillOpacity: CGFloat = 0.14
             static let trackFillOpacity: CGFloat = 0.06
@@ -870,10 +894,11 @@ enum Theme {
 
             /// The section rail down the leading edge of the settings surface.
             static let railWidth: CGFloat = 104
-            /// Five entries have to fit the same height as a five-row settings column under its
-            /// header; at 24/3 the fifth entry (Display) pushed the rail past the panel floor.
-            static let railItemHeight: CGFloat = 21
-            static let railItemSpacing: CGFloat = 2
+            /// Six entries have to fit the same height as a five-row settings column under its
+            /// header; at 24/3 the fifth entry (Display) pushed the rail past the panel floor, and
+            /// 21/2 did the same to the sixth (Calendar).
+            static let railItemHeight: CGFloat = 20
+            static let railItemSpacing: CGFloat = 1
             static let railIconSize: CGFloat = 8
             static let railIconSpacing: CGFloat = 7
             static let railStatusSize: CGFloat = 5
