@@ -612,14 +612,17 @@ private struct SparkBurst: View {
     private static let angles: [Double] = [-60, -20, 20, 60]
 
     var body: some View {
-        ZStack {
+        // Read here, not inside the keyframe closure: that closure is `@Sendable`, and `Theme`
+        // is main-actor isolated.
+        let sparkDistance = Theme.Motion.Settings.sparkDistance
+        return ZStack {
             ForEach(Self.angles, id: \.self) { angle in
                 Rectangle()
                     .fill(Theme.Colors.textPrimary)
                     .frame(width: 1, height: 1)
                     .keyframeAnimator(initialValue: CGFloat(0), trigger: trigger) { spark, progress in
                         let radians = angle * .pi / 180
-                        let distance = Theme.Motion.Settings.sparkDistance * progress
+                        let distance = sparkDistance * progress
                         spark
                             .offset(x: cos(radians) * distance, y: sin(radians) * distance)
                             .opacity(progress > 0 && progress < 1 ? Double(1 - progress) : 0)

@@ -270,6 +270,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Config/Info.plist;
 				INFOPLIST_KEY_LSMinimumSystemVersion = 14.0;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSAppleEventsUsageDescription = "The Notch controls terminal apps to jump to the window, tab, or session that needs attention.";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "The Notch shows your upcoming events from the calendars on this Mac, including iCloud, Google and Microsoft accounts. Nothing leaves your Mac.";
@@ -308,6 +309,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Config/Info.plist;
 				INFOPLIST_KEY_LSMinimumSystemVersion = 14.0;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSAppleEventsUsageDescription = "The Notch controls terminal apps to jump to the window, tab, or session that needs attention.";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "The Notch shows your upcoming events from the calendars on this Mac, including iCloud, Google and Microsoft accounts. Nothing leaves your Mac.";

@@ -134,7 +134,11 @@ struct AgentActivityGlyph {
     /// every mascot in the panel in lockstep, and four blobs blinking in perfect unison reads as
     /// one animation drawn four times — as chrome. Phased from when each session actually
     /// entered its state, the same four read as four independent things working.
-    static func cells(for status: SessionStatus, elapsed: Double, context: Context = Context()) -> [Cell] {
+    ///
+    /// `context` defaults inside the body rather than as `= Context()`: default arguments are
+    /// evaluated in a nonisolated context, and `Context` is main-actor isolated with its parent.
+    static func cells(for status: SessionStatus, elapsed: Double, context: Context? = nil) -> [Cell] {
+        let context = context ?? Context()
         var cells = render(pose(for: status, elapsed: elapsed, context: context), headroom: context.headroom)
         if context.effects {
             cells += effects(for: status, elapsed: elapsed, context: context)

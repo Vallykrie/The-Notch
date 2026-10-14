@@ -254,9 +254,12 @@ struct MediaExpandedView: View {
         _ glyph: PixelGlyph,
         label: String,
         stage: Bool,
-        tint: Color = Theme.Colors.textSecondary,
+        // Optional rather than `= Theme.Colors.textSecondary`: a default argument is evaluated in
+        // a nonisolated context, and `Theme` is main-actor isolated.
+        tint: Color? = nil,
         action: @escaping () -> Void
     ) -> some View {
+        let tint = tint ?? Theme.Colors.textSecondary
         let metrics = Theme.Metrics.MediaPanel.self
         let hit = stage ? metrics.miniHitSize : metrics.transportHitSize
         return Button(action: action) {

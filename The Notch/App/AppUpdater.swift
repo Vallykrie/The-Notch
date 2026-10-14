@@ -15,18 +15,19 @@ final class AppUpdater {
     private let delegate = InstallNowDelegate()
 
     init(enabled: Bool = true) {
+        // The whole branch is compiled out of Debug, not gated on a `false` constant: a constant
+        // condition leaves the updater construction as code the compiler warns can never run.
         #if DEBUG
-        let allowed = false
+        controller = nil
         #else
-        let allowed = enabled && Self.hasPublicKey
-        #endif
-        controller = allowed
+        controller = enabled && Self.hasPublicKey
             ? SPUStandardUpdaterController(
                 startingUpdater: true,
                 updaterDelegate: delegate,
                 userDriverDelegate: nil
             )
             : nil
+        #endif
     }
 
     /// Whether the header should offer "Check for Updates" at all.
