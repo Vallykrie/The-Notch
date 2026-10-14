@@ -10,7 +10,7 @@ import SwiftUI
 /// inside the same 640x190 silhouette as the others.
 ///
 /// It used to be one grid of four columns, which was full: a fifteenth preference had nowhere
-/// to go. Now a rail down the leading edge picks a section — Media, Agents, Crypto, General —
+/// to go. Now a rail down the leading edge picks a section — Media, Agents, Crypto, Display, General —
 /// and the section gets the rest of the panel as two columns. Each feature section is headed
 /// by that feature's own on/off switch, because someone who installed The Notch for agents
 /// alone should be able to make the other two disappear, not merely look quieter.
@@ -164,6 +164,7 @@ struct SettingsExpandedView: View {
         case .media: mediaSection
         case .agents: agentsSection
         case .crypto: cryptoSection
+        case .display: displaySection
         case .general: generalSection
         }
     }
@@ -201,6 +202,24 @@ struct SettingsExpandedView: View {
             .help("Shows the pinned pair's price on the notch. Pin a pair from the watchlist.")
         } right: {
             SettingsLinkRow(label: "Edit watchlist…", action: onEditWatchlist)
+        }
+    }
+
+    /// How the notch looks and moves: the panel's size and shadow, and its open/close motion.
+    private var displaySection: some View {
+        HStack(alignment: .top, spacing: Theme.Metrics.Settings.sectionColumnSpacing) {
+            column(header: "Panel") {
+                SettingsChoiceRow(label: "Size", selection: $settings.panelSize)
+                    .help("How big the open panel is. L is the panel as designed; M and S scale it down.")
+                SettingsToggleRow(label: "Shadow", isOn: $settings.panelShadow)
+            }
+            column(header: "Motion") {
+                SettingsToggleRow(label: "Animations", isOn: $settings.animationsEnabled)
+                    .help("Off, the panel appears and disappears without motion, and the attention effects are skipped.")
+                SettingsChoiceRow(label: "Speed", selection: $settings.animationSpeed)
+                    .modifier(PoweredDown(isOff: !settings.animationsEnabled))
+                    .help("How fast the panel opens and closes.")
+            }
         }
     }
 
@@ -296,6 +315,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     case media
     case agents
     case crypto
+    case display
     case general
 
     init(surface: NotchSurface) {
@@ -315,6 +335,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .media: "Media"
         case .agents: "Agents"
         case .crypto: "Crypto"
+        case .display: "Display"
         case .general: "General"
         }
     }
@@ -324,17 +345,18 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .media: .musicNote
         case .agents: .chip
         case .crypto: .coin
+        case .display: .openWindow
         case .general: .gear
         }
     }
 
-    /// The feature this section switches, or `nil` for General.
+    /// The feature this section switches, or `nil` for Display and General.
     var feature: NotchSurface? {
         switch self {
         case .media: .media
         case .agents: .agents
         case .crypto: .trading
-        case .general: nil
+        case .display, .general: nil
         }
     }
 }
@@ -603,3 +625,5 @@ extension FinishedRetention: SettingsOption {}
 extension HUDDwell: SettingsOption {}
 extension HoverSensitivity: SettingsOption {}
 extension MediaPlayers: SettingsOption {}
+extension PanelSize: SettingsOption {}
+extension AnimationSpeed: SettingsOption {}

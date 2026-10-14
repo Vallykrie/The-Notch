@@ -87,6 +87,15 @@ final class NotchCoordinator: ObservableObject {
 
     var stateDidChange: ((NotchState) -> Void)?
 
+    /// The user's motion preferences, mirrored from `NotchSettings` so the static transition
+    /// entry point — which only has the coordinator — opens and closes at the user's pace.
+    /// Not published: it is read when a transition starts, never rendered.
+    var motion = Theme.Motion.Preference()
+
+    /// The expanded panel's scale — see `NotchSettings.panelSize`. It moves the hit region and
+    /// the tracking area, so a change is announced like the other geometry inputs.
+    @Published private(set) var panelScale: CGFloat = 1
+
     init(
         state: NotchState = .collapsed,
         currentSurface: NotchSurface = .media,
@@ -168,7 +177,19 @@ final class NotchCoordinator: ObservableObject {
 
     /// The expanded silhouette: the onboarding band during the intro, the panel otherwise.
     var expandedSize: CGSize {
-        isOnboarding ? Theme.Metrics.onboardingBandSize : Theme.Metrics.expandedNotchSize
+        guard !isOnboarding else { return Theme.Metrics.onboardingBandSize }
+        let designed = Theme.Metrics.expandedNotchSize
+        return CGSize(width: designed.width * panelScale, height: designed.height * panelScale)
+    }
+
+    /// The expanded radii follow the panel's scale, so a smaller panel is the same shape and
+    /// not a smaller box with the large panel's corners.
+    var expandedTopRadius: CGFloat {
+        isOnboarding ? Theme.Metrics.onboardingTopCornerRadius : Theme.Metrics.expandedTopCornerRadius * panelScale
+    }
+
+    var expandedBottomRadius: CGFloat {
+        isOnboarding ? Theme.Metrics.onboardingBottomCornerRadius : Theme.Metrics.expandedBottomCornerRadius * panelScale
     }
 
     var topCornerRadius: CGFloat {
@@ -176,7 +197,7 @@ final class NotchCoordinator: ObservableObject {
         case .collapsed:
             Theme.Metrics.collapsedTopCornerRadius
         case .expanded:
-            isOnboarding ? Theme.Metrics.onboardingTopCornerRadius : Theme.Metrics.expandedTopCornerRadius
+            expandedTopRadius
         }
     }
 
@@ -185,7 +206,7 @@ final class NotchCoordinator: ObservableObject {
         case .collapsed:
             Theme.Metrics.collapsedBottomCornerRadius
         case .expanded:
-            isOnboarding ? Theme.Metrics.onboardingBottomCornerRadius : Theme.Metrics.expandedBottomCornerRadius
+            expandedBottomRadius
         }
     }
 
@@ -208,6 +229,12 @@ final class NotchCoordinator: ObservableObject {
         guard state != newState else { return }
         state = newState
         stateDidChange?(newState)
+    }
+
+    func setPanelScale(_ scale: CGFloat) {
+        guard panelScale != scale else { return }
+        panelScale = scale
+        stateDidChange?(state)
     }
 
     func setPinnedOpen(_ pinned: Bool) {

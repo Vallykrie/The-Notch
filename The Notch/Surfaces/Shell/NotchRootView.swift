@@ -14,7 +14,14 @@ struct NotchRootView: View {
     private let services: SystemServices
     @Namespace private var contentNamespace
     @Environment(\.displayScale) private var displayScale
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+
+    /// The system's Reduce Motion, or the app's own Animations switch turned off. Every
+    /// flourish in the shell treats the two the same way.
+    private var reduceMotion: Bool { systemReduceMotion || !settings.animationsEnabled }
+
+    /// The user's pace for the shell's own transitions — see `Theme.Motion.Preference`.
+    private var motion: Theme.Motion.Preference { settings.motion }
 
     /// Mirrors `coordinator.state` synchronously from its projected publisher, so the aperture
     /// springs without waiting for the coordinator's coalesced render pass. See `onReceive`.
@@ -146,7 +153,7 @@ struct NotchRootView: View {
         // activity can add or remove shoulders while `state` remains `.collapsed`, so the state
         // mirror alone never receives a change to animate.
         .onReceive(coordinator.$state.dropFirst()) { newState in
-            let animation = nextStateAnimation ?? Theme.Motion.forState(newState)
+            let animation = nextStateAnimation.flatMap(motion.paced) ?? motion.forState(newState)
             nextStateAnimation = nil
             stateWillChange(to: newState)
             withAnimation(animation) {
@@ -157,10 +164,8 @@ struct NotchRootView: View {
             // These mutations deliberately live in a second transaction. The values fade on
             // `surfaceFade`, while every view that consumes them continues resolving its
             // bounds and shape from the aperture's transaction above.
-            withAnimation(Theme.Motion.surfaceFade) {
-                shadowStrength = newState == .expanded
-                    ? Theme.Metrics.shadowOpacity
-                    : .zero
+            withAnimation(motion.paced(Theme.Motion.surfaceFade)) {
+                shadowStrength = targetShadowStrength(for: newState)
             }
             // Settings do not survive a collapse. The pin normally prevents one while they are
             // open, but a display change or a screen-parameter reposition can still close the
@@ -199,6 +204,7 @@ struct NotchRootView: View {
         .onChange(of: settings.revision) { _, _ in
             refreshActivity()
             reconcileSurface()
+            syncAppearance()
         }
         .onChange(of: trading.wantsShoulder) { _, _ in refreshActivity() }
         .onChange(of: attentionFlags) { _, _ in refreshActivity() }
@@ -226,9 +232,8 @@ struct NotchRootView: View {
         }
         .onAppear {
             animatedState = coordinator.state
-            shadowStrength = coordinator.state == .expanded
-                ? Theme.Metrics.shadowOpacity
-                : .zero
+            shadowStrength = targetShadowStrength(for: coordinator.state)
+            syncAppearance()
             fx.pointer = { [coordinator] in coordinator.pointerLocation }
             fx.reduceMotion = reduceMotion
             refreshActivity(animated: false)
@@ -369,9 +374,11 @@ struct NotchRootView: View {
                 )
                 .opacity(animatedState == .collapsed ? 1 : .zero)
                 .animation(
-                    animatedState == .collapsed
-                        ? Theme.Motion.contentEnter
-                        : Theme.Motion.contentExit,
+                    motion.paced(
+                        animatedState == .collapsed
+                            ? Theme.Motion.contentEnter
+                            : Theme.Motion.contentExit
+                    ),
                     value: animatedState
                 )
 
@@ -398,12 +405,14 @@ struct NotchRootView: View {
                 // direction-aware enter/exit curve below. Putting one animation after all
                 // three effects made the blur finish with the fast fade while the aperture
                 // edge was still cutting across content.
-                .animation(Theme.Motion.contentEntry, value: animatedState)
+                .animation(motion.paced(Theme.Motion.contentEntry), value: animatedState)
                 .opacity(animatedState == .expanded ? 1 : .zero)
                 .animation(
-                    animatedState == .expanded
-                        ? Theme.Motion.contentEnter
-                        : Theme.Motion.contentExit,
+                    motion.paced(
+                        animatedState == .expanded
+                            ? Theme.Motion.contentEnter
+                            : Theme.Motion.contentExit
+                    ),
                     value: animatedState
                 )
         }
@@ -424,7 +433,17 @@ struct NotchRootView: View {
         if let onboarding, coordinator.isOnboarding {
             OnboardingView(director: onboarding, integrations: services.integrations)
         } else {
+            // Laid out at the designed size and scaled as a whole — see
+            // `Theme.Metrics.panelScaleSmall`. `scaleEffect` leaves the layout size alone, so
+            // the frame around this (the scaled size) centres the designed-size panel and the
+            // top-anchored scale lands it exactly inside.
             panelContent
+                .frame(
+                    width: Theme.Metrics.expandedNotchSize.width,
+                    height: Theme.Metrics.expandedNotchSize.height,
+                    alignment: .top
+                )
+                .scaleEffect(coordinator.panelScale, anchor: .top)
         }
     }
 
@@ -607,6 +626,21 @@ struct NotchRootView: View {
         }
     }
 
+    /// Pushes the appearance preferences the coordinator needs to know about — the panel's
+    /// scale moves the hit region, and the motion pace is read by the static transition.
+    private func syncAppearance() {
+        coordinator.motion = motion
+        coordinator.setPanelScale(settings.panelScale)
+        let target = targetShadowStrength(for: coordinator.state)
+        if shadowStrength != target {
+            withAnimation(motion.paced(Theme.Motion.surfaceFade)) { shadowStrength = target }
+        }
+    }
+
+    private func targetShadowStrength(for state: NotchState) -> CGFloat {
+        state == .expanded && settings.panelShadow ? Theme.Metrics.shadowOpacity : .zero
+    }
+
     /// Moves the panel off a tab whose feature was just switched off, onto the first one still
     /// on. With every feature off there is nowhere to go, and the panel says so instead.
     private func reconcileSurface() {
@@ -655,12 +689,8 @@ struct NotchRootView: View {
             )
         case .expanded:
             NotchShape(
-                topCornerRadius: coordinator.isOnboarding
-                    ? Theme.Metrics.onboardingTopCornerRadius
-                    : Theme.Metrics.expandedTopCornerRadius,
-                bottomCornerRadius: coordinator.isOnboarding
-                    ? Theme.Metrics.onboardingBottomCornerRadius
-                    : Theme.Metrics.expandedBottomCornerRadius,
+                topCornerRadius: coordinator.expandedTopRadius,
+                bottomCornerRadius: coordinator.expandedBottomRadius,
                 displayScale: displayScale,
                 belly: belly
             )
@@ -673,7 +703,7 @@ struct NotchRootView: View {
     /// Open and close use different springs — see `Theme.Motion`. Driving both directions from
     /// one curve is what made the close read as a rubber-band snap.
     static func transition(_ coordinator: NotchCoordinator, to state: NotchState) {
-        withAnimation(Theme.Motion.forState(state)) {
+        withAnimation(coordinator.motion.forState(state)) {
             coordinator.setState(state)
         }
     }
@@ -726,7 +756,7 @@ extension NotchRootView {
             coordinator.show(.agents)
             if !reduceMotion {
                 fx.rim(tint, mode: .pulse)
-                fx.rings(around: coordinator.expandedSize, topRadius: Theme.Metrics.expandedTopCornerRadius, bottomRadius: Theme.Metrics.expandedBottomCornerRadius, tint: tint, count: 1)
+                fx.rings(around: coordinator.expandedSize, topRadius: coordinator.expandedTopRadius, bottomRadius: coordinator.expandedBottomRadius, tint: tint, count: 1)
             }
             startNudging(kind)
             return
@@ -749,8 +779,8 @@ extension NotchRootView {
                 guard !Task.isCancelled else { return }
                 change(to: .expanded, with: Theme.Motion.pop)
                 kickBelly(attention.popBelly)
-                fx.rings(around: expanded, topRadius: Theme.Metrics.expandedTopCornerRadius, bottomRadius: Theme.Metrics.expandedBottomCornerRadius, tint: tint, count: 2)
-                fx.sparks(off: fx.body(expanded, topRadius: Theme.Metrics.expandedTopCornerRadius), tint: tint)
+                fx.rings(around: expanded, topRadius: coordinator.expandedTopRadius, bottomRadius: coordinator.expandedBottomRadius, tint: tint, count: 2)
+                fx.sparks(off: fx.body(expanded, topRadius: coordinator.expandedTopRadius), tint: tint)
                 fx.rim(tint, mode: .pulse)
             } else {
                 fx.hangDrop(under: fx.attachment(coordinator.collapsedSize, expanded: false), radius: attention.questionDrop.radius, hang: attention.questionDrop.hang)
@@ -788,7 +818,7 @@ extension NotchRootView {
         if kind == .approval {
             kick(width: attention.nudgeWidth)
             kickBelly(attention.nudgeBelly)
-            fx.rings(around: coordinator.expandedSize, topRadius: Theme.Metrics.expandedTopCornerRadius, bottomRadius: Theme.Metrics.expandedBottomCornerRadius, tint: tint, count: 1)
+            fx.rings(around: coordinator.expandedSize, topRadius: coordinator.expandedTopRadius, bottomRadius: coordinator.expandedBottomRadius, tint: tint, count: 1)
             fx.rim(tint, mode: .pulse)
         } else {
             fx.hangDrop(under: fx.attachment(coordinator.expandedSize, expanded: true), radius: attention.nudgeDrop.radius, hang: attention.nudgeDrop.hang, life: attention.nudgeDropLife)

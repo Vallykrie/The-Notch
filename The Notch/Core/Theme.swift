@@ -68,7 +68,16 @@ enum Theme {
         /// walked off its edge, and a hard start there is what made it snap. It still
         /// terminates, which is the whole reason this is a timing curve and not a spring, and
         /// it still never overshoots.
-        static let close = Animation.timingCurve(0.42, 0.0, 0.22, 1.0, duration: 0.32)
+        ///
+        /// Then user reports came in that the close felt *late*, and they were right: it was
+        /// the 220ms exit debounce, plus this curve's soft 0.42 head — which moves the panel
+        /// barely a point in its first ~60ms — stacked into roughly 300ms of a panel sitting
+        /// still after the pointer had gone. The softened head had been solving "snaps out from
+        /// under the pointer", but the pointer is already past the 28pt grace ring by the time a
+        /// close fires, so there is nobody under it to snap away from. The head is back to a
+        /// prompt start, and the duration comes down to sit just above the open's visible
+        /// travel. It still terminates and still never overshoots.
+        static let close = Animation.timingCurve(0.25, 0.0, 0.2, 1.0, duration: 0.24)
 
         /// Anything the pointer is directly dragging. Lower response than `open` so it tracks
         /// the finger instead of trailing it.
@@ -305,10 +314,15 @@ enum Theme {
         /// past the point where a surface stops feeling directly manipulated. Not zero,
         /// though: the collapsed region sits in the middle of the menu bar and the pointer
         /// crosses it on the way between menu bar items, so some debounce still earns its
-        /// keep. The exit delay is untouched — the grace zone on the way out does different
-        /// work and 220ms is right for it.
+        /// keep.
+        ///
+        /// The exit delay was 220ms and was the larger half of why the close felt slow — see
+        /// `close`. The expanded hit region already carries a 28pt grace ring
+        /// (`expandedTrackingInset`), so the pointer clipping a rounded corner on its way to a
+        /// button never leaves the region at all; the debounce only has to absorb a pointer
+        /// that genuinely left and is coming straight back, and 80ms does that.
         static let hoverEnterDelay: Duration = .milliseconds(40)
-        static let hoverExitDelay: Duration = .milliseconds(220)
+        static let hoverExitDelay: Duration = .milliseconds(80)
 
         /// The same two delays, per `HoverSensitivity`. `.standard` is the pair above and must
         /// stay identical to it — that pairing is what makes "Restore Defaults" put the hover
@@ -328,14 +342,35 @@ enum Theme {
 
         static func hoverExitDelay(_ sensitivity: HoverSensitivity) -> Duration {
             switch sensitivity {
-            case .instant: .milliseconds(120)
+            case .instant: .milliseconds(40)
             case .standard: hoverExitDelay
-            case .relaxed: .milliseconds(450)
+            case .relaxed: .milliseconds(300)
             }
         }
 
         static func forState(_ state: NotchState) -> Animation {
             state == .expanded ? open : close
+        }
+
+        /// The user's motion preferences: whether the shell animates at all, and how fast.
+        ///
+        /// Applied as a *pace* on top of the tuned curves rather than as a second set of
+        /// curves, so every relationship the comments above depend on — the content fade
+        /// landing inside the close, the shadow leaving before the silhouette lands — holds at
+        /// every speed, because every one of those durations scales by the same factor.
+        struct Preference: Equatable {
+            var isAnimated = true
+            var speed: AnimationSpeed = .default
+
+            /// `animation` at the user's pace, or `nil` — no animation — when they switched
+            /// animations off.
+            func paced(_ animation: Animation) -> Animation? {
+                isAnimated ? animation.speed(speed.multiplier) : nil
+            }
+
+            func forState(_ state: NotchState) -> Animation? {
+                paced(Motion.forState(state))
+            }
         }
     }
 
@@ -364,6 +399,13 @@ enum Theme {
         /// vertical padding and the two content insets comes to 178; 190 leaves the
         /// transport row a margin it can breathe in rather than sitting on the bottom curve.
         static let expandedNotchSize = CGSize(width: 640, height: 190)
+        /// The "S" and "M" panel sizes. The panel is laid out at `expandedNotchSize` and scaled
+        /// as a whole rather than re-laid-out at each size, because every surface's vertical
+        /// budget was measured against 190pt and a smaller panel that reflowed would have to be
+        /// re-measured surface by surface. Below 0.8 the 11pt caption type drops under 9pt
+        /// on screen, which is past where Departure Mono stays legible.
+        static let panelScaleMedium: CGFloat = 0.9
+        static let panelScaleSmall: CGFloat = 0.8
 
         static let collapsedTopCornerRadius: CGFloat = 6
         static let collapsedBottomCornerRadius: CGFloat = 14
@@ -828,8 +870,10 @@ enum Theme {
 
             /// The section rail down the leading edge of the settings surface.
             static let railWidth: CGFloat = 104
-            static let railItemHeight: CGFloat = 24
-            static let railItemSpacing: CGFloat = 3
+            /// Five entries have to fit the same height as a five-row settings column under its
+            /// header; at 24/3 the fifth entry (Display) pushed the rail past the panel floor.
+            static let railItemHeight: CGFloat = 21
+            static let railItemSpacing: CGFloat = 2
             static let railIconSize: CGFloat = 8
             static let railIconSpacing: CGFloat = 7
             static let railStatusSize: CGFloat = 5

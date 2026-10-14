@@ -616,6 +616,8 @@ enum FrameDump {
         let settingsSections: [(name: String, section: SettingsSection, featureOff: Bool)] =
             SettingsSection.allCases.map { ("expanded-settings-\($0.rawValue)", $0, false) }
             + [("expanded-settings-media-off", .media, true)]
+        // The smaller panel sizes, rendered on the densest surface there is.
+        let panelSizes: [PanelSize] = [.medium, .small]
         for item in settingsSections {
             let services = SystemServices(
                 nowPlaying: MediaPreviewData.playingMonitor(),
@@ -641,7 +643,35 @@ enum FrameDump {
             write(view, to: directory, name: "scenario-\(item.name).png")
         }
 
-        return scenarios.count + tradingScenarios.count + settingsSections.count
+        for size in panelSizes {
+            let services = SystemServices(
+                nowPlaying: MediaPreviewData.playingMonitor(),
+                systemHUD: .previewIdle(),
+                trading: TradingPreviewData.populatedStore()
+            )
+            services.settings.panelSize = size
+            let coordinator = NotchCoordinator(
+                state: .expanded,
+                currentSurface: .agents,
+                collapsedSize: geometry.collapsedNotchSize,
+                hasPhysicalNotch: geometry.hasPhysicalNotch
+            )
+            coordinator.setPanelScale(services.settings.panelScale)
+            let view = NotchRootView(
+                coordinator: coordinator,
+                store: AgentsPreviewData.concurrentStore(),
+                services: services,
+                debugShowsSettings: true,
+                debugSettingsSection: .display
+            )
+            .frame(width: geometry.panelFrame.width, height: geometry.panelFrame.height)
+            .background(backdrop)
+            write(view, to: directory, name: "scenario-expanded-settings-display-\(size.rawValue).png")
+            // The ephemeral suite outlives this loop; leave it at the shipped size.
+            services.settings.panelSize = .default
+        }
+
+        return scenarios.count + tradingScenarios.count + settingsSections.count + panelSizes.count
     }
 
     /// A playing track with lyrics already loaded, no network.

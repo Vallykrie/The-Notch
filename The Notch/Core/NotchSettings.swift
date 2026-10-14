@@ -106,6 +106,26 @@ final class NotchSettings: ObservableObject {
     /// How long the level readout stays after the last change.
     @Published var hudDwell: HUDDwell { didSet { commit(hudDwell.rawValue, .hudDwell) } }
 
+    // MARK: Appearance
+
+    /// How big the expanded panel is. Large is the panel as designed; the others scale it down
+    /// whole — see `Theme.Metrics.panelScaleSmall`. The collapsed notch never changes size: it
+    /// is drawn to the hardware cutout, and a smaller one would leave the camera uncovered.
+    @Published var panelSize: PanelSize { didSet { commit(panelSize.rawValue, .panelSize) } }
+
+    /// Whether the panel opens and closes with motion at all. Off, it appears and disappears
+    /// outright, and the attention flourishes (pops, drips, confetti) are skipped — the same
+    /// treatment the system Reduce Motion setting gets.
+    @Published var animationsEnabled: Bool { didSet { commit(animationsEnabled, .animationsEnabled) } }
+
+    /// How fast the panel opens and closes.
+    @Published var animationSpeed: AnimationSpeed {
+        didSet { commit(animationSpeed.rawValue, .animationSpeed) }
+    }
+
+    /// The soft shadow the open panel casts onto the desktop.
+    @Published var panelShadow: Bool { didSet { commit(panelShadow, .panelShadow) } }
+
     // MARK: Behaviour
 
     /// Whether the pointer arriving over the notch expands it. With this off the notch only
@@ -206,6 +226,14 @@ final class NotchSettings: ObservableObject {
         hudDwell = HUDDwell(
             rawValue: defaults.string(forKey: Key.hudDwell.rawValue) ?? ""
         ) ?? .default
+        panelSize = PanelSize(
+            rawValue: defaults.string(forKey: Key.panelSize.rawValue) ?? ""
+        ) ?? .default
+        animationsEnabled = defaults.bool(forKey: Key.animationsEnabled.rawValue)
+        animationSpeed = AnimationSpeed(
+            rawValue: defaults.string(forKey: Key.animationSpeed.rawValue) ?? ""
+        ) ?? .default
+        panelShadow = defaults.bool(forKey: Key.panelShadow.rawValue)
         expandOnHover = defaults.bool(forKey: Key.expandOnHover.rawValue)
         hoverSensitivity = HoverSensitivity(
             rawValue: defaults.string(forKey: Key.hoverSensitivity.rawValue) ?? ""
@@ -247,6 +275,10 @@ final class NotchSettings: ObservableObject {
             Key.showAgentModel.rawValue: false,
             Key.celebrateFinishedRuns.rawValue: true,
             Key.replaceSystemHUD.rawValue: true,
+            Key.panelSize.rawValue: PanelSize.default.rawValue,
+            Key.animationsEnabled.rawValue: true,
+            Key.animationSpeed.rawValue: AnimationSpeed.default.rawValue,
+            Key.panelShadow.rawValue: true,
             Key.expandOnHover.rawValue: true,
             Key.finishedRetention.rawValue: FinishedRetention.default.rawValue,
             Key.hudDwell.rawValue: HUDDwell.default.rawValue,
@@ -274,6 +306,10 @@ final class NotchSettings: ObservableObject {
             && finishedRetention == .default
             && replaceSystemHUD
             && hudDwell == .default
+            && panelSize == .default
+            && animationsEnabled
+            && animationSpeed == .default
+            && panelShadow
             && expandOnHover
             && hoverSensitivity == .default
     }
@@ -304,8 +340,26 @@ final class NotchSettings: ObservableObject {
         finishedRetention = .default
         replaceSystemHUD = true
         hudDwell = .default
+        panelSize = .default
+        animationsEnabled = true
+        animationSpeed = .default
+        panelShadow = true
         expandOnHover = true
         hoverSensitivity = .default
+    }
+
+    /// The motion preferences, as the shell consumes them.
+    var motion: Theme.Motion.Preference {
+        Theme.Motion.Preference(isAnimated: animationsEnabled, speed: animationSpeed)
+    }
+
+    /// How much the expanded panel is scaled from its designed size.
+    var panelScale: CGFloat {
+        switch panelSize {
+        case .small: Theme.Metrics.panelScaleSmall
+        case .medium: Theme.Metrics.panelScaleMedium
+        case .large: 1
+        }
     }
 
     // MARK: Derived policy
@@ -360,6 +414,10 @@ final class NotchSettings: ObservableObject {
         case finishedRetention = "NotchFinishedSessionRetention"
         case replaceSystemHUD = "NotchReplaceSystemHUD"
         case hudDwell = "NotchHUDDwell"
+        case panelSize = "NotchPanelSize"
+        case animationsEnabled = "NotchAnimationsEnabled"
+        case animationSpeed = "NotchAnimationSpeed"
+        case panelShadow = "NotchPanelShadow"
         case expandOnHover = "NotchExpandOnHover"
         case hoverSensitivity = "NotchHoverSensitivity"
     }
@@ -508,6 +566,51 @@ nonisolated enum HoverSensitivity: String, CaseIterable, Identifiable, Sendable 
         case .instant: "Instant"
         case .standard: "Normal"
         case .relaxed: "Relaxed"
+        }
+    }
+}
+
+nonisolated enum PanelSize: String, CaseIterable, Identifiable, Sendable {
+    case small
+    case medium
+    case large
+
+    static let `default` = PanelSize.large
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .small: "S"
+        case .medium: "M"
+        case .large: "L"
+        }
+    }
+}
+
+nonisolated enum AnimationSpeed: String, CaseIterable, Identifiable, Sendable {
+    case slow
+    case normal
+    case fast
+
+    static let `default` = AnimationSpeed.normal
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .slow: "Slow"
+        case .normal: "Normal"
+        case .fast: "Fast"
+        }
+    }
+
+    /// Passed to `Animation.speed(_:)`: above 1 runs faster.
+    var multiplier: Double {
+        switch self {
+        case .slow: 0.7
+        case .normal: 1
+        case .fast: 1.5
         }
     }
 }
