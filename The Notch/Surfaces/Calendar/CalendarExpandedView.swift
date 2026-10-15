@@ -24,7 +24,7 @@ struct CalendarExpandedView: View {
             content(now: context.date)
         }
         .foregroundStyle(Theme.Colors.textPrimary)
-        .padding(.horizontal, Theme.Metrics.expandedHorizontalPadding + Theme.Metrics.CalendarPanel.contentInset)
+        .padding(.horizontal, Theme.Metrics.expandedHorizontalPadding)
         .padding(.bottom, Theme.Metrics.expandedVerticalPadding)
     }
 
@@ -41,7 +41,7 @@ struct CalendarExpandedView: View {
             pitch(
                 headline: "Calendar access is off.",
                 detail: "Allow The Notch under Privacy › Calendars.",
-                action: "Open Privacy Settings"
+                action: "Open privacy settings"
             )
         case .granted:
             let day = selectedDay ?? calendar.startOfDay(for: now)
@@ -170,7 +170,6 @@ struct CalendarExpandedView: View {
         }
         .font(Theme.Text.micro)
         .buttonStyle(.plain)
-        .padding(.horizontal, Theme.Metrics.CalendarPanel.rowHorizontalPadding)
     }
 
     private func pageWeek(by weeks: Int, now: Date) {
@@ -194,10 +193,9 @@ struct CalendarExpandedView: View {
                     .foregroundStyle(Theme.Colors.textTertiary)
                 if store.calendars.isEmpty {
                     Button("+ Add an account") { CalendarStore.openInternetAccounts() }
-                        .buttonStyle(.notchCompact)
+                        .buttonStyle(.notchSecondary())
                 }
             }
-            .padding(.horizontal, Theme.Metrics.CalendarPanel.rowHorizontalPadding)
         } else {
             // Column-major, so the day reads down the left column and continues on the right.
             let half = (events.count + 1) / 2
@@ -210,6 +208,9 @@ struct CalendarExpandedView: View {
                 ScrollView { columns }.scrollIndicators(.never)
             }
             .frame(maxHeight: .infinity, alignment: .top)
+            // Each row pads its text inside its plate; pulling the list out by the same amount
+            // puts the text on the column edge with the strip and the summary above it.
+            .padding(.horizontal, -Theme.Metrics.CalendarPanel.rowHorizontalPadding)
         }
     }
 
@@ -244,7 +245,7 @@ struct CalendarExpandedView: View {
                 if event.meetingURL != nil {
                     if isNext {
                         Button("Join") { store.join(event) }
-                            .buttonStyle(CalendarJoinStyle())
+                            .buttonStyle(.notchPrimary(tint: Theme.Colors.textPrimary, size: .inline))
                             .help(event.meetingURL?.host ?? "")
                     } else if !isPast {
                         Image(systemName: "video")
@@ -278,7 +279,7 @@ struct CalendarExpandedView: View {
                     .font(Theme.Text.caption).foregroundStyle(Theme.Colors.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                 Button(action) { store.requestAccess() }
-                    .buttonStyle(.notchCompact)
+                    .buttonStyle(.notchSecondary())
                     .padding(.top, 2)
             }
             .frame(width: Theme.Metrics.CalendarPanel.detailWidth, alignment: .leading)
@@ -348,20 +349,6 @@ struct CalendarExpandedView: View {
 }
 
 /// The solid Join chip on the next event's row — the one filled control in the panel.
-private struct CalendarJoinStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(Theme.Text.micro)
-            .foregroundStyle(Color.black)
-            .padding(.horizontal, Theme.Metrics.CalendarPanel.joinHorizontalPadding)
-            .frame(height: Theme.Metrics.CalendarPanel.joinHeight)
-            .background(
-                RoundedRectangle(cornerRadius: Theme.Metrics.CalendarPanel.joinCornerRadius, style: .continuous)
-                    .fill(Theme.Colors.textPrimary.opacity(configuration.isPressed ? 0.7 : 1))
-            )
-    }
-}
-
 /// Hover and press fill for an event row, matching the crypto watchlist's selected row.
 private struct CalendarRowStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {

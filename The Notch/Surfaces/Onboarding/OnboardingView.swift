@@ -140,13 +140,13 @@ struct OnboardingView: View {
             TypedText(text: afterword, start: director.afterwordAt)
                 .font(Theme.Text.body)
                 .foregroundStyle(director.afterwordIsGood ? Theme.Colors.Status.done : Theme.Colors.textSecondary)
-                .padding(.top, Theme.Metrics.Control.verticalPadding)
+                .padding(.top, Theme.Metrics.Onboarding.afterwordTopPadding)
         } else {
             HStack(spacing: Theme.Metrics.collapsedContentSpacing * 1.5) {
                 Button("not now") { director.notNow() }
-                    .buttonStyle(NotchButtonStyle())
+                    .buttonStyle(.notchSecondary())
                 Button(director.hasSomethingToConnect ? "connect ⏎" : "continue ⏎") { director.connect() }
-                    .buttonStyle(OnboardingPrimaryButtonStyle())
+                    .buttonStyle(.notchPrimary(tint: Theme.Colors.ink))
                     .keyboardShortcut(.defaultAction)
             }
             .disabled(director.hasAnswered)
@@ -179,22 +179,5 @@ private struct TypedText: View {
 
     private func isFinished(_ start: TimeInterval) -> Bool {
         NotchFX.now - start > Double(text.count) / Theme.Motion.Onboarding.typeRate + 0.1
-    }
-}
-
-/// The intro's one filled button: ink on black, so the answer that touches the user's config
-/// is unmistakably the one being offered.
-private struct OnboardingPrimaryButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(Theme.Text.body)
-            .foregroundStyle(Theme.Colors.surface)
-            .padding(.horizontal, Theme.Metrics.Control.horizontalPadding)
-            .padding(.vertical, Theme.Metrics.Control.verticalPadding)
-            .background(
-                RoundedRectangle(cornerRadius: Theme.Metrics.Control.cornerRadius, style: .continuous)
-                    .fill(Theme.Colors.ink.opacity(configuration.isPressed ? 0.8 : 1))
-            )
-            .contentShape(Rectangle())
     }
 }

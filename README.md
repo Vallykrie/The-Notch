@@ -154,7 +154,7 @@ Each row shows the project, what the agent is doing right now, elapsed time, tok
 Subagents appear indented under the session that started them.
 
 - Hover over a row and click **–** to hide it. It comes back if that session does something new.
-- **Clear Idle** removes every idle session at once.
+- **Clear idle** removes every idle session at once.
 - Sessions that go quiet become *Idle* after 5 minutes and leave the list after 15 minutes.
 
 ### 6. Media, volume and brightness

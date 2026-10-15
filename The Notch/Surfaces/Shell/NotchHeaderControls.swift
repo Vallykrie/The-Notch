@@ -47,45 +47,21 @@ struct NotchGearButton: View {
     }
 }
 
-/// A quiet text button for the header row: Restore Defaults, Quit, Clear.
+/// A button for the header row: Restore defaults, Updates, Quit, Clear idle.
 ///
-/// Not `NotchButtonStyle`. That style is sized for the approval card, where the two buttons are
-/// the point of the surface; in a 26pt header row its padding alone overflows the row. This is
-/// the same idea at chrome scale.
+/// `NotchButtonStyle` at `.compact`, the size of the tab pills it replaces or sits beside, so
+/// the header row reads as one strip of chrome whichever surface is showing.
 @MainActor
 struct NotchHeaderActionButton: View {
     let title: String
+    var role: NotchButtonStyle.Role = .secondary
     var isEnabled: Bool = true
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(Theme.Text.micro)
-                .foregroundStyle(
-                    isEnabled ? Theme.Colors.textSecondary : Theme.Colors.textTertiary
-                )
-                .padding(.horizontal, Theme.Metrics.TabBar.horizontalPadding)
-                .frame(height: Theme.Metrics.TabBar.height)
-                .background(
-                    RoundedRectangle(
-                        cornerRadius: Theme.Metrics.TabBar.cornerRadius,
-                        style: .continuous
-                    )
-                    .fill(
-                        Theme.Colors.textPrimary
-                            .opacity(Theme.Metrics.TabBar.trackFillOpacity)
-                    )
-                )
-                .contentShape(
-                    RoundedRectangle(
-                        cornerRadius: Theme.Metrics.TabBar.cornerRadius,
-                        style: .continuous
-                    )
-                )
-        }
-        .buttonStyle(.plain)
-        .disabled(!isEnabled)
-        .accessibilityLabel(title)
+        Button(title, action: action)
+            .buttonStyle(NotchButtonStyle(role: role, size: .compact))
+            .disabled(!isEnabled)
+            .accessibilityLabel(title)
     }
 }
