@@ -114,10 +114,12 @@ nonisolated struct ArtworkAccent: Equatable, Sendable {
 
         // Neighbouring buckets vote together, so a hue sitting on a bucket boundary is not
         // split in half and beaten by a weaker one that happens to sit in the middle of its own.
-        let smoothed = (0 ..< hueBuckets).map { index in
-            weights[index]
-                + 0.5 * weights[(index + hueBuckets - 1) % hueBuckets]
-                + 0.5 * weights[(index + 1) % hueBuckets]
+        // Spelled out step by step: as one expression inside the closure, the compiler in
+        // Xcode 26.3 (CI) gave up type-checking it.
+        let smoothed: [Double] = (0 ..< hueBuckets).map { (index: Int) -> Double in
+            let previous: Double = weights[(index + hueBuckets - 1) % hueBuckets]
+            let next: Double = weights[(index + 1) % hueBuckets]
+            return weights[index] + 0.5 * previous + 0.5 * next
         }
         guard let winner = smoothed.indices.max(by: { smoothed[$0] < smoothed[$1] }),
               weights[winner] > 0,
