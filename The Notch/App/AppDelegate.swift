@@ -34,6 +34,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
+        #if DEBUG
+        // Browser-media spike: prove the bundled MediaRemoteAdapter works when this app runs it.
+        if let seconds = MediaRemoteSpike.requestedDuration {
+            MediaRemoteSpike.run(seconds: seconds)
+            NSApp.terminate(nil)
+            return
+        }
+        #endif
+
         // Unconditionally, and before anything decides whether to suppress it again. A previous
         // run that was force-killed never got its `applicationWillTerminate`, so the system HUD
         // helper can still be stopped from last time; restoring at launch makes that self-heal
