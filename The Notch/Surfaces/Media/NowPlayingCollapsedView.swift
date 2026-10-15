@@ -94,6 +94,9 @@ struct NowPlayingArtworkView: View {
 /// which is a wider silhouette bought with something nobody could actually read. The bars say
 /// the one thing the artwork opposite them cannot: that the track is playing *right now*.
 ///
+/// The bars take the cover's colour (`ArtworkAccent`), the way the Dynamic Island's do, so the
+/// two shoulders read as one track rather than as artwork plus an app-coloured meter.
+///
 /// It carries no frame or alignment of its own. The shoulder it lands on owns that, because
 /// only the shoulder knows which edge is the outer one — see `CollapsedLiveActivityView`.
 @MainActor
@@ -102,74 +105,133 @@ struct NowPlayingWaveformView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    /// The cover's colour, keyed by the artwork it came from so a stale result from the
+    /// previous track can never land on the next one.
+    @State private var accent: (identity: String?, color: Color)?
+
     var body: some View {
-        bars
-            .frame(height: Theme.Metrics.LiveActivity.waveformMaxHeight)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(status.isPlaying ? "Playing" : "Paused")
+        // One timeline for both states. It pauses rather than being swapped out, so pausing is
+        // the bars *settling* (energy springs to zero over a frozen clock) instead of a view
+        // being replaced by a different one mid-frame.
+        TimelineView(.animation(minimumInterval: nil, paused: !isAnimating)) { context in
+            WaveformBars(date: context.date, energy: isAnimating ? 1 : 0, tint: tint)
+        }
+        .frame(height: Theme.Metrics.LiveActivity.waveformMaxHeight)
+        .animation(Theme.Motion.waveformEnergy, value: isAnimating)
+        .animation(Theme.Motion.waveformTint, value: tint)
+        .task(id: status.artworkIdentity) { await updateAccent() }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(status.isPlaying ? "Playing" : "Paused")
     }
 
-    @ViewBuilder
-    private var bars: some View {
-        if status.isPlaying, !reduceMotion {
-            TimelineView(.animation) { context in
-                row(at: context.date)
-            }
-        } else {
-            // A paused track is still a track, so the bars stay — frozen and dim. The
-            // alternative was a pause glyph here, but that would put the *same* mark on this
-            // shoulder that an artwork-less track puts on the leading one, and two identical
-            // glyphs either side of the camera housing reads as a rendering fault rather than
-            // as a paused song.
-            row(at: nil)
+    private var isAnimating: Bool {
+        status.isPlaying && !reduceMotion
+    }
+
+    private var tint: Color {
+        guard status.isPlaying else { return Theme.Colors.textSecondary }
+        guard let accent, accent.identity == status.artworkIdentity else {
+            return Theme.Colors.Status.playing
+        }
+        return accent.color
+    }
+
+    private func updateAccent() async {
+        guard let artwork = status.artwork else {
+            accent = nil
+            return
+        }
+        let identity = status.artworkIdentity
+        let extracted = await Task.detached(priority: .utility) {
+            ArtworkAccent.extract(from: artwork)
+        }.value
+        guard !Task.isCancelled else { return }
+        accent = extracted.map {
+            (identity, Color(.sRGB, red: $0.red, green: $0.green, blue: $0.blue))
         }
     }
+}
 
-    /// One `date` of `nil` means "not animating" rather than a second code path, so the paused
-    /// and playing states are laid out by the same function and cannot drift apart in width.
-    private func row(at date: Date?) -> some View {
-        HStack(spacing: Theme.Metrics.LiveActivity.waveformBarSpacing) {
-            ForEach(0 ..< Theme.Metrics.LiveActivity.waveformBarCount, id: \.self) { index in
-                RoundedRectangle(
-                    cornerRadius: Theme.Metrics.LiveActivity.waveformCornerRadius,
-                    style: .continuous
-                )
-                .fill(tint)
-                .frame(
-                    width: Theme.Metrics.LiveActivity.waveformBarWidth,
-                    height: barHeight(at: date, index: index)
-                )
+/// The bars themselves, for one instant and one energy.
+///
+/// `energy` is animatable, which is the whole reason this is its own view: SwiftUI interpolates
+/// it between 0 (paused) and 1 (playing), and every frame in between is a real mix of the live
+/// wave and the resting silhouette, so play and pause glide instead of cutting.
+private struct WaveformBars: View, Animatable {
+    let date: Date
+    var energy: Double
+    let tint: Color
+
+    nonisolated var animatableData: Double {
+        get { energy }
+        set { energy = newValue }
+    }
+
+    private typealias Metrics = Theme.Metrics.LiveActivity
+
+    var body: some View {
+        HStack(spacing: Metrics.waveformBarSpacing) {
+            ForEach(0 ..< Metrics.waveformBarCount, id: \.self) { index in
+                RoundedRectangle(cornerRadius: Metrics.waveformCornerRadius, style: .continuous)
+                    .fill(tint)
+                    .frame(width: Metrics.waveformBarWidth, height: height(of: index))
             }
         }
         // Bars grow from the floor, not from the middle. A centre-anchored waveform at this
         // scale reads as a blinking dash; anchored to the baseline it reads as a level meter,
         // which is what it is standing in for.
-        .frame(
-            height: Theme.Metrics.LiveActivity.waveformMaxHeight,
-            alignment: .bottom
-        )
+        .frame(height: Metrics.waveformMaxHeight, alignment: .bottom)
     }
 
-    private var tint: Color {
-        status.isPlaying ? Theme.Colors.Status.playing : Theme.Colors.textSecondary
+    private func height(of index: Int) -> CGFloat {
+        let level = Self.restingLevel(index) * (1 - energy) + liveLevel(index) * energy
+        return Metrics.waveformMinHeight + (Metrics.waveformMaxHeight - Metrics.waveformMinHeight) * level
     }
 
-    /// A paused row is the wave *frozen at phase zero*, not the wave flattened to its minimum.
+    /// The paused silhouette: a fixed, uneven skyline.
     ///
-    /// Flattening was tried and rendered as five dots along the floor — which at this scale is
-    /// indistinguishable from an ellipsis, and an ellipsis is already this app's "thinking"
-    /// mark on the agent shoulder. Freezing keeps the silhouette unmistakably a waveform; the
-    /// dimmer tint is what says it has stopped.
-    private func barHeight(at date: Date?, index: Int) -> CGFloat {
-        let date = date ?? Date(timeIntervalSinceReferenceDate: 0)
+    /// Not the wave flattened to its minimum — that rendered as five dots along the floor,
+    /// indistinguishable from an ellipsis, which is already this app's "thinking" mark on the
+    /// agent shoulder. And not the wave frozen wherever it happened to stop, which made every
+    /// pause look different. One deliberate shape keeps it unmistakably a waveform; the dim
+    /// tint is what says it has stopped.
+    private static func restingLevel(_ index: Int) -> Double {
+        let skyline: [Double] = [0.35, 0.7, 0.5, 0.85, 0.4]
+        return skyline[index % skyline.count]
+    }
 
-        let period = Theme.Motion.waveformPeriod
-        let timePhase = date.timeIntervalSinceReferenceDate
-            .truncatingRemainder(dividingBy: period) / period
-        let barPhase = Double(index) / Double(Theme.Metrics.LiveActivity.waveformBarCount)
-        let wave = (sin((timePhase + barPhase) * .pi * 2) + 1) / 2
-        let range = Theme.Metrics.LiveActivity.waveformMaxHeight
-            - Theme.Metrics.LiveActivity.waveformMinHeight
-        return Theme.Metrics.LiveActivity.waveformMinHeight + range * wave
+    /// The live wave: each bar its own sum of three sines at incommensurate rates.
+    ///
+    /// The old wave was one sine travelling along the row, which made the bars a single object
+    /// sliding sideways — readable as "animating", never as "music". Giving each bar its own
+    /// rates and phases makes the row churn the way a level meter does, and because the rates
+    /// share no common period it never visibly loops. The envelope lets the middle bars reach
+    /// higher than the outer ones, so the row has a centre of mass instead of five equals.
+    private func liveLevel(_ index: Int) -> Double {
+        let rates: [(Double, Double, Double)] = [
+            (1.00, 2.31, 3.70),
+            (1.37, 2.83, 4.13),
+            (0.91, 2.05, 3.29),
+            (1.21, 2.62, 4.47),
+            (1.09, 1.87, 3.91),
+        ]
+        let phases: [(Double, Double, Double)] = [
+            (0.00, 1.90, 4.10),
+            (2.40, 0.70, 3.30),
+            (4.70, 2.80, 0.50),
+            (1.30, 5.20, 2.20),
+            (3.60, 3.90, 5.60),
+        ]
+        let envelope: [Double] = [0.72, 0.9, 1.0, 0.9, 0.72]
+
+        let slot = index % rates.count
+        let time = date.timeIntervalSinceReferenceDate * 2 * .pi / Theme.Motion.waveformPeriod
+        let mix = 0.55 * sin(time * rates[slot].0 + phases[slot].0)
+            + 0.30 * sin(time * rates[slot].1 + phases[slot].1)
+            + 0.15 * sin(time * rates[slot].2 + phases[slot].2)
+        // `mix` spans -1…1. Never let a playing bar fall all the way to the floor: a bar at
+        // its minimum is a dot, and a row that keeps dropping to dots flickers.
+        let normalised = (mix + 1) / 2
+        return envelope[slot % envelope.count] * (0.18 + 0.82 * normalised)
     }
 }

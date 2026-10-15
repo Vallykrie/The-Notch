@@ -26,6 +26,7 @@ struct MediaTests {
         await shortItemsSkipLyrics()
         sourceKinds()
         repeatModes()
+        artworkAccent()
 
         if failures > 0 {
             print("\(failures) check(s) failed")
@@ -203,6 +204,30 @@ struct MediaTests {
         }
         check(NowPlayingStatus.Player.app(bundleIdentifier: "com.apple.podcasts").sourceKind == .other,
               "a podcast app is an other app")
+    }
+
+    static func artworkAccent() {
+        typealias RGB = ArtworkAccent.RGB
+        let grey = RGB(red: 0.5, green: 0.5, blue: 0.5)
+        let red = RGB(red: 0.9, green: 0.1, blue: 0.1)
+        let mud = RGB(red: 0.45, green: 0.35, blue: 0.25)
+
+        let logo = ArtworkAccent.dominant(in: Array(repeating: grey, count: 90) + Array(repeating: red, count: 10))!
+        check(logo.red > logo.green + 0.3 && logo.red > logo.blue + 0.3,
+              "a small vivid detail beats a large grey field")
+
+        let vivid = ArtworkAccent.dominant(in: Array(repeating: mud, count: 70) + Array(repeating: red, count: 30))!
+        check(vivid.red > 0.8 && vivid.green < 0.5, "a vivid hue beats a larger dull one")
+
+        check(ArtworkAccent.dominant(in: Array(repeating: grey, count: 100)) == .neutral,
+              "a colourless cover is neutral, not a guessed hue")
+
+        let navy = ArtworkAccent.dominant(in: Array(repeating: RGB(red: 0.05, green: 0.08, blue: 0.3), count: 100))!
+        check(ArtworkAccent.luminance(RGB(navy)) >= 0.3 && navy.blue > navy.red,
+              "a dark cover is lifted to read on black but keeps its hue")
+
+        check(ArtworkAccent.dominant(in: Array(repeating: grey, count: 99) + [red]) == .neutral,
+              "one stray coloured pixel does not paint the bars")
     }
 
     static func repeatModes() {

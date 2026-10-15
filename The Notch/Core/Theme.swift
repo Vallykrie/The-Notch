@@ -300,8 +300,15 @@ enum Theme {
         /// animation, but it draws its own copy of the silhouette that has to keep pace with it.
         static let shouldersSpring = (response: 0.55, damping: 1.0)
 
-        /// One full cycle of the collapsed now-playing waveform.
+        /// The collapsed now-playing waveform's base cycle. Each bar runs a few incommensurate
+        /// multiples of it, so the row never visibly repeats; this sets the overall tempo.
         static let waveformPeriod: TimeInterval = 1.15
+        /// Play ↔ pause: the bars settling into their resting silhouette, and lifting out of it.
+        /// Slightly underdamped so the stop has the small give of something that was moving.
+        static let waveformEnergy = Animation.spring(response: 0.45, dampingFraction: 0.78)
+        /// The bars taking a new cover's colour. Long enough to read as a cross-fade between
+        /// tracks rather than a flash, since it lands at the same moment the artwork swaps.
+        static let waveformTint = Animation.easeInOut(duration: 0.6)
 
         /// One step of the record in the empty media panel. The glint jumps an eighth of a
         /// turn per step rather than rotating smoothly, because a pixel grid that rotates by
@@ -371,6 +378,7 @@ enum Theme {
             func forState(_ state: NotchState) -> Animation? {
                 paced(Motion.forState(state))
             }
+
         }
     }
 
