@@ -374,6 +374,12 @@ surfaces are now exactly two — media and agents — and the notch shows both a
       MediaRemote, Spotify's artwork could be missing and its position went stale, which also
       made the notch fall behind the app after a repeat click. MediaRemote drives the UI only
       while a browser or other app holds Now Playing.
+      **Browser tabs:** a browser sends a tab's cover only on its first play, so covers are
+      remembered per item (app, title, artist) and saved to disk (`ArtworkStore`, 24 most
+      recent). Focusing a media tab makes MediaRemote send that tab's `playing` flag before its
+      item, so a lone flag waits 250 ms to be confirmed. The playing item is kept while the same
+      browser reports a paused tab. A lone `playing: false` freezes the position at the moment
+      it arrives.
       Lyrics lookups handle video titles: a leading `Artist - ` is removed before cutting at a
       dash (it used to search for a song called "Queen"), and a known length with no result
       within 10 s shows no lyrics instead of another song's.

@@ -76,6 +76,12 @@ final class NowPlayingMonitor: ObservableObject {
     /// Whether the published status comes from MediaRemote (a browser or other app) rather than
     /// from AppleScript polling of Spotify or Music. Only one source drives the UI at a time.
     private var showsAdapterItem = false
+    /// The MediaRemote item last published, kept to tell a pause of that item from a switch away.
+    private var publishedAdapterTrack: AdapterTrack?
+    /// When a switch away from a playing browser item started being held back.
+    private var switchHoldStart: Date?
+    /// A `playing` flag that arrived alone, waiting to be confirmed or dropped.
+    private var tentativeTrackTask: Task<Void, Never>?
 
     /// These are defensive engineering limits rather than visual tuning, so they stay with
     /// the network boundary instead of becoming design tokens in `Theme`.
@@ -86,6 +92,13 @@ final class NowPlayingMonitor: ObservableObject {
     /// track, ad to video). Going inactive only after this long keeps the notch from collapsing
     /// and reopening on every change.
     private static let inactiveDebounce: Duration = .milliseconds(300)
+    /// Leaving a playing item for nothing waits this long, in case it comes straight back.
+    private static let switchHold: TimeInterval = 1
+    /// How long a `playing` flag that arrived alone waits for the line that says which item it
+    /// belongs to. Upstream's stream debounce is 100 ms; the item follows within it.
+    private static let tentativeConfirm: Duration = .milliseconds(250)
+    /// The longest a playing item without a known duration is kept over a paused tab.
+    private static let unknownLengthHold: TimeInterval = 10 * 60
     /// A new item's artwork arrives in a later update than its title. The previous artwork is
     /// kept this long rather than flashing an empty tile.
     private static let artworkGrace: TimeInterval = 1.5
@@ -163,6 +176,7 @@ final class NowPlayingMonitor: ObservableObject {
         adapterRestartTask?.cancel()
         inactiveDebounceTask?.cancel()
         artworkGraceTask?.cancel()
+        tentativeTrackTask?.cancel()
         adapterStream?.stop()
 
         let workspaceCenter = NSWorkspace.shared.notificationCenter
@@ -797,6 +811,10 @@ extension NowPlayingMonitor {
         adapterRestartTask = nil
         adapterTrack = nil
         showsAdapterItem = false
+        publishedAdapterTrack = nil
+        switchHoldStart = nil
+        tentativeTrackTask?.cancel()
+        tentativeTrackTask = nil
         inactiveDebounceTask?.cancel()
         inactiveDebounceTask = nil
         stopElapsedTicker()
@@ -807,6 +825,23 @@ extension NowPlayingMonitor {
         // A stream that delivers data is healthy; only consecutive failures count.
         adapterRestarts = 0
 
+        // Any newer line settles a waiting flag: the same item's position confirms it, and a
+        // different item means it belonged to that item and is dropped.
+        tentativeTrackTask?.cancel()
+        tentativeTrackTask = nil
+        if let track, track.isTentative {
+            tentativeTrackTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: Self.tentativeConfirm)
+                guard let self, !Task.isCancelled else { return }
+                tentativeTrackTask = nil
+                applyAdapterTrack(track)
+            }
+            return
+        }
+        applyAdapterTrack(track)
+    }
+
+    private func applyAdapterTrack(_ track: AdapterTrack?) {
         let itemKey = track.map { "\($0.sourceBundleIdentifier)\u{1F}\($0.itemIdentifier ?? $0.title)" }
         if itemKey != lastAdapterItemKey {
             lastAdapterItemKey = itemKey
@@ -849,7 +884,18 @@ extension NowPlayingMonitor {
         // A command owns the UI until it settles; its completion publishes the latest item.
         guard pendingCommandGeneration == nil else { return }
 
+        if holdsSwitch(to: adapterTrack) {
+            // Keep the playing item's clock moving while the switch is held; the ticker also
+            // re-checks the hold every second.
+            if let shown = publishedAdapterTrack, let elapsed = shown.elapsed(at: Date()) {
+                publish(status.withElapsedPosition(elapsed))
+            }
+            startElapsedTickerIfNeeded()
+            return
+        }
+
         guard let track = adapterTrack, adapterShows(track) else {
+            publishedAdapterTrack = nil
             stopElapsedTicker()
             if showsAdapterItem {
                 scheduleHandOffToAppleScript()
@@ -877,12 +923,50 @@ extension NowPlayingMonitor {
             scheduleArtworkGraceExpiry()
         }
         publish(newStatus)
+        publishedAdapterTrack = track
 
         if track.isPlaying {
             startElapsedTickerIfNeeded()
         } else {
             stopElapsedTicker()
         }
+    }
+
+    /// Whether to keep showing the playing browser item instead of `next`.
+    ///
+    /// Focusing a browser tab that has its own media session (YouTube, YouTube Music, Spotify
+    /// Web) makes that tab Now Playing, usually paused, while the first tab's audio carries on.
+    /// MediaRemote reports only the one item, so the playing item is kept: until a playing
+    /// item appears, the shown item comes back, or it would have reached its end. Leaving it
+    /// for nothing at all is held only briefly, in case it comes straight back. A pause of the
+    /// shown item itself, and a newly playing item, always go through at once.
+    private func holdsSwitch(to next: AdapterTrack?) -> Bool {
+        let now = Date()
+        let deadline: Date? = {
+            guard showsAdapterItem, status.isPlaying, let shown = publishedAdapterTrack else {
+                return nil
+            }
+            guard let next, adapterShows(next) else {
+                return (switchHoldStart ?? now).addingTimeInterval(Self.switchHold)
+            }
+            if next.isPlaying { return nil }
+            let sameItem = next.sourceBundleIdentifier == shown.sourceBundleIdentifier
+                && (next.itemIdentifier ?? next.title) == (shown.itemIdentifier ?? shown.title)
+            guard !sameItem, next.sourceBundleIdentifier == shown.sourceBundleIdentifier else {
+                return nil
+            }
+            guard let duration = shown.duration, let elapsed = shown.elapsed(at: now) else {
+                return (switchHoldStart ?? now).addingTimeInterval(Self.unknownLengthHold)
+            }
+            return now.addingTimeInterval(max(duration - elapsed, 0))
+        }()
+
+        guard let deadline, now < deadline else {
+            switchHoldStart = nil
+            return false
+        }
+        if switchHoldStart == nil { switchHoldStart = now }
+        return true
     }
 
     private func isAllowed(_ player: NowPlayingStatus.Player) -> Bool {

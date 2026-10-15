@@ -20,6 +20,9 @@ struct MediaTests {
         snapshotMerging()
         sourceResolution()
         artwork()
+        artworkOnReplay()
+        pauseFreezesPosition()
+        loneFlagsAreTentative()
         elapsedTime()
         statusMapping()
         lyricsQueries()
@@ -99,10 +102,42 @@ struct MediaTests {
         check(snapshot.track?.artwork == bytes, "artwork survives diffs that do not mention it")
 
         snapshot.apply(line: line(#"{"diff":true,"payload":{"artworkData":"%%% not base64"}}"#))
-        check(snapshot.track?.artwork == nil, "invalid base64 is no artwork, not a crash")
+        check(snapshot.track?.artwork == bytes, "invalid base64 keeps the item's last cover, not a crash")
 
         snapshot.apply(line: line(#"{"diff":true,"payload":{"artworkData":null}}"#))
-        check(snapshot.track?.artwork == nil, "removed artwork is gone")
+        check(snapshot.track?.artwork == bytes, "artwork the item unloads falls back to its last cover")
+
+        var fresh = AdapterSnapshot()
+        fresh.apply(line: line(#"{"diff":false,"payload":{"bundleIdentifier":"com.google.Chrome","title":"Track E","artworkData":"%%% not base64"}}"#))
+        check(fresh.track?.artwork == nil, "invalid base64 on a new item is no artwork")
+    }
+
+    static func artworkOnReplay() {
+        // Two tabs in one browser: Spotify Web, then YouTube, then Spotify Web again. The
+        // browser republishes a tab's title on the second play but never its artwork.
+        let cover = Data([0x89, 0x50, 0x4E, 0x47, 0x01])
+        let thumbnail = Data([0x89, 0x50, 0x4E, 0x47, 0x02])
+        var snapshot = AdapterSnapshot()
+        snapshot.apply(line: line(#"{"diff":false,"payload":{"bundleIdentifier":"com.google.Chrome","title":"Song A","artist":"Artist A","contentItemIdentifier":"first"}}"#))
+        snapshot.apply(line: line(#"{"diff":true,"payload":{"artworkData":"\#(cover.base64EncodedString())"}}"#))
+        snapshot.apply(line: line(#"{"diff":false,"payload":{"bundleIdentifier":"com.google.Chrome","title":"Video B","artist":"Channel B","contentItemIdentifier":"second"}}"#))
+        snapshot.apply(line: line(#"{"diff":true,"payload":{"artworkData":"\#(thumbnail.base64EncodedString())"}}"#))
+
+        snapshot.apply(line: line(#"{"diff":false,"payload":{"bundleIdentifier":"com.google.Chrome","title":"Song A","artist":"Artist A","contentItemIdentifier":"third"}}"#))
+        check(snapshot.track?.artwork == cover, "a tab played again gets back the cover it sent the first time")
+
+        snapshot.apply(line: line(#"{"diff":false,"payload":{"bundleIdentifier":"com.google.Chrome","title":"Video B","artist":"Channel B","contentItemIdentifier":"fourth"}}"#))
+        check(snapshot.track?.artwork == thumbnail, "switching back again keeps working both ways")
+
+        snapshot.apply(line: line(#"{"diff":false,"payload":{"bundleIdentifier":"com.google.Chrome","title":"Song C","artist":"Artist C"}}"#))
+        check(snapshot.track?.artwork == nil, "an item never seen with artwork borrows none")
+
+        var full = AdapterSnapshot()
+        for index in 0...AdapterSnapshot.artworkMemoryLimit {
+            full.apply(line: line(#"{"diff":false,"payload":{"bundleIdentifier":"com.google.Chrome","title":"Item \#(index)","artworkData":"\#(cover.base64EncodedString())"}}"#))
+        }
+        full.apply(line: line(#"{"diff":false,"payload":{"bundleIdentifier":"com.google.Chrome","title":"Item 0"}}"#))
+        check(full.track?.artwork == nil, "only the most recent items' artwork is remembered")
     }
 
     static func elapsedTime() {
@@ -132,6 +167,39 @@ struct MediaTests {
               "the position is clamped to the duration")
         check(track(playing: true, rate: 1).elapsed(at: timestamp.addingTimeInterval(-3)) == 10,
               "a clock behind the timestamp never moves the position backwards")
+    }
+
+    static func pauseFreezesPosition() {
+        // Playing since t0 from 2.9 s; the pause arrives alone 16 s later.
+        let t0 = 1_700_000_000.0
+        var snapshot = AdapterSnapshot()
+        snapshot.apply(line: line(#"{"diff":false,"payload":{"bundleIdentifier":"com.apple.Safari","title":"Song","playing":true,"playbackRate":1,"elapsedTimeMicros":2900000,"timestampEpochMicros":\#(Int(t0 * 1_000_000))}}"#))
+        let pausedAt = Date(timeIntervalSince1970: t0 + 16)
+        snapshot.apply(line: line(#"{"diff":true,"payload":{"playing":false}}"#), now: pausedAt)
+        let shown = snapshot.track?.elapsed(at: pausedAt.addingTimeInterval(0.1)) ?? 0
+        check(abs(shown - 18.9) < 0.01, "a pause sent alone freezes at the position reached, not an old timestamp")
+        check(snapshot.track?.elapsed(at: pausedAt.addingTimeInterval(30)) == shown, "the frozen position does not move afterwards")
+    }
+
+    static func loneFlagsAreTentative() {
+        // Recorded from Safari: focusing a paused media tab while a video plays.
+        var snapshot = AdapterSnapshot()
+        snapshot.apply(line: line(#"{"diff":false,"payload":{"bundleIdentifier":"com.apple.WebKit.GPU","parentApplicationBundleIdentifier":"com.apple.Safari","title":"Video","playing":true,"playbackRate":1,"contentItemIdentifier":"3682678"}}"#))
+        check(snapshot.track?.isTentative == false, "a full item is not tentative")
+        snapshot.apply(line: line(#"{"diff":true,"payload":{"playing":false}}"#))
+        check(snapshot.track?.isTentative == true && snapshot.track?.title == "Video",
+              "a playing flag that arrives alone is tentative, even though it lands on the old item")
+        snapshot.apply(line: line(#"{"diff":false,"payload":{"bundleIdentifier":"com.apple.WebKit.GPU","parentApplicationBundleIdentifier":"com.apple.Safari","title":"Other Tab","playing":false,"playbackRate":0,"contentItemIdentifier":"4336630"}}"#))
+        check(snapshot.track?.isTentative == false && snapshot.track?.title == "Other Tab",
+              "the item that follows is not tentative")
+
+        // A real pause: the flag, then the same item's frozen position and rate.
+        var paused = AdapterSnapshot()
+        paused.apply(line: line(#"{"diff":false,"payload":{"bundleIdentifier":"com.apple.Safari","title":"Song","playing":true,"playbackRate":1}}"#))
+        paused.apply(line: line(#"{"diff":true,"payload":{"playing":false}}"#))
+        paused.apply(line: line(#"{"diff":true,"payload":{"elapsedTimeMicros":19000000,"playbackRate":0}}"#))
+        check(paused.track?.isTentative == false && paused.track?.isPlaying == false,
+              "a pause confirmed by the same item's position is not tentative")
     }
 
     static func statusMapping() {

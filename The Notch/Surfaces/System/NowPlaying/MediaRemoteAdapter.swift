@@ -133,6 +133,10 @@ nonisolated final class MediaRemoteAdapterStream: @unchecked Sendable {
     private var snapshot = AdapterSnapshot()
     private var lastTrack: AdapterTrack?
     private var hasReportedTrack = false
+    private let artworkStore = ArtworkStore()
+    /// Items already looked up on disk this session, found or not, so a miss is not re-read
+    /// on every line.
+    private var storeLookups: Set<String> = []
 
     /// A line longer than this is not one upstream writes (artwork is capped well below it);
     /// it is dropped rather than grown without bound.
@@ -197,7 +201,17 @@ nonisolated final class MediaRemoteAdapterStream: @unchecked Sendable {
             buffer.removeSubrange(buffer.startIndex...newline)
             guard !line.isEmpty, snapshot.apply(line: Data(line)) else { continue }
 
-            let track = snapshot.track
+            var track = snapshot.track
+            if let key = snapshot.itemKey {
+                if snapshot.lastLineCarriedArtwork, let artwork = track?.artwork {
+                    artworkStore.save(artwork, for: key)
+                    storeLookups.insert(key)
+                } else if track?.artwork == nil, storeLookups.insert(key).inserted,
+                          let stored = artworkStore.artwork(for: key) {
+                    snapshot.remember(stored, for: key)
+                    track = snapshot.track
+                }
+            }
             guard !hasReportedTrack || track != lastTrack else { continue }
             hasReportedTrack = true
             lastTrack = track

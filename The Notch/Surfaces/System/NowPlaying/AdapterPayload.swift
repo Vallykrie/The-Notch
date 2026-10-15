@@ -58,19 +58,43 @@ nonisolated struct AdapterSnapshot: Sendable {
     /// The same defensive cap the AppleScript path applies to artwork.
     static let maximumArtworkByteCount = 4 * 1_024 * 1_024
 
+    /// How many items' artwork is remembered. A few covers of a few hundred KB each.
+    static let artworkMemoryLimit = 8
+
     private(set) var fields: [String: AdapterValue] = [:]
     private(set) var artwork: Data?
+    /// Whether the last line changed nothing but `playing`. See `AdapterTrack.isTentative`.
+    private(set) var lastLineOnlyFlippedPlaying = false
+    /// Whether the last line carried new artwork, which is when it is worth saving.
+    private(set) var lastLineCarriedArtwork = false
+    /// The last artwork seen for recent items, by `itemKey`. A browser sends a tab's cover once:
+    /// switching back to a tab that already played republishes its title but not its artwork,
+    /// and the adapter only reuses artwork within one item. Without this the cover is gone for
+    /// good on the second play.
+    private var rememberedArtwork: [String: Data] = [:]
+    private var rememberedOrder: [String] = []
 
     /// Applies one stream line. Returns false for a line that is not a data line or does not
     /// parse, which leaves the snapshot untouched.
     @discardableResult
-    mutating func apply(line: Data) -> Bool {
+    mutating func apply(line: Data, now: Date = Date()) -> Bool {
         guard let decoded = try? JSONDecoder().decode(AdapterLine.self, from: line),
               decoded.type == nil || decoded.type == "data",
               let payload = decoded.payload
         else { return false }
 
         if decoded.diff == true {
+            // A pause arrives as `playing: false` alone; the frozen position follows in a later
+            // line. Freeze it here at the position reached now, so nothing extrapolates from a
+            // timestamp that may be minutes old.
+            if payload["playing"]?.bool == false,
+               payload["elapsedTimeMicros"] == nil,
+               fields["playing"]?.bool == true,
+               let elapsed = track?.elapsed(at: now) {
+                fields["elapsedTimeMicros"] = .number(elapsed * 1_000_000)
+                fields["timestampEpochMicros"] = .number(now.timeIntervalSince1970 * 1_000_000)
+                fields["playbackRate"] = .number(0)
+            }
             for (key, value) in payload {
                 if value == .null {
                     fields.removeValue(forKey: key)
@@ -85,7 +109,32 @@ nonisolated struct AdapterSnapshot: Sendable {
         if decoded.diff != true || payload.keys.contains(Self.artworkKey) {
             artwork = fields[Self.artworkKey]?.string.flatMap(Self.decodeArtwork)
         }
+        lastLineCarriedArtwork = payload[Self.artworkKey]?.string != nil && artwork != nil
+        if let artwork, let key = itemKey {
+            remember(artwork, for: key)
+        }
+        lastLineOnlyFlippedPlaying = decoded.diff == true && Set(payload.keys) == ["playing"]
         return true
+    }
+
+    /// Identifies an item across plays: its app, title and artist. Not the content item
+    /// identifier, which a browser issues afresh each time a tab starts playing again.
+    var itemKey: String? {
+        let source = fields["parentApplicationBundleIdentifier"]?.string
+            ?? fields["bundleIdentifier"]?.string
+        guard let source, let title = fields["title"]?.string, !title.isEmpty else { return nil }
+        return [source, title, fields["artist"]?.string ?? ""].joined(separator: "\u{1F}")
+    }
+
+    /// Adds artwork found elsewhere (the on-disk `ArtworkStore`) to the memory for `key`.
+    mutating func remember(_ artwork: Data, for key: String) {
+        if rememberedArtwork[key] == nil {
+            rememberedOrder.append(key)
+            if rememberedOrder.count > Self.artworkMemoryLimit {
+                rememberedArtwork.removeValue(forKey: rememberedOrder.removeFirst())
+            }
+        }
+        rememberedArtwork[key] = artwork
     }
 
     /// The item this snapshot describes, or nil when nothing is playing or the snapshot lacks
@@ -113,8 +162,9 @@ nonisolated struct AdapterSnapshot: Sendable {
             duration: fields["durationMicros"]?.number.map { $0 / micros }.flatMap {
                 $0 > 0 ? $0 : nil
             },
-            artwork: artwork,
-            repeatMode: fields["repeatMode"]?.number.flatMap(NowPlayingStatus.RepeatMode.init(mediaRemoteValue:))
+            artwork: artwork ?? itemKey.flatMap { rememberedArtwork[$0] },
+            repeatMode: fields["repeatMode"]?.number.flatMap(NowPlayingStatus.RepeatMode.init(mediaRemoteValue:)),
+            isTentative: lastLineOnlyFlippedPlaying
         )
     }
 
@@ -149,6 +199,12 @@ nonisolated struct AdapterTrack: Equatable, Sendable {
     /// Nil when the source does not report one. Neither Spotify nor browsers do; their
     /// MediaRemote items carry no `repeatMode` and ignore the `repeat` command.
     var repeatMode: NowPlayingStatus.RepeatMode? = nil
+    /// True when this item differs from the last one only by a `playing` flag that arrived on
+    /// its own. When a browser tab with its own media session gains focus, MediaRemote sends
+    /// the new tab's `playing` first and its item about 100 ms later, so the flag lands on the
+    /// old item. A real pause or play is followed by the same item's position and rate. Until
+    /// one of those arrives, the flag cannot be trusted.
+    var isTentative = false
 
     static let pausedExtrapolationLimit: TimeInterval = 1
 
