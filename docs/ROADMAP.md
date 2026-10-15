@@ -373,8 +373,13 @@ surfaces are now exactly two — media and agents — and the notch shows both a
       Lyrics lookups handle video titles: a leading `Artist - ` is removed before cutting at a
       dash (it used to search for a song called "Queen"), and a known length with no result
       within 10 s shows no lyrics instead of another song's.
-- [ ] **Media: sources, settings, badge** (M2) — the badge names the real app, Settings gets
-      per-source toggles, 16:9 thumbnails are cropped to the tile, and lyrics never search ads.
+- [x] **Media: sources, settings, badge** (M2). Settings → Media replaces the All / Music /
+      Spotify choice with four switches: Spotify, Apple Music, Browsers, Other apps, all on by
+      default. A stored single choice migrates once (`Spotify` → Spotify only). `MediaSourceKind`
+      groups bundle ids; 20 known browsers count as Browsers. The badge draws a pixel globe
+      for a browser and names the real app ("Playing in Safari") from Launch Services. Lyrics
+      skip items under 30 s, so YouTube's bumper ads never reach LRCLIB. Wide thumbnails
+      needed nothing: both artwork views already fill and crop.
 - [ ] **Media: polish** (M3) — the stream sleeps when nothing plays, a force-quit leaves no
       orphaned stream, and an optional Perl-free fallback.
 - [x] **Media: controls** — play/pause, next, previous, and a draggable scrubber that seeks.

@@ -167,13 +167,14 @@ struct MediaExpandedView: View {
                 )
                 .overlay {
                     PixelGlyphView(
-                        glyph: .musicNote,
+                        glyph: player.sourceKind == .browser ? .globe : .musicNote,
                         side: Theme.Metrics.glyphCollapsedSize
                     )
                     .foregroundStyle(sourceBadgeTint(for: player))
                 }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(sourceBadgeLabel(for: player))
+                .help("Playing in \(sourceBadgeLabel(for: player))")
                 // Inside the corner, not on it: flush, the badge's circle and the artwork's
                 // rounded corner met at one point and left slivers of art showing around it.
                 .padding(Theme.Metrics.MediaPanel.sourceBadgeInset)
@@ -603,15 +604,7 @@ struct MediaExpandedView: View {
     }
 
     private func sourceBadgeLabel(for player: NowPlayingStatus.Player) -> String {
-        switch player {
-        case .spotify:
-            "Spotify"
-        case .music:
-            "Apple Music"
-        case .app:
-            // M2 names the real app (Chrome, Safari…) from its bundle identifier.
-            "Now Playing"
-        }
+        player.displayName
     }
 
     private func refreshArtwork() {

@@ -220,17 +220,22 @@ play/pause/seek through the monitor, no perl left running after quit. Not yet se
 notch UI, Spotify Web, or Music via MediaRemote.
 
 #### M2 — Sources, settings, badge
-- [ ] `MediaSourceKind`: map bundle ids to `.music`, `.spotify`, `.browser` (Safari, Chrome, Arc,
-      Edge, Brave, Firefox, Opera, Vivaldi, Zen, Orion, Dia) or `.other`.
-- [ ] Settings: replace the All / Music / Spotify picker with toggles. Music, Spotify and Browsers
-      default to on; Other apps defaults to off. Migrate `NotchMediaPlayers`: `all` → all on,
-      `music` → Music only, `spotify` → Spotify only. A disallowed source shows as inactive.
-- [ ] Badge and "Open" button: the app's localised name and icon via `NSWorkspace`. "Open"
-      activates the app; a browser tab can't be targeted.
-- [ ] Artwork: aspect-fill crop for 16:9 thumbnails in the square tile and the collapsed view.
-- [ ] Ads: no special casing beyond "lyrics never search an item without a matching duration".
-      Document that ads show, like they do in Control Centre.
-- [ ] Update ROADMAP and settings tests.
+- [x] `MediaSourceKind` (`MediaSource.swift`): bundle ids map to `.spotify`, `.music`, `.browser`
+      (20 known browsers) or `.other`.
+- [x] Settings: four switches (Spotify, Apple Music, Browsers, Other apps). **Changed from the
+      plan:** Other apps defaults to **on**. It covers TIDAL, Deezer, Podcasts and the like, and
+      hiding them by default would make a fresh install look broken for those users. The
+      retired `NotchMediaPlayers` value migrates once and is deleted.
+- [x] Badge: pixel globe for browsers, music note otherwise. The label, help and accessibility
+      text use the app's real name from Launch Services ("Playing in Safari"). **Changed:** a
+      full-colour app icon was left out, because it clashed with the pixel badge.
+- [x] Artwork: **no change needed.** Both artwork views already `.fill` and clip.
+- [x] Ads: lyrics skip items under 30 s (`LyricsProvider.minimumTrackLength`). Longer ads find no
+      lyrics because of the 10 s length rule added in M1.
+- [x] Tests: source kinds and the short-item guard in `tools/media-tests`; settings migration in
+      `tools/session-tests`, the suite that already compiles `NotchSettings`.
+- Not done: making the repeat button work. The live transport row has no repeat button, so it
+  needs a design decision plus AppleScript support for the fallback. Left for its own change.
 
 #### M3 — Polish and resilience
 - [x] Lyrics: before the LRCLIB lookup, strip "(Official Video)", "[MV]", "(Lyrics)", "4K

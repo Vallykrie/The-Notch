@@ -18,6 +18,7 @@ xcrun swiftc -default-isolation MainActor -parse-as-library -o "$test_dir/checks
   'The Notch/Integrations/JumpTarget.swift' \
   'The Notch/Surfaces/Agents/SessionStatus+Presentation.swift' \
   'The Notch/Surfaces/System/NowPlaying/NowPlayingStatus.swift' \
+  'The Notch/Surfaces/System/NowPlaying/MediaSource.swift' \
   'The Notch/Core/Theme.swift' \
   'The Notch/Core/Typography.swift' \
   'The Notch/Core/PixelGlyph.swift' \

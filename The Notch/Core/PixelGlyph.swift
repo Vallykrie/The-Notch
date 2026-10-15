@@ -267,6 +267,18 @@ nonisolated struct PixelGlyph: Equatable, Sendable {
     ])
 
     /// Eighth note with a filled head.
+    /// A globe with a meridian and an equator: media playing in a web browser.
+    static let globe = PixelGlyph(rows: [
+        0b0011_1100,
+        0b0101_1010,
+        0b1001_1001,
+        0b1111_1111,
+        0b1001_1001,
+        0b1001_1001,
+        0b0101_1010,
+        0b0011_1100,
+    ])
+
     static let musicNote = PixelGlyph(rows: [
         0b0001_1000,
         0b0001_1110,

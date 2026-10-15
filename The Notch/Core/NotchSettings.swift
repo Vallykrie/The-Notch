@@ -58,9 +58,23 @@ final class NotchSettings: ObservableObject {
     /// off the desktop for someone who wants them in the panel and nowhere else.
     @Published var lyricsOnNotch: Bool { didSet { commit(lyricsOnNotch, .lyricsOnNotch) } }
 
-    /// Which players The Notch reads. A player left out is never scripted, so it never raises
-    /// an Automation prompt either.
-    @Published var mediaPlayers: MediaPlayers { didSet { commit(mediaPlayers.rawValue, .mediaPlayers) } }
+    /// Which sources the media surface shows. A player left out is never scripted on the
+    /// AppleScript fallback, so it never raises an Automation prompt either.
+    @Published var mediaShowsSpotify: Bool { didSet { commit(mediaShowsSpotify, .mediaShowsSpotify) } }
+    @Published var mediaShowsMusic: Bool { didSet { commit(mediaShowsMusic, .mediaShowsMusic) } }
+    /// YouTube, YouTube Music, Spotify Web and anything else playing in a browser.
+    @Published var mediaShowsBrowsers: Bool { didSet { commit(mediaShowsBrowsers, .mediaShowsBrowsers) } }
+    /// Podcast apps, other music apps, video players: anything else publishing Now Playing.
+    @Published var mediaShowsOtherApps: Bool { didSet { commit(mediaShowsOtherApps, .mediaShowsOtherApps) } }
+
+    var mediaSources: Set<MediaSourceKind> {
+        var sources: Set<MediaSourceKind> = []
+        if mediaShowsSpotify { sources.insert(.spotify) }
+        if mediaShowsMusic { sources.insert(.music) }
+        if mediaShowsBrowsers { sources.insert(.browser) }
+        if mediaShowsOtherApps { sources.insert(.other) }
+        return sources
+    }
 
     // MARK: Agents
 
@@ -215,9 +229,11 @@ final class NotchSettings: ObservableObject {
         showMediaActivity = defaults.bool(forKey: Key.showMediaActivity.rawValue)
         hideMediaWhenPaused = defaults.bool(forKey: Key.hideMediaWhenPaused.rawValue)
         lyricsOnNotch = defaults.bool(forKey: Key.lyricsOnNotch.rawValue)
-        mediaPlayers = MediaPlayers(
-            rawValue: defaults.string(forKey: Key.mediaPlayers.rawValue) ?? ""
-        ) ?? .default
+        Self.migrateMediaPlayers(in: defaults)
+        mediaShowsSpotify = defaults.bool(forKey: Key.mediaShowsSpotify.rawValue)
+        mediaShowsMusic = defaults.bool(forKey: Key.mediaShowsMusic.rawValue)
+        mediaShowsBrowsers = defaults.bool(forKey: Key.mediaShowsBrowsers.rawValue)
+        mediaShowsOtherApps = defaults.bool(forKey: Key.mediaShowsOtherApps.rawValue)
         showAgentActivity = defaults.bool(forKey: Key.showAgentActivity.rawValue)
         showAttentionRing = defaults.bool(forKey: Key.showAttentionRing.rawValue)
         showAgentModel = defaults.bool(forKey: Key.showAgentModel.rawValue)
@@ -280,7 +296,10 @@ final class NotchSettings: ObservableObject {
             Key.showMediaActivity.rawValue: true,
             Key.hideMediaWhenPaused.rawValue: true,
             Key.lyricsOnNotch.rawValue: true,
-            Key.mediaPlayers.rawValue: MediaPlayers.default.rawValue,
+            Key.mediaShowsSpotify.rawValue: true,
+            Key.mediaShowsMusic.rawValue: true,
+            Key.mediaShowsBrowsers.rawValue: true,
+            Key.mediaShowsOtherApps.rawValue: true,
             Key.openOnApproval.rawValue: true,
             Key.showAgentActivity.rawValue: true,
             Key.showAttentionRing.rawValue: true,
@@ -310,7 +329,10 @@ final class NotchSettings: ObservableObject {
             && showMediaActivity
             && hideMediaWhenPaused
             && lyricsOnNotch
-            && mediaPlayers == .default
+            && mediaShowsSpotify
+            && mediaShowsMusic
+            && mediaShowsBrowsers
+            && mediaShowsOtherApps
             && openOnApproval
             && showAgentActivity
             && showAttentionRing
@@ -346,7 +368,10 @@ final class NotchSettings: ObservableObject {
         showMediaActivity = true
         hideMediaWhenPaused = true
         lyricsOnNotch = true
-        mediaPlayers = .default
+        mediaShowsSpotify = true
+        mediaShowsMusic = true
+        mediaShowsBrowsers = true
+        mediaShowsOtherApps = true
         openOnApproval = true
         showAgentActivity = true
         showAttentionRing = true
@@ -424,7 +449,14 @@ final class NotchSettings: ObservableObject {
         case showMediaActivity = "NotchShowMediaActivity"
         case hideMediaWhenPaused = "NotchHideMediaWhenPaused"
         case lyricsOnNotch = "NotchLyricsOnNotch"
+        /// Retired: the single All / Music / Spotify choice the four switches below replaced.
+        /// Still listed so restoring defaults removes it, and read once by
+        /// `migrateMediaPlayers`.
         case mediaPlayers = "NotchMediaPlayers"
+        case mediaShowsSpotify = "NotchMediaShowsSpotify"
+        case mediaShowsMusic = "NotchMediaShowsMusic"
+        case mediaShowsBrowsers = "NotchMediaShowsBrowsers"
+        case mediaShowsOtherApps = "NotchMediaShowsOtherApps"
         case openOnApproval = "NotchOpenOnApproval"
         case showAgentActivity = "NotchShowAgentActivity"
         case showAttentionRing = "NotchShowAttentionRing"
@@ -446,6 +478,19 @@ final class NotchSettings: ObservableObject {
         case hasSeenIntro = "NotchHasSeenIntro"
         case agentHookConsent = "NotchAgentHookConsent"
         case declinedAgentHooks = "NotchDeclinedAgentHooks"
+    }
+
+    /// Carries the retired single choice over to the switches once, then deletes it. "All" is
+    /// the default and needs nothing. "Music" or "Spotify" meant only that player, so every
+    /// other source starts off.
+    private static func migrateMediaPlayers(in defaults: UserDefaults) {
+        guard let legacy = defaults.string(forKey: Key.mediaPlayers.rawValue) else { return }
+        defaults.removeObject(forKey: Key.mediaPlayers.rawValue)
+        guard legacy == "music" || legacy == "spotify" else { return }
+        defaults.set(legacy == "spotify", forKey: Key.mediaShowsSpotify.rawValue)
+        defaults.set(legacy == "music", forKey: Key.mediaShowsMusic.rawValue)
+        defaults.set(false, forKey: Key.mediaShowsBrowsers.rawValue)
+        defaults.set(false, forKey: Key.mediaShowsOtherApps.rawValue)
     }
 
     private func commit(_ value: Any, _ key: Key) {
@@ -524,38 +569,6 @@ nonisolated enum FinishedRetention: String, CaseIterable, Identifiable, Sendable
         // prune cutoff is computed by subtraction. A decade outlives any session.
         case .keep: 10 * 365 * 24 * 60 * 60
         }
-    }
-}
-
-nonisolated enum MediaPlayers: String, CaseIterable, Identifiable, Sendable {
-    case all
-    case music
-    case spotify
-
-    static let `default` = MediaPlayers.all
-
-    var id: String { rawValue }
-
-    var label: String {
-        switch self {
-        case .all: "All"
-        case .music: "Music"
-        case .spotify: "Spotify"
-        }
-    }
-
-    var players: Set<NowPlayingStatus.Player> {
-        switch self {
-        case .all: [.music, .spotify]
-        case .music: [.music]
-        case .spotify: [.spotify]
-        }
-    }
-
-    /// Browsers and every other app MediaRemote reports. "All" means all of them; picking one
-    /// player means only that player.
-    var allowsOtherApps: Bool {
-        self == .all
     }
 }
 

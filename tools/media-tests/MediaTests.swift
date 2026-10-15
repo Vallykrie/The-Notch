@@ -16,13 +16,15 @@ struct MediaTests {
         Data(json.utf8)
     }
 
-    static func main() {
+    static func main() async {
         snapshotMerging()
         sourceResolution()
         artwork()
         elapsedTime()
         statusMapping()
         lyricsQueries()
+        await shortItemsSkipLyrics()
+        sourceKinds()
 
         if failures > 0 {
             print("\(failures) check(s) failed")
@@ -183,5 +185,22 @@ struct MediaTests {
         let plain = LyricsProvider.searchQueries(title: "Yesterday", artist: "The Beatles")
         check(plain == [Query(title: "Yesterday", artist: "The Beatles")],
               "an undecorated title is searched once")
+    }
+
+    static func shortItemsSkipLyrics() async {
+        // Returns before any request: a 6 s bumper ad must not reach the network.
+        let result = await LyricsProvider().lyrics(title: "An Ad", artist: "Advertiser", duration: 6)
+        check(result == .notFound, "an item shorter than 30 s is never looked up")
+    }
+
+    static func sourceKinds() {
+        check(NowPlayingStatus.Player.spotify.sourceKind == .spotify, "Spotify is its own source")
+        check(NowPlayingStatus.Player.music.sourceKind == .music, "Music is its own source")
+        for browser in ["com.apple.Safari", "com.google.Chrome", "com.brave.Browser", "org.mozilla.firefox"] {
+            check(NowPlayingStatus.Player.app(bundleIdentifier: browser).sourceKind == .browser,
+                  "\(browser) is a browser")
+        }
+        check(NowPlayingStatus.Player.app(bundleIdentifier: "com.apple.podcasts").sourceKind == .other,
+              "a podcast app is an other app")
     }
 }

@@ -50,12 +50,13 @@ final class NowPlayingMonitor: ObservableObject {
     private var isSleeping = false
     /// The media feature is switched off. Nothing is polled or scripted while this is set.
     private var isSuspended = false
-    /// The players the user lets The Notch read. One left out is treated as if it were not
-    /// running, so it is never addressed from AppleScript.
-    private var allowedPlayers: Set<NowPlayingStatus.Player> = [.music, .spotify]
-    /// Whether apps other than Spotify and Music (browsers, podcast apps) may show. Only the
-    /// MediaRemote backend ever reports them.
-    private var allowsOtherApps = true
+    /// The sources the user lets The Notch show. On the AppleScript path a player left out is
+    /// treated as if it were not running, so it is never addressed from AppleScript. Browsers
+    /// and other apps only ever come from MediaRemote.
+    private var allowedSources = Set(MediaSourceKind.allCases)
+    private var allowedPlayers: Set<NowPlayingStatus.Player> {
+        Set(Self.playerPreference.filter { allowedSources.contains($0.sourceKind) })
+    }
 
     private var backend: Backend
     private let adapter: MediaRemoteAdapter?
@@ -221,18 +222,10 @@ final class NowPlayingMonitor: ObservableObject {
     }
 
     /// Applies the media preferences. Idempotent, so it can run on every settings change.
-    func configure(
-        suspended: Bool,
-        allowedPlayers: Set<NowPlayingStatus.Player>,
-        allowsOtherApps: Bool
-    ) {
-        guard suspended != isSuspended
-            || allowedPlayers != self.allowedPlayers
-            || allowsOtherApps != self.allowsOtherApps
-        else { return }
+    func configure(suspended: Bool, allowedSources: Set<MediaSourceKind>) {
+        guard suspended != isSuspended || allowedSources != self.allowedSources else { return }
         isSuspended = suspended
-        self.allowedPlayers = allowedPlayers
-        self.allowsOtherApps = allowsOtherApps
+        self.allowedSources = allowedSources
         reconcilePolling()
     }
 
@@ -834,12 +827,7 @@ extension NowPlayingMonitor {
     }
 
     private func isAllowed(_ player: NowPlayingStatus.Player) -> Bool {
-        switch player {
-        case .spotify, .music:
-            allowedPlayers.contains(player)
-        case .app:
-            allowsOtherApps
-        }
+        allowedSources.contains(player.sourceKind)
     }
 
     private func scheduleInactive() {

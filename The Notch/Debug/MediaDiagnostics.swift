@@ -58,11 +58,12 @@ enum MediaDiagnostics {
 
     private static func describe(_ status: NowPlayingStatus) -> String {
         guard status.isActive, let player = status.player else { return "inactive" }
-        let source = switch player {
-        case .spotify: "spotify"
-        case .music: "music"
+        let identifier = switch player {
+        case .spotify: "com.spotify.client"
+        case .music: "com.apple.Music"
         case let .app(bundleIdentifier): bundleIdentifier
         }
+        let source = "\(player.displayName) [\(player.sourceKind.rawValue), \(identifier)]"
         let elapsed = status.elapsedPosition.map { String(format: "%.1f", $0) } ?? "-"
         let duration = status.duration.map { String(format: "%.1f", $0) } ?? "-"
         let artwork = status.artwork.map { "\($0.count / 1_024) KB" } ?? "none"
