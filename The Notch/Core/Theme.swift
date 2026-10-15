@@ -325,7 +325,7 @@ enum Theme {
         static let hoverExitDelay: Duration = .milliseconds(80)
 
         /// The same two delays, per `HoverSensitivity`. `.standard` is the pair above and must
-        /// stay identical to it — that pairing is what makes "Restore Defaults" put the hover
+        /// stay identical to it — that pairing is what makes "Restore defaults" put the hover
         /// back to the behaviour the two comments above were tuned for.
         ///
         /// `.instant` still keeps a non-zero exit delay. Zero on the way *in* is a legitimate
@@ -405,9 +405,6 @@ enum Theme {
             static let timeColumnWidth: CGFloat = 40
             static let colorMarkWidth: CGFloat = 3
             static let colorMarkHeight: CGFloat = 9
-            static let joinHeight: CGFloat = 14
-            static let joinHorizontalPadding: CGFloat = 5
-            static let joinCornerRadius: CGFloat = 4
         }
         enum Trading {
             static let shoulderWidth: CGFloat = 72
@@ -586,16 +583,24 @@ enum Theme {
             static let pollInterval: TimeInterval = 2
         }
 
+        /// `NotchButtonStyle`'s grid. Three heights, one per place a button can sit: on its own,
+        /// in the header beside the 20pt tab pills, inside a 16pt list row.
         enum Control {
+            static let regularHeight: CGFloat = 22
+            static let compactHeight: CGFloat = TabBar.height
+            /// A calendar row is 16pt and holds four rows a column; a taller Join would cost
+            /// the fourth.
+            static let inlineHeight: CGFloat = 14
             static let cornerRadius: CGFloat = 6
+            static let smallCornerRadius: CGFloat = TabBar.cornerRadius
             static let horizontalPadding: CGFloat = 10
-            static let verticalPadding: CGFloat = 5
-            /// For a control that is one of a stack rather than one of a row — see
-            /// `ButtonStyle.notchCompact`. Two points a side, which is where a capsule around
-            /// 11pt type stops reading as a button; below it the row is just text on a tint.
-            static let compactVerticalPadding: CGFloat = 3
+            static let compactHorizontalPadding: CGFloat = TabBar.horizontalPadding
+            static let inlineHorizontalPadding: CGFloat = 5
             static let fillOpacity: CGFloat = 0.12
+            static let hoverFillOpacity: CGFloat = 0.06
             static let pressedFillOpacity: CGFloat = 0.2
+            static let primaryPressedOpacity: CGFloat = 0.8
+            static let disabledOpacity: CGFloat = 0.4
             static let borderOpacity: CGFloat = 0.14
             static let borderWidth: CGFloat = 0.75
         }
@@ -1360,12 +1365,19 @@ extension Theme.Metrics {
         /// The left column: who is asking. Wide enough for "NEEDS PERMISSION" at micro size and
         /// a project name, and well clear of the camera housing, so it can start at the top.
         static let whoColumnWidth: CGFloat = 132
-        static let columnSpacing: CGFloat = 26
+        /// The two-column gap the calendar and crypto panels use. At 26 the who column's
+        /// short lines left a dead strip before the command.
+        static let columnSpacing: CGFloat = 18
         static let whoTopInset: CGFloat = 16
         static let whoSpacing: CGFloat = 4
         /// Ten rows at a 4pt cell: big enough that the startle and the lean read from across
         /// a desk, which is when this card is being looked at.
         static let mascotSize: CGFloat = 40
+        /// The two rows above its grid the mascot hops and raises its antennae into (see
+        /// `AgentActivityGlyph.headroom`), at this size's 4pt cell. The who column starts this
+        /// much lower than the rule, so a hop stays inside the card instead of drawing above
+        /// the rule's top and up against the panel's edge.
+        static let mascotHeadroom: CGFloat = 8
         /// With no tab bar above it, the right column starts this far below the housing.
         static let housingClearance: CGFloat = 6
         static let bottomInset: CGFloat = 12
@@ -1393,6 +1405,8 @@ extension Theme.Metrics {
     /// than stacked, because the effects layer has to know exactly where a checkbox is to
     /// stream pixels into it.
     enum Onboarding {
+        /// Between the buttons' row and the afterword that replaces it.
+        static let afterwordTopPadding: CGFloat = 5
         static let mascotCenter = CGPoint(x: 390, y: 112)
         static let mascotAsideCenter = CGPoint(x: 132, y: 118)
         static let mascotPixel: CGFloat = 8

@@ -349,7 +349,7 @@ struct MediaExpandedView: View {
 
             if retry {
                 Button("Try again") { lyrics.retry() }
-                    .buttonStyle(.notchCompact)
+                    .buttonStyle(.notchSecondary())
                     .help("Look the lyrics up again")
             }
         }

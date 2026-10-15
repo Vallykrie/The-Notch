@@ -46,7 +46,7 @@ struct ApprovalCardView: View {
 
             who
                 .frame(width: metrics.whoColumnWidth, alignment: .leading)
-                .padding(.top, metrics.whoTopInset)
+                .padding(.top, metrics.whoTopInset + metrics.mascotHeadroom)
 
             VStack(alignment: .leading, spacing: Theme.Metrics.collapsedContentSpacing) {
                 if question != nil {
@@ -273,7 +273,7 @@ struct ApprovalCardView: View {
                 } label: {
                     Text("Answer in \(approval.kind.displayName) ↗")
                 }
-                .buttonStyle(PromptPrimaryButtonStyle(tint: accent))
+                .buttonStyle(.notchPrimary(tint: accent))
                 .help(session.host.map { "Open \($0.name)" } ?? "Open \(session.kind.displayName)")
             }
 
@@ -289,8 +289,7 @@ struct ApprovalCardView: View {
             } label: {
                 Text("✕ Dismiss")
             }
-            .buttonStyle(NotchButtonStyle(verticalPadding: Theme.Metrics.Control.compactVerticalPadding))
-            .font(Theme.Text.caption)
+            .buttonStyle(.notchSecondary())
             .help("Hide this notice. The prompt stays open in the agent.")
         }
     }
@@ -328,25 +327,5 @@ struct ApprovalCardView: View {
         let hours = minutes / 60
         guard hours >= 24 else { return "\(hours)h\(minutes % 60)m" }
         return "\(hours / 24)d"
-    }
-}
-
-/// The card's one filled button, in the prompt's own colour, so the way to answer is the most
-/// visible thing on it rather than the least.
-private struct PromptPrimaryButtonStyle: ButtonStyle {
-    let tint: Color
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(Theme.Text.caption)
-            .foregroundStyle(Theme.Colors.surface)
-            .lineLimit(1)
-            .padding(.horizontal, Theme.Metrics.Control.horizontalPadding)
-            .padding(.vertical, Theme.Metrics.Control.compactVerticalPadding + 1)
-            .background(
-                RoundedRectangle(cornerRadius: Theme.Metrics.Control.cornerRadius, style: .continuous)
-                    .fill(tint.opacity(configuration.isPressed ? 0.8 : 1))
-            )
-            .contentShape(Rectangle())
     }
 }

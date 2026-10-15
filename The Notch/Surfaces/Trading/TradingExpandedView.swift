@@ -93,7 +93,7 @@ import SwiftUI
                     .font(Theme.Text.caption).foregroundStyle(Theme.Colors.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                 Button("+ Add a pair") { searching = true }
-                    .buttonStyle(.notchCompact)
+                    .buttonStyle(.notchSecondary())
                     .padding(.top, 2)
             }
         } right: {

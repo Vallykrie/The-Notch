@@ -18,8 +18,8 @@ import SwiftUI
 /// Still no scrolling: `ImageRenderer` draws a scroll view as empty, so `FrameDump` could never
 /// verify a section that needed one. A section that outgrows two columns is a section to split.
 ///
-/// The panel's actions — Restore Defaults, Updates and Quit — live in the panel header, where
-/// the tab bar would be. Restore Defaults takes the leading edge the tabs vacate while settings
+/// The panel's actions — Restore defaults, Updates and Quit — live in the panel header, where
+/// the tab bar would be. Restore defaults takes the leading edge the tabs vacate while settings
 /// are open, so the trailing edge is not a crowd of four buttons.
 @MainActor
 struct SettingsExpandedView: View {

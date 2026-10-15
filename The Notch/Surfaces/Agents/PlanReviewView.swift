@@ -69,14 +69,15 @@ struct PlanReviewView: View {
                     onSend(message)
                     feedback = ""
                 }
-                .buttonStyle(.notch)
+                .buttonStyle(.notchSecondary())
                 .disabled(feedback.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
                 Button("Approve") {
                     onApprove()
                 }
-                .buttonStyle(.notch)
-                .tint(Theme.Colors.Status.working)
+                // Primary: it was `.notch` with a `.tint` the style never read, so Approve
+                // looked exactly like Send beside it.
+                .buttonStyle(.notchPrimary(tint: Theme.Colors.Status.working))
             }
         }
         .foregroundStyle(.white)

@@ -117,13 +117,21 @@ applies to.
       watchlist pin slot and no placeholder dashes, no dead scrubber when nothing plays, the
       record as missing-artwork art, badge inset, drawn tree connector, a labelled Media keys
       row.
-- [ ] **UI audit v2, components pass**: one button system (three roles, two sizes) and the
-      approval card's alignment; a static render of the overflowing agents list for FrameDump.
+- [x] **UI audit v2, components pass.** `NotchButtonStyle` is one grid: primary / secondary
+      / tertiary × regular (22pt) / compact (20pt, the tab pills' height) / inline (14pt, in
+      a 16pt list row). It replaces seven hand-drawn buttons; Dismiss no longer renders larger
+      than Answer, and plan review's Approve is finally distinct from Send (its `.tint` was
+      never read). Approval card: the who column starts below the mascot's hop headroom, and
+      the column gap matches the other two-column surfaces.
+- [ ] FrameDump cannot render the overflowing agents list: `ImageRenderer` draws a
+      `ScrollView` empty, and a static stand-in drops the fade and "N more" pill, which depend
+      on state from a second layout pass that `ImageRenderer` never runs. Needs `LiveCapture`
+      or another approach; a stand-in that hides the pill would mislead review.
 
 **Exit criteria:** open/close is indistinguishable from the references at normal speed, and
 in slow-motion screen capture the curve is a single coherent spring.
 
-**Last touched:** 2026-10-15 — UI audit v2 geometry pass (see the item above).
+**Last touched:** 2026-10-15 — UI audit v2 geometry and components passes (see the items above).
 Before that, 2026-08-17 — the close was retuned after the user reported it as abrupt.
 0.18s → 0.32s on a softer head (0.42/0/0.22/1), and `surfaceFade`, `contentExit`,
 `contentEnter` and `contentEntry` were all rescaled with it: each had been tuned against the

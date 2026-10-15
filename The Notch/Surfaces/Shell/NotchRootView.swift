@@ -526,7 +526,8 @@ struct NotchRootView: View {
         HStack(spacing: Theme.Metrics.TabBar.spacing) {
             if isShowingSettings {
                 NotchHeaderActionButton(
-                    title: "Restore Defaults",
+                    title: "Restore defaults",
+                    role: .tertiary,
                     isEnabled: !settings.isAtDefaults
                 ) {
                     settings.restoreDefaults()
@@ -579,7 +580,7 @@ struct NotchRootView: View {
         } else if coordinator.currentSurface == .agents, hasHideableSessions {
             // The bulk form of the per-row hide control. Only offered when it would actually do
             // something, because a button that is present and inert is worse than an absent one.
-            NotchHeaderActionButton(title: "Clear Idle") {
+            NotchHeaderActionButton(title: "Clear idle") {
                 withAnimation(Theme.Motion.content) {
                     _ = store.hideRestingSessions()
                 }

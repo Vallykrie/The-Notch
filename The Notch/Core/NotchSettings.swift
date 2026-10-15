@@ -264,7 +264,7 @@ final class NotchSettings: ObservableObject {
 
     // MARK: Defaults
 
-    /// "The Notch as shipped." The Restore Defaults button in the settings panel puts every
+    /// "The Notch as shipped." The Restore defaults button in the settings panel puts every
     /// value below back, and this dictionary is also what `UserDefaults.register` seeds a first
     /// launch with — so there is exactly one statement of what the default behaviour is.
     ///
@@ -299,7 +299,7 @@ final class NotchSettings: ObservableObject {
         ]
     }
 
-    /// Whether every preference currently matches the shipped behaviour. The Restore Defaults
+    /// Whether every preference currently matches the shipped behaviour. The Restore defaults
     /// button reads this so it can dim itself rather than pretending there is something to undo.
     var isAtDefaults: Bool {
         mediaEnabled
