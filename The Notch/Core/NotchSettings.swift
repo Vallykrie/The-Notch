@@ -551,6 +551,12 @@ nonisolated enum MediaPlayers: String, CaseIterable, Identifiable, Sendable {
         case .spotify: [.spotify]
         }
     }
+
+    /// Browsers and every other app MediaRemote reports. "All" means all of them; picking one
+    /// player means only that player.
+    var allowsOtherApps: Bool {
+        self == .all
+    }
 }
 
 nonisolated enum HUDDwell: String, CaseIterable, Identifiable, Sendable {

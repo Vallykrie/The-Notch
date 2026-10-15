@@ -9,6 +9,18 @@ nonisolated struct NowPlayingStatus: Equatable, Sendable {
     enum Player: Equatable, Hashable, Sendable {
         case spotify
         case music
+        /// Any other app holding the system's media controls: a browser playing YouTube,
+        /// YouTube Music or Spotify Web, a podcast app, a video player. Only the MediaRemote
+        /// path reports these; AppleScript knows only the two players above.
+        case app(bundleIdentifier: String)
+
+        init(bundleIdentifier: String) {
+            switch bundleIdentifier {
+            case "com.spotify.client": self = .spotify
+            case "com.apple.Music": self = .music
+            default: self = .app(bundleIdentifier: bundleIdentifier)
+            }
+        }
     }
 
     let availability: Availability
@@ -102,6 +114,7 @@ nonisolated struct NowPlayingStatus: Equatable, Sendable {
         let playerIdentity = switch player {
         case .spotify: "spotify"
         case .music: "music"
+        case let .app(bundleIdentifier): bundleIdentifier
         }
         return [playerIdentity, title, artist].joined(separator: "\u{1F}")
     }

@@ -6,6 +6,12 @@
 #   Contents/Resources/mediaremote-adapter.pl          the entry point perl runs
 #
 # Mirrors the sources and flags in Vendor/MediaRemoteAdapter/CMakeLists.txt.
+#
+# Runs inside Xcode's user-script sandbox: it may only read the files listed in
+# tools/mediaremote-adapter-inputs.xcfilelist and write the outputs declared on the phase. Add a
+# source upstream and it must be added to both. Nothing here is signed: the linker ad-hoc signs
+# each binary, which is all a development build needs, and scripts/build-release.sh signs both
+# with the Developer ID before the app.
 set -euo pipefail
 
 SRC="${SRCROOT}/Vendor/MediaRemoteAdapter"
@@ -24,7 +30,6 @@ SOURCES=(
   src/private/MediaRemote.m src/utility/Debounce.m src/utility/helpers.m
 )
 
-rm -rf "$FW"
 mkdir -p "$FW/Versions/A/Resources" "$HELPERS"
 
 cd "$SRC"
@@ -35,7 +40,8 @@ xcrun clang -dynamiclib "${ARCH_FLAGS[@]}" -mmacosx-version-min="$MIN_OS" \
   -framework Foundation -framework AppKit -framework UniformTypeIdentifiers \
   "${SOURCES[@]}" -o "$FW/Versions/A/MediaRemoteAdapter"
 
-xcrun clang "${ARCH_FLAGS[@]}" -mmacosx-version-min="$MIN_OS" -fobjc-arc -O2 \
+# Upstream sizes a stack buffer with a `const int`; clang folds it and warns. Unmodified source.
+xcrun clang "${ARCH_FLAGS[@]}" -mmacosx-version-min="$MIN_OS" -fobjc-arc -O2 -Wno-gnu-folding-constant \
   -I src/test -framework Foundation -framework MediaPlayer \
   src/test/main.m src/test/NowPlayingTest.m -o "$HELPERS/MediaRemoteAdapterTestClient"
 
@@ -59,11 +65,3 @@ ln -sfn Versions/Current/MediaRemoteAdapter "$FW/MediaRemoteAdapter"
 ln -sfn Versions/Current/Resources "$FW/Resources"
 
 cp "$SRC/bin/mediaremote-adapter.pl" "${APP}/Resources/mediaremote-adapter.pl"
-
-# Sign with the app's identity so a Developer ID build notarises; ad-hoc when signing is off.
-IDENTITY="${EXPANDED_CODE_SIGN_IDENTITY:--}"
-SIGN_FLAGS=(--force --sign "$IDENTITY")
-if [[ "$IDENTITY" != "-" ]]; then SIGN_FLAGS+=(--options runtime); fi
-if [[ "${EXPANDED_CODE_SIGN_IDENTITY_NAME:-}" == "Developer ID"* ]]; then SIGN_FLAGS+=(--timestamp); fi
-codesign "${SIGN_FLAGS[@]}" "$HELPERS/MediaRemoteAdapterTestClient"
-codesign "${SIGN_FLAGS[@]}" "$FW"

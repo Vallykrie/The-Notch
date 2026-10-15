@@ -442,7 +442,7 @@ struct MediaExpandedView: View {
         let players = Self.installedPlayers
         HStack(spacing: Theme.Metrics.collapsedContentSpacing * 2) {
             if players.isEmpty {
-                Text("Spotify or Apple Music shows up here when it plays.")
+                Text("Music from Spotify, Apple Music or a browser shows up here.")
                     .foregroundStyle(Theme.Colors.textSecondary)
             } else {
                 Text("Open")
@@ -597,7 +597,7 @@ struct MediaExpandedView: View {
         switch player {
         case .spotify:
             Theme.Colors.Status.playing
-        case .music:
+        case .music, .app:
             Theme.Colors.textPrimary
         }
     }
@@ -608,6 +608,9 @@ struct MediaExpandedView: View {
             "Spotify"
         case .music:
             "Apple Music"
+        case .app:
+            // M2 names the real app (Chrome, Safari…) from its bundle identifier.
+            "Now Playing"
         }
     }
 

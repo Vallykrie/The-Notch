@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         if RuntimeDiagnostics.runIfRequested() { return }
+        if MediaDiagnostics.runIfRequested() { return }
 
         // Must happen before any view builds. The bundled font is registered per-process rather
         // than installed system-wide, and `Font.custom` silently falls back to San Francisco if
@@ -33,15 +34,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSApp.terminate(nil)
             return
         }
-
-        #if DEBUG
-        // Browser-media spike: prove the bundled MediaRemoteAdapter works when this app runs it.
-        if let seconds = MediaRemoteSpike.requestedDuration {
-            MediaRemoteSpike.run(seconds: seconds)
-            NSApp.terminate(nil)
-            return
-        }
-        #endif
 
         // Unconditionally, and before anything decides whether to suppress it again. A previous
         // run that was force-killed never got its `applicationWillTerminate`, so the system HUD
@@ -70,7 +62,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Each feature's monitor follows its switch. All four calls are idempotent.
         services.nowPlaying.configure(
             suspended: !settings.mediaEnabled,
-            allowedPlayers: settings.mediaPlayers.players
+            allowedPlayers: settings.mediaPlayers.players,
+            allowsOtherApps: settings.mediaPlayers.allowsOtherApps
         )
         services.trading.setSuspended(!settings.cryptoEnabled)
         services.calendar.showsAllDay = settings.calendarShowsAllDay

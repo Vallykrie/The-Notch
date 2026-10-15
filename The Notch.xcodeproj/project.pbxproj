@@ -141,7 +141,6 @@
 			outputPaths = (
 				"$(TARGET_BUILD_DIR)/$(WRAPPER_NAME)/Contents/Frameworks/MediaRemoteAdapter.framework/Versions/A/MediaRemoteAdapter",
 				"$(TARGET_BUILD_DIR)/$(WRAPPER_NAME)/Contents/Frameworks/MediaRemoteAdapter.framework/Versions/A/Resources/Info.plist",
-				"$(TARGET_BUILD_DIR)/$(WRAPPER_NAME)/Contents/Frameworks/MediaRemoteAdapter.framework/Versions/A/_CodeSignature/CodeResources",
 				"$(TARGET_BUILD_DIR)/$(WRAPPER_NAME)/Contents/Frameworks/MediaRemoteAdapter.framework/Versions/Current",
 				"$(TARGET_BUILD_DIR)/$(WRAPPER_NAME)/Contents/Frameworks/MediaRemoteAdapter.framework/MediaRemoteAdapter",
 				"$(TARGET_BUILD_DIR)/$(WRAPPER_NAME)/Contents/Frameworks/MediaRemoteAdapter.framework/Resources",
@@ -298,7 +297,6 @@
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Config/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
@@ -338,7 +336,6 @@
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Config/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";

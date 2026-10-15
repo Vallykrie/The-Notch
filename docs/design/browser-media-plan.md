@@ -77,12 +77,12 @@ Rejected:
 ## 3. Implementation plan
 
 ### Phase 0 — Spike (½ day, throwaway branch)
-- [ ] Vendor the adapter source at a pinned commit under `Vendor/MediaRemoteAdapter/`.
-- [ ] Add an Xcode **framework target** that compiles it as a universal binary. Copy the framework and
+- [x] Vendor the adapter source at a pinned commit under `Vendor/MediaRemoteAdapter/`.
+- [x] *(Done as a Run Script phase; M1 moves it to a framework target.)* Add an Xcode **framework target** that compiles it as a universal binary. Copy the framework and
       `mediaremote-adapter.pl` into `Contents/Resources/MediaRemoteAdapter/` as a resource, not as
       a linked or embedded framework.
-- [ ] From inside the built app, run `test` and log `stream` output.
-- [ ] Verify sources: Safari, Chrome, Arc, Firefox × YouTube, YouTube Music, Spotify Web. Also check
+- [x] From inside the built app, run `test` and log `stream` output.
+- [x] *(Chrome, Safari, Brave done; Spotify Web, Arc, Firefox open.)* Verify sources: Safari, Chrome, Arc, Firefox × YouTube, YouTube Music, Spotify Web. Also check
       the reported `bundleIdentifier` for each, and whether play/pause, next, previous and seek work.
 - [ ] Verify a **Developer ID–signed, notarised** build still loads (perl has to accept our signed
       framework).
@@ -136,63 +136,121 @@ Findings that change the plan:
    it can interfere with other apps. Run it once per launch, before streaming starts, never per
    poll. A cheaper gate is worth checking: does `get` exit non-zero when it isn't entitled?
 
-### Phase 1 — Adapter source behind a fallback
-- [ ] `MediaSource` protocol: `start`, `stop`, `send(TransportCommand)`, and a status stream.
-      Move the current AppleScript logic into `AppleScriptMediaSource` unchanged.
-- [ ] `MediaRemoteAdapterSource`:
-  - Run `test` once per launch, off the main actor, with a timeout. Fail → use AppleScript for this
-    run.
-  - Keep one long-lived `Process`: `/usr/bin/perl <pl> <framework> stream --debounce=100`. Read
-    stdout line by line, apply diffs to a snapshot dictionary, and map it to `NowPlayingStatus`.
-  - Commands run as one-shot `send <n>` or `seek <µs>` processes. Keep the existing optimistic UI
-    and generation guard.
-  - Restart after an unexpected exit with backoff, capped. A non-zero exit from `test` disables the
-    source for the session, as upstream asks.
-  - Stop the process on sleep, when the feature is switched off, and when the panel is suspended.
-    Restart on wake.
-  - Fail open: stderr is logged, never surfaced, and any parse error yields `.inactive`.
-- [ ] **Live elapsed time.** `stream` doesn't tick, so derive the position as
-      `elapsedTime + (now − timestamp) × playbackRate`. Drive the scrubber from a `TimelineView` or
-      the existing clock, not from repeated polling.
-- [ ] Artwork: decode base64 once per `contentItemIdentifier`, and keep the 4 MB cap from
-      `maximumArtworkByteCount`.
+### Roadmap after the spike
 
-### Phase 2 — Model, settings, UI
-- [ ] Replace `NowPlayingStatus.Player` (`spotify | music`) with a `MediaSourceApp` value: bundle
-      id, display name, and kind (`.music`, `.spotify`, `.browser`, `.other`). Known browser bundle
-      ids map to `.browser`.
-- [ ] Settings: replace the All / Music / Spotify picker with source toggles. Proposed toggles:
-      Music, Spotify and Browsers default to on; Other apps defaults to off. Migrate the old
-      `NotchMediaPlayers` value. A disallowed source shows as inactive; it doesn't fall through.
-- [ ] Source badge and "Open" button: use the app's real name and icon from `NSWorkspace` for the
-      bundle id. Activate the browser; a specific tab can't be targeted, which is fine.
-- [ ] Artwork view: YouTube thumbnails are 16:9, so aspect-fill crop to the square tile.
+Three PRs, each shippable on its own. The ROADMAP checkbox lands in the same commit as the code.
+Docs (ARCHITECTURE, ROADMAP, `THIRD_PARTY_LICENSES`) ship with the PR they describe, not as a
+separate phase.
 
-### Phase 3 — Polish
-- [ ] Lyrics: normalise browser titles before the LRCLIB lookup. Strip "(Official Video)", "[MV]",
-      "(Lyrics)" and similar, split "Artist - Title" when the artist is a channel, and drop
-      " - Topic". Skip lyrics when `mediaType` is video and nothing matches.
-- [ ] Measure the idle cost of the perl process (RSS and CPU) over an hour of playback. Also measure
-      it with nothing playing, and consider stopping `stream` after N minutes with no now-playing
-      item.
-- [ ] Optional secondary fallback: the JXA `MRNowPlayingRequest` probe, for when Perl is gone. It
-      gives metadata and controls without artwork.
+| PR | Outcome for the user | Size (new + changed lines) |
+|---|---|---|
+| **M1 — Browser playback in the notch** | YouTube, YouTube Music, Spotify Web and every other player show in the notch with artwork and working controls. No more Automation prompts. | ~900 |
+| **M2 — Sources, settings, badge** | Badge shows the real app (Chrome, Safari…). Settings has per-source toggles. Ads and 16:9 thumbnails look right. | ~400 |
+| **M3 — Polish and resilience** | Lyrics work for YouTube titles. The helper sleeps when nothing plays. A Perl-free fallback exists. | ~300 |
 
-### Phase 4 — Docs and housekeeping
-- [ ] `THIRD_PARTY_LICENSES` entry (version or commit, copyright, BSD-3, source, location in the
-      bundle). Copy the licence text into `Resources/Licenses/`.
-- [ ] ARCHITECTURE §2: replace the "XPC helper" note with the perl-adapter design and its fallback.
-- [ ] ROADMAP: amend the "MediaRemote was rejected" entry and add checkboxes for each phase above.
+#### M1 — Browser playback in the notch
 
-### Tests
-- Parser tests against recorded `stream` lines: full snapshot, diffs, a `null` removal, and an
-  artwork-only update. Fixtures use placeholder titles.
-- Elapsed-time extrapolation, including paused playback (rate 0) and clamping at the duration.
-- Source mapping and settings migration.
-- Inject a fake process runner. Unit tests never spawn `/usr/bin/perl`.
+Build
+- [x] Turn `ENABLE_USER_SCRIPT_SANDBOXING` back on. **Changed from the plan:** the Run Script
+      phase stayed, because a framework target meant hand-editing much more of the project
+      file. It works inside the sandbox once every output file is declared, `rm -rf` is gone,
+      and it stops calling `codesign`. The linker ad-hoc signs each binary, which a development
+      build needs; `scripts/build-release.sh` signs both with the Developer ID.
+- [x] Delete `Debug/MediaRemoteSpike.swift` and its `AppDelegate` hook.
 
-### Estimate
-Spike ½ day · Phase 1 1½–2 days · Phase 2 1 day · Phase 3 ½–1 day · docs ½ day. About 4–5 days.
+Adapter process — new `Surfaces/System/NowPlaying/MediaRemoteAdapter.swift`
+- [x] Locate the script, framework and test client in the bundle. If any is missing, the adapter
+      is unavailable.
+- [x] `probe()`: run `test` once per launch, off the main actor, with a 3 s timeout. Not exit 0
+      → unavailable for this run.
+- [x] `stream`: one long-lived `/usr/bin/perl … stream --debounce=100` process. Split stdout into
+      lines and hand them to the parser. Log stderr only.
+- [x] Restart after an unexpected exit with backoff (1 s, 5 s, 30 s), giving up after 3. On give-up
+      the monitor falls back to AppleScript.
+- [x] `send(command)` / `seek(seconds)`: one-shot processes, `send 2` toggles play/pause, 4 is next,
+      5 is previous, `seek <µs>`.
+- [x] Stop on sleep and when the feature is off; restart on wake.
+
+Payload → status — new `Surfaces/System/NowPlaying/AdapterPayload.swift` (pure, unit-tested)
+- [x] Merge diffs into a snapshot (`diff: true`, with `null` = remove; `diff: false` = replace).
+- [x] Source app = `parentApplicationBundleIdentifier ?? bundleIdentifier`. This is the Safari
+      `com.apple.WebKit.GPU` fix.
+- [x] Map to `NowPlayingStatus`: title, artist, playing, elapsed, timestamp, rate, duration.
+      Artwork is decoded from base64 once per `contentItemIdentifier`, capped at 4 MB.
+- [x] **Keep the previous artwork** until the new `artworkData` arrives for the same item.
+
+Model — `NowPlayingStatus.swift`
+- [x] `Player` becomes `spotify | music | app(bundleIdentifier:)`. The two existing cases keep the
+      AppleScript path and the UI working unchanged. Everything else is `app`. M2 gives it a name
+      and icon; until then the badge says "Now Playing".
+
+Monitor — `NowPlayingMonitor.swift`
+- [x] Choose a backend at launch: the adapter if `probe()` passes, otherwise the existing
+      AppleScript polling. The AppleScript code is kept as-is behind the same published `status`.
+- [x] **Blank-gap debounce.** An empty snapshot only publishes `.inactive` after 300 ms, so the
+      notch doesn't collapse between tracks or between an ad and the video.
+- [x] **Live elapsed time.** `stream` doesn't tick. While playing, a 1 s timer republishes
+      `elapsed + (now − timestamp) × rate`, clamped to the duration. The views already render
+      `status.progress`, and `LyricsController` already anchors its own clock, so **no view
+      changes are needed**.
+- [x] Commands go to the active backend. Keep the optimistic UI and generation guard. The adapter
+      path needs no `deniedPlayers` logic because it uses no Automation permission.
+- [x] Respect the current `MediaPlayers` setting: with Music only or Spotify only selected, `app`
+      sources are hidden. "All" includes browsers. M2 replaces the setting.
+
+Release and docs
+- [x] `scripts/build-release.sh` already signs the adapter (done in the spike).
+- [ ] Verify the first Developer ID–signed, notarised CI build.
+- [x] `THIRD_PARTY_LICENSES` entry, plus `Resources/Licenses/MediaRemoteAdapter-LICENSE.txt`.
+- [x] ARCHITECTURE §2: replace the "XPC helper" note with the adapter design and its fallback.
+- [x] ROADMAP: amend the "MediaRemote was rejected" entry and tick M1.
+
+Tests — new `tools/media-tests/` (same `swiftc` pattern as `hud-tests`)
+- [x] Parser fixtures with placeholder titles: full snapshot, diff, `null` removal, artwork-only
+      update, the Safari parent id, and a blank gap.
+- [x] Elapsed extrapolation: playing, paused (rate 0), clamped at the duration.
+- [x] Tests never spawn `/usr/bin/perl`. **Changed from the plan:** no fake process runner. The
+      process layer (`MediaRemoteAdapter`) is thin and was verified against real players with
+      `--media-diagnostics 60 --exercise`, a headless run of the real monitor added in
+      `Debug/MediaDiagnostics.swift`.
+
+Manual check, done 2026-10-15 with `--media-diagnostics`: Brave (YouTube) → Safari (YouTube
+Music) switch with no empty flash, Safari named correctly, artwork held across the change,
+play/pause/seek through the monitor, no perl left running after quit. Not yet seen in the real
+notch UI, Spotify Web, or Music via MediaRemote.
+
+#### M2 — Sources, settings, badge
+- [ ] `MediaSourceKind`: map bundle ids to `.music`, `.spotify`, `.browser` (Safari, Chrome, Arc,
+      Edge, Brave, Firefox, Opera, Vivaldi, Zen, Orion, Dia) or `.other`.
+- [ ] Settings: replace the All / Music / Spotify picker with toggles. Music, Spotify and Browsers
+      default to on; Other apps defaults to off. Migrate `NotchMediaPlayers`: `all` → all on,
+      `music` → Music only, `spotify` → Spotify only. A disallowed source shows as inactive.
+- [ ] Badge and "Open" button: the app's localised name and icon via `NSWorkspace`. "Open"
+      activates the app; a browser tab can't be targeted.
+- [ ] Artwork: aspect-fill crop for 16:9 thumbnails in the square tile and the collapsed view.
+- [ ] Ads: no special casing beyond "lyrics never search an item without a matching duration".
+      Document that ads show, like they do in Control Centre.
+- [ ] Update ROADMAP and settings tests.
+
+#### M3 — Polish and resilience
+- [ ] Lyrics: before the LRCLIB lookup, strip "(Official Video)", "[MV]", "(Lyrics)", "4K
+      Remaster" and similar. Split "Artist - Title" when the artist is a channel, and drop
+      " - Topic". Unit-tested.
+- [ ] Idle: stop `stream` after 10 minutes with no item and resume on the next media key or panel
+      open. Needs measuring first; the idle cost is already low (~21 MB, ~0 CPU).
+- [ ] Orphaned stream after a force-quit: if the app is killed with SIGKILL, its `perl stream`
+      child stays alive (idle, ~21 MB) until the next Now Playing change, then exits on SIGPIPE.
+      Measured 2026-10-15. Possible fixes: kill a stale stream at launch (record its pid), or
+      have the script watch its parent.
+- [ ] Optional: JXA `MRNowPlayingRequest` fallback for when Perl is gone (metadata and controls,
+      no artwork).
+- [ ] Update ROADMAP.
+
+### Effort, honestly
+The "days" above were for a person working focused. What drives the size is mostly M1's refactor
+of `NowPlayingMonitor` (661 lines) behind two backends without breaking the current behaviour.
+The adapter and parser are small and testable. M1 is the only risky PR; M2 and M3 are routine.
+Your time: a review per PR, plus a manual run with the browsers you actually use.
 
 ## Sources
 - https://github.com/ungive/mediaremote-adapter (README, LICENSE)
