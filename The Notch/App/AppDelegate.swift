@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         if RuntimeDiagnostics.runIfRequested() { return }
+        if MediaDiagnostics.runIfRequested() { return }
 
         // Must happen before any view builds. The bundled font is registered per-process rather
         // than installed system-wide, and `Font.custom` silently falls back to San Francisco if
@@ -61,7 +62,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Each feature's monitor follows its switch. All four calls are idempotent.
         services.nowPlaying.configure(
             suspended: !settings.mediaEnabled,
-            allowedPlayers: settings.mediaPlayers.players
+            allowedPlayers: settings.mediaPlayers.players,
+            allowsOtherApps: settings.mediaPlayers.allowsOtherApps
         )
         services.trading.setSuspended(!settings.cryptoEnabled)
         services.calendar.showsAllDay = settings.calendarShowsAllDay

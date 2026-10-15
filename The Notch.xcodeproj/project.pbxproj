@@ -60,6 +60,7 @@
 				D8E172B2302195A400E81494 /* Sources */,
 				D8E172B3302195A400E81494 /* Frameworks */,
 				D8E172B4302195A400E81494 /* Resources */,
+				9F3A0C1E2D4B5A6900000010 /* Build MediaRemoteAdapter */,
 			);
 			buildRules = (
 			);
@@ -122,6 +123,35 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		9F3A0C1E2D4B5A6900000010 /* Build MediaRemoteAdapter */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"$(SRCROOT)/tools/mediaremote-adapter-inputs.xcfilelist",
+			);
+			inputPaths = (
+			);
+			name = "Build MediaRemoteAdapter";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(WRAPPER_NAME)/Contents/Frameworks/MediaRemoteAdapter.framework/Versions/A/MediaRemoteAdapter",
+				"$(TARGET_BUILD_DIR)/$(WRAPPER_NAME)/Contents/Frameworks/MediaRemoteAdapter.framework/Versions/A/Resources/Info.plist",
+				"$(TARGET_BUILD_DIR)/$(WRAPPER_NAME)/Contents/Frameworks/MediaRemoteAdapter.framework/Versions/Current",
+				"$(TARGET_BUILD_DIR)/$(WRAPPER_NAME)/Contents/Frameworks/MediaRemoteAdapter.framework/MediaRemoteAdapter",
+				"$(TARGET_BUILD_DIR)/$(WRAPPER_NAME)/Contents/Frameworks/MediaRemoteAdapter.framework/Resources",
+				"$(TARGET_BUILD_DIR)/$(WRAPPER_NAME)/Contents/Helpers/MediaRemoteAdapterTestClient",
+				"$(TARGET_BUILD_DIR)/$(WRAPPER_NAME)/Contents/Resources/mediaremote-adapter.pl",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "\"$SRCROOT/tools/build-mediaremote-adapter.sh\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		D8E172B2302195A400E81494 /* Sources */ = {
@@ -269,8 +299,8 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Config/Info.plist;
-				INFOPLIST_KEY_LSMinimumSystemVersion = 14.0;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_LSMinimumSystemVersion = 14.0;
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSAppleEventsUsageDescription = "The Notch controls terminal apps to jump to the window, tab, or session that needs attention.";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "The Notch shows your upcoming events from the calendars on this Mac, including iCloud, Google and Microsoft accounts. Nothing leaves your Mac.";
@@ -308,8 +338,8 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Config/Info.plist;
-				INFOPLIST_KEY_LSMinimumSystemVersion = 14.0;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_LSMinimumSystemVersion = 14.0;
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSAppleEventsUsageDescription = "The Notch controls terminal apps to jump to the window, tab, or session that needs attention.";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "The Notch shows your upcoming events from the calendars on this Mac, including iCloud, Google and Microsoft accounts. Nothing leaves your Mac.";

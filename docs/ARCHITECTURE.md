@@ -76,8 +76,15 @@ Rules we adopt:
 app uses them. Currently **zero** dependencies are wired up; the shell and bridge are pure
 SwiftUI/AppKit/Foundation.
 
-**Now-playing data** needs the private MediaRemote framework, which since macOS 15.4 must be
-driven out of process. Plan on a small XPC helper when Phase 6 starts.
+**Now-playing data** comes from the private MediaRemote framework, which since macOS 15.4 only
+answers processes with a `com.apple.*` identity, so an XPC helper of our own would be refused
+too. The app runs Apple's `/usr/bin/perl` on the vendored MediaRemoteAdapter
+(`Vendor/MediaRemoteAdapter`, BSD-3), which loads its framework into that entitled process and
+streams JSON. That covers every player, browsers included, with no Automation permission
+(`MediaRemoteAdapter`, `AdapterPayload`). The adapter's `test` runs once per launch; if it fails,
+or the stream keeps crashing, `NowPlayingMonitor` falls back to the original AppleScript path
+against Spotify and Music for the rest of the session. Design notes and the risks (a future macOS
+closing the loophole, or dropping system Perl) are in `docs/design/browser-media-plan.md`.
 
 ## 3. Agent integration — how it works
 

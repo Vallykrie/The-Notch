@@ -1,7 +1,7 @@
 # Third-party licenses
 
-The Notch has one third-party code dependency, Sparkle, and bundles one third-party font. Both are
-listed below.
+The Notch has two third-party code dependencies, Sparkle and MediaRemoteAdapter, and bundles one
+third-party font. All three are listed below.
 
 ## Included
 
@@ -17,6 +17,25 @@ listed below.
 - **Modifications:** none
 - **Licence text:** `The Notch/Resources/Licenses/Sparkle-LICENSE.txt`, copied into the app bundle
   at build time
+
+### MediaRemoteAdapter
+
+- **Version:** upstream commit `797729d9b16316dc313844476c153d7a107ca0df` (2026-10-10)
+- **Copyright:** Copyright (c) 2025, Jonas van den Berg and contributors
+- **License:** BSD 3-Clause
+- **Source:** https://github.com/ungive/mediaremote-adapter
+- **Vendored at:** `Vendor/MediaRemoteAdapter/` (see `VENDORED.md` there)
+- **Built into:** `Contents/Frameworks/MediaRemoteAdapter.framework`,
+  `Contents/Helpers/MediaRemoteAdapterTestClient` and `Contents/Resources/mediaremote-adapter.pl`,
+  by `tools/build-mediaremote-adapter.sh`. The app never links the framework; `/usr/bin/perl`
+  loads it at runtime.
+- **Modifications:** none
+- **Licence text:** `The Notch/Resources/Licenses/MediaRemoteAdapter-LICENSE.txt`, copied into the
+  app bundle at build time
+
+BSD 3-Clause permits redistribution in source and binary form inside this MIT project, provided
+the copyright notice, conditions and disclaimer are retained (they ship with the app) and the
+authors' names are not used to endorse it.
 
 ### Departure Mono
 

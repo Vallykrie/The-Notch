@@ -96,13 +96,12 @@ actor LyricsProvider {
         let key = "\(title)\u{1F}\(artist)"
         if !ignoringCache, let cached = cache[key] { return cached }
 
-        var result = await search(title: title, artist: artist, duration: duration)
-        // Players decorate titles that the lyrics database stores bare — Spotify's
-        // `I See the Light - From "Tangled" / Soundtrack Version`, `Song - Remastered 2011`,
-        // `Song (feat. Someone)`. Only tried when the full title finds nothing, so a song
-        // whose real name contains a dash is matched as itself first.
-        if result == .notFound, let bare = Self.bareTitle(title), bare != title {
-            result = await search(title: bare, artist: artist, duration: duration)
+        // Tried in order until one finds lyrics. The full title goes first, so a song whose
+        // real name contains a dash is matched as itself before any guess.
+        var result = LyricsLookup.notFound
+        for query in Self.searchQueries(title: title, artist: artist) {
+            result = await search(title: query.title, artist: query.artist, duration: duration)
+            if result != .notFound { break }
         }
         // A failure is not cached: a timeout or an offline Mac should be retried.
         if result != .failed { cache[key] = result }
@@ -125,6 +124,63 @@ actor LyricsProvider {
         } catch {
             return .failed
         }
+    }
+
+    struct Query: Equatable, Sendable {
+        let title: String
+        let artist: String
+    }
+
+    /// The searches to try for a track, most literal first, without duplicates.
+    ///
+    /// Players decorate titles that the lyrics database stores bare: Spotify's
+    /// `I See the Light - From "Tangled" / Soundtrack Version` or `Song - Remastered 2011`, and
+    /// browser players' video titles, which lead with the artist —
+    /// `Queen - All Dead, All Dead - At Last, the Video!`, `a-ha - Take On Me (Official Video)`.
+    /// A leading artist is removed *before* cutting at ` - `; cutting first would leave just
+    /// the artist's name and search for a song called "Queen". A YouTube auto-generated
+    /// channel's ` - Topic` suffix is dropped from the artist.
+    static func searchQueries(title: String, artist: String) -> [Query] {
+        let title = title.trimmingCharacters(in: .whitespaces)
+        var artist = artist.trimmingCharacters(in: .whitespaces)
+        if artist.lowercased().hasSuffix(" - topic") {
+            artist = String(artist.dropLast(" - Topic".count)).trimmingCharacters(in: .whitespaces)
+        }
+
+        var queries: [Query] = []
+        func add(_ title: String?, _ artist: String) {
+            guard let title, !title.isEmpty else { return }
+            let query = Query(title: title, artist: artist)
+            if !queries.contains(query) { queries.append(query) }
+        }
+
+        add(title, artist)
+        if let withoutArtist = strippingLeadingArtist(artist, from: title) {
+            add(withoutArtist, artist)
+            add(bareTitle(withoutArtist), artist)
+        } else if let dash = title.range(of: " - ") {
+            // `Artist - Title` uploaded by a channel whose name is not the artist's.
+            let leading = title[..<dash.lowerBound].trimmingCharacters(in: .whitespaces)
+            let rest = String(title[dash.upperBound...])
+            add(bareTitle(title), artist)
+            if !leading.isEmpty {
+                add(bareTitle(rest), leading)
+            }
+        } else {
+            add(bareTitle(title), artist)
+        }
+        return queries
+    }
+
+    /// `title` without a leading `artist - `, compared case-insensitively. `nil` when the
+    /// title does not start that way.
+    private static func strippingLeadingArtist(_ artist: String, from title: String) -> String? {
+        guard !artist.isEmpty else { return nil }
+        let prefix = artist + " - "
+        guard title.count > prefix.count,
+              title.lowercased().hasPrefix(prefix.lowercased())
+        else { return nil }
+        return String(title.dropFirst(prefix.count)).trimmingCharacters(in: .whitespaces)
     }
 
     /// The title with a player's decorations removed: anything after ` - `, and any trailing
@@ -155,9 +211,10 @@ actor LyricsProvider {
             guard let duration, let length = record.duration else { return .greatestFiniteMagnitude / 2 }
             return abs(length - duration)
         }
-        // A record more than 10s off is a different recording, whatever its title says.
-        let plausible = records.filter { distance($0) <= 10 || duration == nil }
-        let candidates = plausible.isEmpty ? records : plausible
+        // A record more than 10s off is a different recording, whatever its title says. With
+        // a known length, none close enough means no lyrics: showing another song's words is
+        // worse than showing none. Without one, every record is a candidate.
+        let candidates = records.filter { distance($0) <= 10 || duration == nil }
         let ranked = candidates.sorted { left, right in
             let leftSynced = !(left.syncedLyrics ?? "").isEmpty
             let rightSynced = !(right.syncedLyrics ?? "").isEmpty

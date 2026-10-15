@@ -15,6 +15,18 @@ private enum TransportCommand: Equatable, Sendable {
     case seek(seconds: TimeInterval)
 }
 
+/// Where now-playing data comes from. Decided once per launch.
+private enum Backend: Equatable {
+    /// The adapter's `test` is still running. Nothing is published yet (it takes ~70 ms).
+    case probing
+    /// MediaRemote through the bundled adapter: every app, browsers included, and no
+    /// Automation permission.
+    case mediaRemote
+    /// AppleScript against Spotify and Music: the fallback when the adapter is missing, fails
+    /// its test, or keeps crashing.
+    case appleScript
+}
+
 private enum CommandOutcome: Equatable, Sendable {
     case succeeded
     case permissionDenied
@@ -41,17 +53,62 @@ final class NowPlayingMonitor: ObservableObject {
     /// The players the user lets The Notch read. One left out is treated as if it were not
     /// running, so it is never addressed from AppleScript.
     private var allowedPlayers: Set<NowPlayingStatus.Player> = [.music, .spotify]
+    /// Whether apps other than Spotify and Music (browsers, podcast apps) may show. Only the
+    /// MediaRemote backend ever reports them.
+    private var allowsOtherApps = true
+
+    private var backend: Backend
+    private let adapter: MediaRemoteAdapter?
+    private var adapterStream: MediaRemoteAdapterStream?
+    /// Identifies the current stream, so callbacks from a stopped one are ignored.
+    private var adapterStreamToken: UInt = 0
+    private var adapterRestarts = 0
+    private var adapterRestartTask: Task<Void, Never>?
+    /// The latest item the stream reported, kept even while a command owns the UI.
+    private var adapterTrack: AdapterTrack?
+    private var adapterItemChangedAt = Date.distantPast
+    private var lastAdapterItemKey: String?
+    private var inactiveDebounceTask: Task<Void, Never>?
+    private var artworkGraceTask: Task<Void, Never>?
+    private var elapsedTicker: Timer?
 
     /// These are defensive engineering limits rather than visual tuning, so they stay with
     /// the network boundary instead of becoming design tokens in `Theme`.
     private static let artworkRequestTimeout: TimeInterval = 3
     private static let maximumArtworkByteCount = 4 * 1_024 * 1_024
 
+    /// MediaRemote reports an empty item for a moment whenever the source changes (track to
+    /// track, ad to video). Going inactive only after this long keeps the notch from collapsing
+    /// and reopening on every change.
+    private static let inactiveDebounce: Duration = .milliseconds(300)
+    /// A new item's artwork arrives in a later update than its title. The previous artwork is
+    /// kept this long rather than flashing an empty tile.
+    private static let artworkGrace: TimeInterval = 1.5
+    /// MediaRemote does not tick, so the elapsed position is re-derived this often while
+    /// something plays. Matches the precision of the `m:ss` label.
+    private static let elapsedTickInterval: TimeInterval = 1
+    /// After a command completes, the stream's confirming update lands within its 100 ms
+    /// debounce. Holding the optimistic value this long keeps it from snapping back first.
+    private static let commandSettle: Duration = .milliseconds(400)
+    /// Backoff before restarting a stream that exited on its own. After the last one the
+    /// monitor gives up on MediaRemote for the session and falls back to AppleScript.
+    private static let adapterRestartDelays: [Duration] = [.seconds(1), .seconds(5), .seconds(30)]
+
     init(runner: AppleScriptRunner = AppleScriptRunner()) {
         self.runner = runner
         isPreview = false
         status = .inactive
+        adapter = MediaRemoteAdapter()
+        backend = adapter == nil ? .appleScript : .probing
         installWorkspaceObservers()
+        if let adapter {
+            Task { @MainActor [weak self] in
+                let isUsable = await adapter.probe()
+                guard let self, backend == .probing else { return }
+                backend = isUsable ? .mediaRemote : .appleScript
+                reconcilePolling()
+            }
+        }
         reconcilePolling()
     }
 
@@ -61,6 +118,8 @@ final class NowPlayingMonitor: ObservableObject {
         runner = AppleScriptRunner()
         isPreview = true
         status = previewStatus
+        adapter = nil
+        backend = .appleScript
     }
 
     func playPause() {
@@ -89,6 +148,11 @@ final class NowPlayingMonitor: ObservableObject {
     isolated deinit {
         timer?.invalidate()
         refreshTask?.cancel()
+        elapsedTicker?.invalidate()
+        adapterRestartTask?.cancel()
+        inactiveDebounceTask?.cancel()
+        artworkGraceTask?.cancel()
+        adapterStream?.stop()
 
         let workspaceCenter = NSWorkspace.shared.notificationCenter
         for observer in workspaceObservers {
@@ -98,6 +162,10 @@ final class NowPlayingMonitor: ObservableObject {
 
     private func issue(_ command: TransportCommand) {
         guard !isPreview else { return }
+        if backend == .mediaRemote {
+            issueThroughAdapter(command)
+            return
+        }
         guard let player = controlledPlayer() else { return }
 
         // A poll already inside `osascript` can return the pre-command state. Give it a stale
@@ -153,10 +221,18 @@ final class NowPlayingMonitor: ObservableObject {
     }
 
     /// Applies the media preferences. Idempotent, so it can run on every settings change.
-    func configure(suspended: Bool, allowedPlayers: Set<NowPlayingStatus.Player>) {
-        guard suspended != isSuspended || allowedPlayers != self.allowedPlayers else { return }
+    func configure(
+        suspended: Bool,
+        allowedPlayers: Set<NowPlayingStatus.Player>,
+        allowsOtherApps: Bool
+    ) {
+        guard suspended != isSuspended
+            || allowedPlayers != self.allowedPlayers
+            || allowsOtherApps != self.allowsOtherApps
+        else { return }
         isSuspended = suspended
         self.allowedPlayers = allowedPlayers
+        self.allowsOtherApps = allowsOtherApps
         reconcilePolling()
     }
 
@@ -187,6 +263,7 @@ final class NowPlayingMonitor: ObservableObject {
         case NSWorkspace.willSleepNotification:
             isSleeping = true
             stopPolling()
+            stopAdapterStream()
             publish(.inactive)
         case NSWorkspace.didWakeNotification:
             isSleeping = false
@@ -204,6 +281,16 @@ final class NowPlayingMonitor: ObservableObject {
     /// Automation prompt for an interaction the user never requested.
     private func reconcilePolling() {
         guard !isPreview else { return }
+
+        switch backend {
+        case .probing:
+            return
+        case .mediaRemote:
+            reconcileAdapter()
+            return
+        case .appleScript:
+            break
+        }
 
         guard !isSleeping, !isSuspended else {
             stopPolling()
@@ -336,6 +423,9 @@ final class NowPlayingMonitor: ObservableObject {
                 // ordinary absent value, not a reason to discard the rest of the poll.
                 artwork = nil
             }
+        case .app:
+            // AppleScript never polls other apps; only MediaRemote reports them.
+            artwork = nil
         }
 
         try Task.checkCancellation()
@@ -456,6 +546,8 @@ final class NowPlayingMonitor: ObservableObject {
             "com.spotify.client"
         case .music:
             "com.apple.Music"
+        case let .app(bundleIdentifier):
+            bundleIdentifier
         }
     }
 
@@ -465,6 +557,10 @@ final class NowPlayingMonitor: ObservableObject {
             "Spotify"
         case .music:
             "Music"
+        case .app:
+            // Never scripted: `playerPreference` is the only source of scripted players. An
+            // empty name makes any script a no-op (`application "" is running` is false).
+            ""
         }
     }
 
@@ -478,7 +574,7 @@ final class NowPlayingMonitor: ObservableObject {
                     set artworkURL to artwork url of current track as text
                 end try
             """
-        case .music:
+        case .music, .app:
             ""
         }
         var returnedFields = [
@@ -506,7 +602,7 @@ final class NowPlayingMonitor: ObservableObject {
         // identically.
         let durationExpression = switch player {
         case .spotify: "(duration of current track)"
-        case .music: "((duration of current track) * 1000)"
+        case .music, .app: "((duration of current track) * 1000)"
         }
         return """
         if application "\(applicationName)" is running then
@@ -616,7 +712,235 @@ final class NowPlayingMonitor: ObservableObject {
     }
 }
 
+// MARK: - MediaRemote backend
+
+extension NowPlayingMonitor {
+    private func reconcileAdapter() {
+        guard !isSleeping, !isSuspended else {
+            stopAdapterStream()
+            publish(.inactive)
+            return
+        }
+        startAdapterStreamIfNeeded()
+        publishAdapterTrack()
+    }
+
+    private func startAdapterStreamIfNeeded() {
+        guard adapterStream == nil, adapterRestartTask == nil, let adapter else { return }
+
+        adapterStreamToken &+= 1
+        let token = adapterStreamToken
+        let stream = adapter.stream(
+            onUpdate: { [weak self] track in
+                Task { @MainActor [weak self] in
+                    self?.receiveAdapterTrack(track, token: token)
+                }
+            },
+            onExit: { [weak self] status in
+                Task { @MainActor [weak self] in
+                    self?.adapterStreamExited(status: status, token: token)
+                }
+            }
+        )
+        guard let stream else {
+            adapterStreamExited(status: -1, token: token)
+            return
+        }
+        adapterStream = stream
+    }
+
+    private func stopAdapterStream() {
+        // A new token first, so the stopped stream's exit callback is ignored.
+        adapterStreamToken &+= 1
+        adapterStream?.stop()
+        adapterStream = nil
+        adapterRestartTask?.cancel()
+        adapterRestartTask = nil
+        adapterTrack = nil
+        inactiveDebounceTask?.cancel()
+        inactiveDebounceTask = nil
+        stopElapsedTicker()
+    }
+
+    private func receiveAdapterTrack(_ track: AdapterTrack?, token: UInt) {
+        guard token == adapterStreamToken else { return }
+        // A stream that delivers data is healthy; only consecutive failures count.
+        adapterRestarts = 0
+
+        let itemKey = track.map { "\($0.sourceBundleIdentifier)\u{1F}\($0.itemIdentifier ?? $0.title)" }
+        if itemKey != lastAdapterItemKey {
+            lastAdapterItemKey = itemKey
+            adapterItemChangedAt = Date()
+        }
+        adapterTrack = track
+        publishAdapterTrack()
+    }
+
+    private func adapterStreamExited(status: Int32, token: UInt) {
+        guard token == adapterStreamToken else { return }
+        adapterStream = nil
+
+        guard adapterRestarts < Self.adapterRestartDelays.count else {
+            // MediaRemote keeps failing. AppleScript for the rest of the session, as upstream
+            // asks: never keep re-invoking a broken adapter.
+            backend = .appleScript
+            adapterTrack = nil
+            stopElapsedTicker()
+            publish(.inactive)
+            reconcilePolling()
+            return
+        }
+
+        let delay = Self.adapterRestartDelays[adapterRestarts]
+        adapterRestarts += 1
+        adapterRestartTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: delay)
+            guard let self, !Task.isCancelled else { return }
+            adapterRestartTask = nil
+            reconcilePolling()
+        }
+    }
+
+    /// Publishes the latest item as a status: filtered by the user's sources, with the elapsed
+    /// position extrapolated to now, and with the previous artwork held across an item change.
+    private func publishAdapterTrack() {
+        // A command owns the UI until it settles; its completion publishes the latest item.
+        guard pendingCommandGeneration == nil else { return }
+
+        guard let track = adapterTrack, isAllowed(track.player) else {
+            stopElapsedTicker()
+            scheduleInactive()
+            return
+        }
+
+        inactiveDebounceTask?.cancel()
+        inactiveDebounceTask = nil
+
+        var newStatus = track.nowPlayingStatus(at: Date())
+        if newStatus.artwork == nil,
+           status.isActive,
+           status.artwork != nil,
+           Date().timeIntervalSince(adapterItemChangedAt) < Self.artworkGrace {
+            newStatus = newStatus.withArtwork(status.artwork, identity: status.artworkIdentity)
+            scheduleArtworkGraceExpiry()
+        }
+        publish(newStatus)
+
+        if track.isPlaying {
+            startElapsedTickerIfNeeded()
+        } else {
+            stopElapsedTicker()
+        }
+    }
+
+    private func isAllowed(_ player: NowPlayingStatus.Player) -> Bool {
+        switch player {
+        case .spotify, .music:
+            allowedPlayers.contains(player)
+        case .app:
+            allowsOtherApps
+        }
+    }
+
+    private func scheduleInactive() {
+        guard status.isActive, inactiveDebounceTask == nil else { return }
+        inactiveDebounceTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: Self.inactiveDebounce)
+            guard let self, !Task.isCancelled else { return }
+            inactiveDebounceTask = nil
+            guard pendingCommandGeneration == nil,
+                  adapterTrack.map({ !self.isAllowed($0.player) }) ?? true
+            else { return }
+            publish(.inactive)
+        }
+    }
+
+    /// Drops held artwork once the grace window ends, if the new item never sent its own.
+    private func scheduleArtworkGraceExpiry() {
+        guard artworkGraceTask == nil else { return }
+        let remaining = max(Self.artworkGrace - Date().timeIntervalSince(adapterItemChangedAt), 0)
+        artworkGraceTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(remaining))
+            guard let self, !Task.isCancelled else { return }
+            artworkGraceTask = nil
+            publishAdapterTrack()
+        }
+    }
+
+    private func startElapsedTickerIfNeeded() {
+        guard elapsedTicker == nil else { return }
+        let ticker = Timer(timeInterval: Self.elapsedTickInterval, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.publishAdapterTrack()
+            }
+        }
+        RunLoop.main.add(ticker, forMode: .common)
+        elapsedTicker = ticker
+    }
+
+    private func stopElapsedTicker() {
+        elapsedTicker?.invalidate()
+        elapsedTicker = nil
+    }
+
+    private func issueThroughAdapter(_ command: TransportCommand) {
+        guard status.isActive, let adapter else { return }
+
+        let adapterCommand: MediaRemoteAdapter.Command = switch command {
+        case .playPause: status.isPlaying ? .pause : .play
+        case .nextTrack: .nextTrack
+        case .previousTrack: .previousTrack
+        case let .seek(seconds): .seek(seconds: seconds)
+        }
+
+        refreshGeneration &+= 1
+        let commandGeneration = refreshGeneration
+        pendingCommandGeneration = commandGeneration
+        inactiveDebounceTask?.cancel()
+        inactiveDebounceTask = nil
+        stopElapsedTicker()
+
+        switch command {
+        case .playPause:
+            // Freeze at the extrapolated position, not the last one-second tick, so pausing
+            // does not visibly jump forward when the stream confirms.
+            var optimistic = status.withPlaybackState(!status.isPlaying)
+            if let elapsed = adapterTrack?.elapsed(at: Date()) {
+                optimistic = optimistic.withElapsedPosition(elapsed)
+            }
+            publish(optimistic)
+        case let .seek(seconds):
+            publish(status.withElapsedPosition(seconds))
+        case .nextTrack, .previousTrack:
+            break
+        }
+
+        Task { @MainActor [weak self] in
+            _ = await adapter.send(adapterCommand)
+            try? await Task.sleep(for: Self.commandSettle)
+            guard let self, pendingCommandGeneration == commandGeneration else { return }
+            pendingCommandGeneration = nil
+            // Success or not, the stream's view of the player wins.
+            publishAdapterTrack()
+        }
+    }
+}
+
 private extension NowPlayingStatus {
+    func withArtwork(_ artwork: Data?, identity: String?) -> NowPlayingStatus {
+        guard let player else { return self }
+        return NowPlayingStatus(
+            player: player,
+            title: title,
+            artist: artist,
+            isPlaying: isPlaying,
+            elapsedPosition: elapsedPosition,
+            duration: duration,
+            artwork: artwork,
+            artworkIdentity: identity
+        )
+    }
+
     func withArtwork(_ artwork: Data?) -> NowPlayingStatus {
         guard let player else { return self }
         return NowPlayingStatus(

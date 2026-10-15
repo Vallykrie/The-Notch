@@ -112,6 +112,13 @@ if [[ -d "$SPARKLE" ]]; then
   codesign "${SIGN_ARGS[@]}" "$APP/Contents/Frameworks/Sparkle.framework"
 fi
 
+ADAPTER_FW="$APP/Contents/Frameworks/MediaRemoteAdapter.framework"
+if [[ -d "$ADAPTER_FW" ]]; then
+  echo "==> Signing MediaRemoteAdapter"
+  codesign "${SIGN_ARGS[@]}" "$APP/Contents/Helpers/MediaRemoteAdapterTestClient"
+  codesign "${SIGN_ARGS[@]}" "$ADAPTER_FW"
+fi
+
 codesign "${SIGN_ARGS[@]}" --entitlements "$ROOT/$APP_NAME/$APP_NAME.entitlements" "$APP"
 codesign --verify --deep --strict --verbose=2 "$APP"
 

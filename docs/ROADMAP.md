@@ -355,10 +355,28 @@ surfaces are now exactly two — media and agents — and the notch shows both a
       `UpcomingEventsView`, `CALENDAR.md` and the `NSCalendarsFullAccessUsageDescription`
       Info.plist key are deleted. The app now requests no TCC permission at launch at all.
 - [x] **Media: now-playing** — title, artist, artwork, elapsed position. **MediaRemote was
-      rejected**: it is a private framework, gated for unentitled apps since macOS 15.4. One
-      `osascript` call per poll against Spotify and Music, and only against a player that is
+      rejected** at first: it is a private framework, gated for unentitled apps since macOS 15.4.
+      One `osascript` call per poll against Spotify and Music, and only against a player that is
       *already running* — scripting a dead app launches it and fires an unrequested Automation
-      prompt. Fails open and silent, and backs off permanently on TCC denial.
+      prompt. Fails open and silent, and backs off permanently on TCC denial. This is now the
+      fallback; see the next item.
+- [x] **Media: any player, browsers included** (`docs/design/browser-media-plan.md`, M1).
+      MediaRemote is read through the vendored MediaRemoteAdapter, run by Apple's `/usr/bin/perl`,
+      the one kind of process `mediaremoted` still answers. YouTube, YouTube Music, Spotify Web
+      and every other app that publishes Now Playing show in the notch with artwork and working
+      controls, and no Automation prompt is needed. Updates are pushed, not polled; the elapsed
+      position is extrapolated once a second. Safari is named by `parentApplicationBundleIdentifier`
+      (the media plays in `com.apple.WebKit.GPU`), the empty update between items is debounced
+      for 300 ms, and the previous artwork is held up to 1.5 s while the new item's arrives.
+      Verified on macOS 27.0.1 with Chrome, Safari and Brave; `tools/media-tests` covers the
+      payload path. The "All" players setting includes browsers. Picking one player excludes them.
+      Lyrics lookups handle video titles: a leading `Artist - ` is removed before cutting at a
+      dash (it used to search for a song called "Queen"), and a known length with no result
+      within 10 s shows no lyrics instead of another song's.
+- [ ] **Media: sources, settings, badge** (M2) — the badge names the real app, Settings gets
+      per-source toggles, 16:9 thumbnails are cropped to the tile, and lyrics never search ads.
+- [ ] **Media: polish** (M3) — the stream sleeps when nothing plays, a force-quit leaves no
+      orphaned stream, and an optional Perl-free fallback.
 - [x] **Media: controls** — play/pause, next, previous, and a draggable scrubber that seeks.
       Each command updates the UI optimistically and then reconciles against the next poll,
       because a 2s wait for the button to respond reads as a broken button.
