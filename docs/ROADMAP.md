@@ -370,10 +370,13 @@ surfaces are now exactly two — media and agents — and the notch shows both a
       for 300 ms, and the previous artwork is held up to 1.5 s while the new item's arrives.
       Verified on macOS 27.0.1 with Chrome, Safari and Brave; `tools/media-tests` covers the
       payload path. The "All" players setting includes browsers. Picking one player excludes them.
+      Lyrics lookups handle video titles: a leading `Artist - ` is removed before cutting at a
+      dash (it used to search for a song called "Queen"), and a known length with no result
+      within 10 s shows no lyrics instead of another song's.
 - [ ] **Media: sources, settings, badge** (M2) — the badge names the real app, Settings gets
       per-source toggles, 16:9 thumbnails are cropped to the tile, and lyrics never search ads.
-- [ ] **Media: polish** (M3) — lyrics lookups clean YouTube-style titles, the stream sleeps when
-      nothing plays, and an optional Perl-free fallback.
+- [ ] **Media: polish** (M3) — the stream sleeps when nothing plays, a force-quit leaves no
+      orphaned stream, and an optional Perl-free fallback.
 - [x] **Media: controls** — play/pause, next, previous, and a draggable scrubber that seeks.
       Each command updates the UI optimistically and then reconciles against the next poll,
       because a 2s wait for the button to respond reads as a broken button.

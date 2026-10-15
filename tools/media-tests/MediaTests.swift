@@ -22,6 +22,7 @@ struct MediaTests {
         artwork()
         elapsedTime()
         statusMapping()
+        lyricsQueries()
 
         if failures > 0 {
             print("\(failures) check(s) failed")
@@ -141,5 +142,46 @@ struct MediaTests {
               "a browser item becomes an active status for that app")
         check(status.title == "Track D" && status.duration == 60, "the status carries the metadata")
         check(status.artworkIdentity == track.artworkIdentity, "the status uses the item's artwork identity")
+    }
+
+    static func lyricsQueries() {
+        typealias Query = LyricsProvider.Query
+        let queen = LyricsProvider.searchQueries(
+            title: "Queen - All Dead, All Dead - At Last, the Video!", artist: "Queen"
+        )
+        check(queen.first == Query(title: "Queen - All Dead, All Dead - At Last, the Video!", artist: "Queen"),
+              "the full title is tried first")
+        check(queen.contains(Query(title: "All Dead, All Dead", artist: "Queen")),
+              "a leading artist is removed before the title is cut at a dash")
+        check(!queen.contains { $0.title == "Queen" },
+              "a video title never becomes a search for a song named after the artist")
+
+        let aha = LyricsProvider.searchQueries(
+            title: "a-ha - Take On Me (Official Video) [4K]", artist: "a-ha"
+        )
+        check(aha.contains(Query(title: "Take On Me", artist: "a-ha")),
+              "video decorations in brackets are removed")
+
+        let spotify = LyricsProvider.searchQueries(
+            title: "I See the Light - From \"Tangled\" / Soundtrack Version", artist: "Mandy Moore"
+        )
+        check(spotify.prefix(2) == [
+            Query(title: "I See the Light - From \"Tangled\" / Soundtrack Version", artist: "Mandy Moore"),
+            Query(title: "I See the Light", artist: "Mandy Moore"),
+        ], "a player's decorated title still falls back to its bare name second")
+
+        let channel = LyricsProvider.searchQueries(
+            title: "Rick Astley - Never Gonna Give You Up (Official Video)", artist: "SomeChannel"
+        )
+        check(channel.contains(Query(title: "Never Gonna Give You Up", artist: "Rick Astley")),
+              "an upload by another channel is searched as Artist - Title")
+
+        let topic = LyricsProvider.searchQueries(title: "Bohemian Rhapsody", artist: "Queen - Topic")
+        check(topic.first == Query(title: "Bohemian Rhapsody", artist: "Queen"),
+              "a YouTube Topic channel is searched as the artist")
+
+        let plain = LyricsProvider.searchQueries(title: "Yesterday", artist: "The Beatles")
+        check(plain == [Query(title: "Yesterday", artist: "The Beatles")],
+              "an undecorated title is searched once")
     }
 }

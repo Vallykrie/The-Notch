@@ -233,9 +233,13 @@ notch UI, Spotify Web, or Music via MediaRemote.
 - [ ] Update ROADMAP and settings tests.
 
 #### M3 — Polish and resilience
-- [ ] Lyrics: before the LRCLIB lookup, strip "(Official Video)", "[MV]", "(Lyrics)", "4K
+- [x] Lyrics: before the LRCLIB lookup, strip "(Official Video)", "[MV]", "(Lyrics)", "4K
       Remaster" and similar. Split "Artist - Title" when the artist is a channel, and drop
-      " - Topic". Unit-tested.
+      " - Topic". Unit-tested. **Pulled into M1** after testing found wrong lyrics: the old
+      fallback cut `Queen - All Dead, All Dead - …` at the first dash and searched for a song
+      called "Queen", and a result of the wrong length was used when nothing matched.
+      `LyricsProvider.searchQueries` now removes a leading artist first, and a known track
+      length with no result within 10 s means no lyrics.
 - [ ] Idle: stop `stream` after 10 minutes with no item and resume on the next media key or panel
       open. Needs measuring first; the idle cost is already low (~21 MB, ~0 CPU).
 - [ ] Orphaned stream after a force-quit: if the app is killed with SIGKILL, its `perl stream`
