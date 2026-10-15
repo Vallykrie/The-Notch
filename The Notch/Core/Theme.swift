@@ -377,7 +377,6 @@ enum Theme {
     enum Metrics {
         /// The calendar panel: a week strip over the selected day's events.
         enum CalendarPanel {
-            static let contentInset: CGFloat = 6
             /// The access pitch's two columns, shared with the crypto panel's rhythm.
             static let detailWidth: CGFloat = 200
             static let columnSpacing: CGFloat = 18
@@ -398,7 +397,7 @@ enum Theme {
             static let listColumnSpacing: CGFloat = 20
             static let rowHeight: CGFloat = 16
             static let rowSpacing: CGFloat = 1
-            static let rowHorizontalPadding: CGFloat = 5
+            static let rowHorizontalPadding: CGFloat = Metrics.rowPlateBleed
             static let rowCornerRadius: CGFloat = 4
             static let nextRowFillOpacity: CGFloat = 0.08
             static let pastOpacity: CGFloat = 0.38
@@ -414,10 +413,12 @@ enum Theme {
             static let shoulderWidth: CGFloat = 72
             static let fauxHousingGap: CGFloat = 8
             static let detailWidth: CGFloat = 250
-            /// Extra inset inside the shared panel padding. The other surfaces open on a filled
-            /// block — artwork, a mascot — that carries the edge; this one opens on bare text,
-            /// which at the same inset looked jammed against the panel's side.
-            static let contentInset: CGFloat = 12
+            // `contentInset` (12) is gone: bare text at the old 9pt inset looked jammed against
+            // the side, so it got its own margin, and the tabs stopped sharing an edge.
+            // `panelInset` is wide enough for text and is the same for every surface.
+            static let rowVerticalPadding: CGFloat = 5
+            static let rowCornerRadius: CGFloat = 5
+            static let selectedRowFillOpacity: CGFloat = 0.08
         }
         static let fauxNotchSize = CGSize(width: 188, height: 32)
         /// 190 tall was a guess, and measured against real content it was 35% empty: the
@@ -449,10 +450,24 @@ enum Theme {
 
         static let collapsedHorizontalPadding: CGFloat = 13
         static let collapsedVerticalPadding: CGFloat = 6
-        /// Must clear `expandedTopCornerRadius`: the top corners curve *inward*, so content at
-        /// the top of the panel is clipped by them unless it is inset past the curve.
-        static let expandedHorizontalPadding: CGFloat = 28
-        static let expandedVerticalPadding: CGFloat = 18
+        /// The one distance from the panel's visible edge to its content, on the left, the
+        /// right and the bottom. These used to come out of separate tokens that summed
+        /// differently — 9pt at the sides, 20pt under the media artwork — so a filled block in
+        /// the corner sat visibly off-centre in it. One number, and the radii below follow it.
+        static let panelInset: CGFloat = 14
+        /// Measured from the panel's frame, not its visible edge: the top corners curve
+        /// *inward* by `expandedTopCornerRadius`, so the body starts that far in and content
+        /// has to clear it before `panelInset` begins.
+        static let expandedHorizontalPadding: CGFloat = expandedTopCornerRadius + panelInset
+        static let expandedVerticalPadding: CGFloat = panelInset
+        /// The radius for a block sitting `inset` from the panel's bottom corner, so its
+        /// corner runs parallel to the panel's instead of pinching the gap on the diagonal.
+        static func nestedCornerRadius(inset: CGFloat) -> CGFloat {
+            max(expandedBottomCornerRadius - inset, 0)
+        }
+        /// A highlighted row draws its plate this far outside its content, so the row's text
+        /// stays on the column edge with every unhighlighted line around it.
+        static let rowPlateBleed: CGFloat = 6
         static let collapsedContentSpacing: CGFloat = 6
         static let expandedContentSpacing: CGFloat = 14
 
@@ -547,11 +562,13 @@ enum Theme {
             static let welcomeShoulderWidth: CGFloat = 64
             static let welcomeDotSize: CGFloat = 4
 
-            /// Outer padding on a compact shoulder. Tighter than
-            /// `Metrics.collapsedHorizontalPadding`, which is sized for text: a 40pt shoulder
-            /// spends 16pt of its width on padding and inset already, and at 13 the artwork
-            /// would not fit its own shoulder.
-            static let compactHorizontalPadding: CGFloat = 10
+            /// Outer padding on a compact shoulder: the same as the text shoulders', so every
+            /// collapsed state sits 7pt inside the visible edge (13 less the 6pt top-corner
+            /// curve) — level with the artwork's 7pt above and below. At 10 the artwork sat
+            /// 4pt in while the HUD and the ticker sat 7pt in, and swapping one for the other
+            /// slid the content sideways inside the same silhouette. 13 + 18 + `shoulderInset`
+            /// is 37, which still clears the 40pt shoulder.
+            static let compactHorizontalPadding: CGFloat = Metrics.collapsedHorizontalPadding
             static let mediaVerticalPadding: CGFloat = 4
             /// Five bars at 2pt on 2pt gaps is 18pt across — exactly `artworkSize`, so the
             /// waveform on the trailing shoulder and the artwork on the leading one are the
@@ -722,7 +739,9 @@ enum Theme {
         enum MediaPanel {
             // Fill the media body below the compact header without leaving a deep empty floor.
             static let artworkSize: CGFloat = 128
-            static let artworkCornerRadius: CGFloat = 6
+            /// The artwork sits `panelInset` from the bottom-left corner, so its radius nests
+            /// inside the panel's: 24 - 14.
+            static let artworkCornerRadius: CGFloat = Metrics.nestedCornerRadius(inset: Metrics.panelInset)
             static let columnSpacing: CGFloat = 18
             static let scrubberHeight: CGFloat = 4
             /// The scrubber's *hit* height, which is not its drawn height. A 4pt-tall drag
@@ -736,6 +755,7 @@ enum Theme {
             static let transportGlyphSize: CGFloat = 16
             static let primaryTransportGlyphSize: CGFloat = 24
             static let sourceBadgeSize: CGFloat = 18
+            static let sourceBadgeInset: CGFloat = 4
             /// Spread metadata and transport across the larger artwork's height.
             static let rowSpacing: CGFloat = 12
             /// Holds "12:34" in Departure Mono at caption size:
@@ -804,6 +824,11 @@ enum Theme {
             static let compactHorizontalPadding: CGFloat = 3
             static let compactTabThreshold = 4
             static let spacing: CGFloat = 3
+            /// The header row's fixed height: the track, which pads its tabs by `spacing` on
+            /// every side. Settings swaps the track for shorter buttons, and a row sized by its
+            /// tallest child re-centred 2pt higher there, moving the gear the user had just
+            /// clicked.
+            static let rowHeight: CGFloat = height + spacing * 2
             static let selectedFillOpacity: CGFloat = 0.14
             static let trackFillOpacity: CGFloat = 0.06
         }
@@ -956,6 +981,12 @@ enum Theme {
             /// sprite beside it. The mascot inherited that space, and it needed it: two 16pt
             /// sprites side by side was the "why are there two graphics" the row read as.
             static let activityGlyphSize: CGFloat = 30
+            /// The drawn `└` on a session's detail line. Its foot rests just above the baseline
+            /// so it sits on the line like a letter; at mid x-height it read as floating.
+            static let connectorWidth: CGFloat = 5
+            static let connectorHeight: CGFloat = 8
+            static let connectorRise: CGFloat = 1.5
+            static let connectorLineWidth: CGFloat = 1
 
             /// The mascot on a collapsed shoulder. One point per cell — the smallest size at
             /// which the figure is still a figure.

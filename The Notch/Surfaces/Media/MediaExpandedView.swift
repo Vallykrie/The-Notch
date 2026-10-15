@@ -28,7 +28,10 @@ struct MediaExpandedView: View {
                 emptyState
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        // Bottom, not top: the artwork is a filled block in the panel's corner, and only
+        // anchoring it there holds it `panelInset` from the bottom as well as the side. Top
+        // anchored, the bottom gap was whatever height was left over — 20pt against 9pt.
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
         .padding(.horizontal, Theme.Metrics.expandedHorizontalPadding)
         .padding(.bottom, Theme.Metrics.expandedVerticalPadding)
         .onAppear(perform: refreshArtwork)
@@ -54,7 +57,9 @@ struct MediaExpandedView: View {
     /// lyrics are the only things that genuinely appear and disappear, and they cross-fade.
     private var activeContent: some View {
         let stage = lyrics.isEnabled
-        return HStack(spacing: Theme.Metrics.MediaPanel.columnSpacing) {
+        // `.bottom`: in lyrics mode the right column takes the full height, and a centred
+        // artwork rode up 1pt against the playing layout when the reel opened.
+        return HStack(alignment: .bottom, spacing: Theme.Metrics.MediaPanel.columnSpacing) {
             artwork
 
             VStack(
@@ -129,11 +134,10 @@ struct MediaExpandedView: View {
                     .clipped()
                     .id(nowPlaying.status.artworkIdentity)
             } else {
-                PixelGlyphView(
-                    glyph: .play,
-                    side: Theme.Metrics.glyphExpandedSize
-                )
-                .foregroundStyle(Theme.Colors.textTertiary)
+                // The record from the empty state, not a play glyph: a play triangle in the
+                // artwork slot read as a second play button that did nothing.
+                PixelVinylView(side: Theme.Metrics.MediaPanel.vinylSize)
+                    .foregroundStyle(Theme.Colors.textPrimary)
             }
         }
         .frame(
@@ -170,6 +174,9 @@ struct MediaExpandedView: View {
                 }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(sourceBadgeLabel(for: player))
+                // Inside the corner, not on it: flush, the badge's circle and the artwork's
+                // rounded corner met at one point and left slivers of art showing around it.
+                .padding(Theme.Metrics.MediaPanel.sourceBadgeInset)
         }
     }
 
@@ -414,7 +421,8 @@ struct MediaExpandedView: View {
 
                 playerLinks
 
-                emptyScrubber
+                // No scrubber: with nothing loaded, a 0:00 track between two 0:00s is a
+                // control that cannot do anything.
                 emptyTransportControls
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -446,8 +454,10 @@ struct MediaExpandedView: View {
                         NSWorkspace.shared.openApplication(at: entry.url, configuration: configuration)
                     } label: {
                         HStack(spacing: 4) {
+                            // One arrow colour for every player: the brand tints made one
+                            // arrow orange and the next white, which read as two link styles.
                             PixelGlyphView(glyph: .openWindow, side: Theme.Metrics.glyphCollapsedSize)
-                                .foregroundStyle(sourceBadgeTint(for: entry.player))
+                                .foregroundStyle(Theme.Colors.textSecondary)
                             Text(sourceBadgeLabel(for: entry.player))
                                 .foregroundStyle(Theme.Colors.textPrimary)
                         }
@@ -460,23 +470,6 @@ struct MediaExpandedView: View {
         }
         .font(Theme.Text.body)
         .lineLimit(1)
-    }
-
-    /// The scrubber at zero: a bare track between two `0:00`s, the shape it has the instant a
-    /// track loads.
-    private var emptyScrubber: some View {
-        HStack(spacing: Theme.Metrics.MediaPanel.scrubberSpacing) {
-            timeLabel(.zero, alignment: .leading)
-
-            RoundedRectangle(cornerRadius: Theme.Metrics.MediaPanel.scrubberCornerRadius)
-                .fill(Theme.Colors.textPrimary.opacity(Theme.Metrics.MediaPanel.scrubberTrackOpacity))
-                .frame(height: Theme.Metrics.MediaPanel.scrubberHeight)
-                .frame(maxWidth: .infinity)
-                .frame(height: Theme.Metrics.MediaPanel.scrubberHitHeight)
-
-            timeLabel(.zero, alignment: .trailing)
-        }
-        .accessibilityHidden(true)
     }
 
     private var emptyTransportControls: some View {

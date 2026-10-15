@@ -26,7 +26,7 @@ import SwiftUI
             }
         }
         .foregroundStyle(Theme.Colors.textPrimary)
-        .padding(.horizontal, Theme.Metrics.expandedHorizontalPadding + Theme.Metrics.Trading.contentInset)
+        .padding(.horizontal, Theme.Metrics.expandedHorizontalPadding)
         // The same bottom clearance as the media panel, so the hairline between the columns
         // stops short of the bottom curve instead of running into it.
         .padding(.bottom, Theme.Metrics.expandedVerticalPadding)
@@ -99,8 +99,8 @@ import SwiftUI
         } right: {
             VStack(alignment: .leading, spacing: 3) {
                 Text("Popular").font(Theme.Text.micro).foregroundStyle(Theme.Colors.textTertiary)
-                    .padding(.horizontal, 6)
                 ForEach(Self.suggestions) { suggestionRow($0) }
+                    .padding(.horizontal, -Theme.Metrics.rowPlateBleed)
             }
         }
     }
@@ -121,7 +121,8 @@ import SwiftUI
                 Spacer(minLength: 4)
                 Text("+ Add").font(Theme.Text.micro).foregroundStyle(Theme.Colors.textSecondary)
             }
-            .padding(.horizontal, 6).padding(.vertical, 5)
+            .padding(.horizontal, Theme.Metrics.rowPlateBleed)
+            .padding(.vertical, Theme.Metrics.Trading.rowVerticalPadding)
             .contentShape(Rectangle())
         }
         .buttonStyle(SuggestionRowStyle())
@@ -153,11 +154,15 @@ import SwiftUI
                         .contentTransition(.identity)
                     Text(instrument.currency).font(Theme.Text.micro).foregroundStyle(Theme.Colors.textSecondary)
                 }
-                HStack(spacing: 6) {
-                    Text(TradingPriceFormatter.percent(quote?.changePercent))
-                        .foregroundStyle(TradingPresentation.changeColor(quote?.changePercent))
-                    if quote?.changePercent != nil { Text(instrument.changeLabel).foregroundStyle(Theme.Colors.textTertiary) }
-                }.font(Theme.Text.micro)
+                // No change line until there is a change to show: a lone dash here read as a
+                // minus sign, or as data that had failed to load.
+                if let change = quote?.changePercent {
+                    HStack(spacing: 6) {
+                        Text(TradingPriceFormatter.percent(change))
+                            .foregroundStyle(TradingPresentation.changeColor(change))
+                        Text(instrument.changeLabel).foregroundStyle(Theme.Colors.textTertiary)
+                    }.font(Theme.Text.micro)
+                }
                 HStack(spacing: 5) {
                     Circle().fill(TradingPresentation.statusColor(store.status(for: instrument, at: context.date))).frame(width: 5, height: 5)
                     Text(store.status(for: instrument, at: context.date)).lineLimit(2)
@@ -192,20 +197,35 @@ import SwiftUI
                                 VStack(alignment: .trailing, spacing: 2) {
                                     Text(store.quotes[item.id].map { TradingPriceFormatter.price($0.price, compact: true) } ?? "—")
                                         .font(Theme.Text.caption).monospacedDigit()
-                                    Text(TradingPriceFormatter.percent(store.quotes[item.id]?.changePercent))
-                                        .font(Theme.Text.micro).foregroundStyle(TradingPresentation.changeColor(store.quotes[item.id]?.changePercent))
+                                    if let change = store.quotes[item.id]?.changePercent {
+                                        Text(TradingPriceFormatter.percent(change))
+                                            .font(Theme.Text.micro).foregroundStyle(TradingPresentation.changeColor(change))
+                                    }
                                 }
-                                if store.pinnedID == item.id { Image(systemName: "pin.fill").font(Theme.Text.micro) }
+                                // Every row keeps the pin's slot, shown or not, so the prices
+                                // share one right edge instead of the pinned row's sitting 17pt
+                                // left of the rest.
+                                Image(systemName: "pin.fill").font(Theme.Text.micro)
+                                    .opacity(store.pinnedID == item.id ? 1 : 0)
+                                    .accessibilityHidden(store.pinnedID != item.id)
                             }.contentShape(Rectangle())
                         }.buttonStyle(.plain)
                         Button { store.remove(item.id) } label: { Image(systemName: "xmark").font(Theme.Text.micro) }
                             .buttonStyle(.plain).foregroundStyle(Theme.Colors.textTertiary)
                             .accessibilityLabel("Remove \(item.symbol) from watchlist")
                     }
-                    .padding(.horizontal, 6).padding(.vertical, 5)
-                    .background(RoundedRectangle(cornerRadius: 5).fill(Theme.Colors.textPrimary.opacity(store.selectedID == item.id ? 0.08 : 0)))
+                    .padding(.horizontal, Theme.Metrics.rowPlateBleed)
+                    .padding(.vertical, Theme.Metrics.Trading.rowVerticalPadding)
+                    .background(
+                        RoundedRectangle(cornerRadius: Theme.Metrics.Trading.rowCornerRadius)
+                            .fill(Theme.Colors.textPrimary.opacity(
+                                store.selectedID == item.id ? Theme.Metrics.Trading.selectedRowFillOpacity : 0
+                            ))
+                    )
                 }
             }
+            // The plates bleed past the column so the symbols line up with "Watchlist" above.
+            .padding(.horizontal, -Theme.Metrics.rowPlateBleed)
     }
 }
 

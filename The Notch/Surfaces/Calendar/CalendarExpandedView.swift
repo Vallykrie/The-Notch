@@ -24,7 +24,7 @@ struct CalendarExpandedView: View {
             content(now: context.date)
         }
         .foregroundStyle(Theme.Colors.textPrimary)
-        .padding(.horizontal, Theme.Metrics.expandedHorizontalPadding + Theme.Metrics.CalendarPanel.contentInset)
+        .padding(.horizontal, Theme.Metrics.expandedHorizontalPadding)
         .padding(.bottom, Theme.Metrics.expandedVerticalPadding)
     }
 
@@ -170,7 +170,6 @@ struct CalendarExpandedView: View {
         }
         .font(Theme.Text.micro)
         .buttonStyle(.plain)
-        .padding(.horizontal, Theme.Metrics.CalendarPanel.rowHorizontalPadding)
     }
 
     private func pageWeek(by weeks: Int, now: Date) {
@@ -197,7 +196,6 @@ struct CalendarExpandedView: View {
                         .buttonStyle(.notchCompact)
                 }
             }
-            .padding(.horizontal, Theme.Metrics.CalendarPanel.rowHorizontalPadding)
         } else {
             // Column-major, so the day reads down the left column and continues on the right.
             let half = (events.count + 1) / 2
@@ -210,6 +208,9 @@ struct CalendarExpandedView: View {
                 ScrollView { columns }.scrollIndicators(.never)
             }
             .frame(maxHeight: .infinity, alignment: .top)
+            // Each row pads its text inside its plate; pulling the list out by the same amount
+            // puts the text on the column edge with the strip and the summary above it.
+            .padding(.horizontal, -Theme.Metrics.CalendarPanel.rowHorizontalPadding)
         }
     }
 

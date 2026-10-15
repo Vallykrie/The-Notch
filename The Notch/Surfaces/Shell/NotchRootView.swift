@@ -557,6 +557,7 @@ struct NotchRootView: View {
                 coordinator.setPinnedOpen(isShowingSettings)
             }
         }
+        .frame(height: Theme.Metrics.TabBar.rowHeight)
     }
 
     @ViewBuilder

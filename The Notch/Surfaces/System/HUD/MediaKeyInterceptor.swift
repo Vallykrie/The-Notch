@@ -15,6 +15,14 @@ final class MediaKeyInterceptor: ObservableObject {
         /// An earlier build held the grant and this one does not — see `AccessibilityGrant`.
         case permissionLost = "Re-add to Accessibility"
         case unavailable = "Check Accessibility"
+
+        /// The states the user has to fix in System Settings, as opposed to ones they chose.
+        var needsAction: Bool {
+            switch self {
+            case .stopped, .active: false
+            case .permissionRequired, .permissionLost, .unavailable: true
+            }
+        }
     }
     @Published private(set) var status: Status = .stopped
     var onHandledEvent: ((SystemHUDEvent) -> Void)?

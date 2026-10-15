@@ -134,9 +134,8 @@ struct SessionRowView: View {
 
             // The parent row's own continuation mark, so a subagent line reads as a smaller
             // copy of a session line. Without it "Explore Grep" read as one name.
-            HStack(spacing: 4) {
-                Text("└")
-                    .foregroundStyle(Theme.Colors.textTertiary)
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                TreeConnector()
                 Text(nonEmpty(child.currentTool) ?? child.status.label)
                     .foregroundStyle(Theme.Colors.textTertiary)
                     .lineLimit(1)
@@ -268,10 +267,8 @@ struct SessionRowView: View {
 
     /// `└ Edit(src/theme.css)` when a tool is live, otherwise the plain state.
     private var continuationLine: some View {
-        HStack(spacing: 4) {
-            Text("└")
-                .font(Theme.Text.body)
-                .foregroundStyle(Theme.Colors.textTertiary)
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
+            TreeConnector()
 
             Text(continuationText)
                 .font(Theme.Text.body)
@@ -328,5 +325,29 @@ struct SessionRowView: View {
             return nil
         }
         return value
+    }
+}
+
+/// The `└` that hangs a detail line off the row above, drawn rather than typeset.
+///
+/// The font's box-drawing glyph sits on its own metrics, which put the corner a few points
+/// above the text it introduces. As a path it can be pinned to the baseline, so it sits on the
+/// line it belongs to.
+private struct TreeConnector: View {
+    var body: some View {
+        Path { path in
+            let size = CGSize(
+                width: Theme.Metrics.Agents.connectorWidth,
+                height: Theme.Metrics.Agents.connectorHeight
+            )
+            let inset = Theme.Metrics.Agents.connectorLineWidth / 2
+            path.move(to: CGPoint(x: inset, y: 0))
+            path.addLine(to: CGPoint(x: inset, y: size.height - inset))
+            path.addLine(to: CGPoint(x: size.width, y: size.height - inset))
+        }
+        .stroke(Theme.Colors.textTertiary, lineWidth: Theme.Metrics.Agents.connectorLineWidth)
+        .frame(width: Theme.Metrics.Agents.connectorWidth, height: Theme.Metrics.Agents.connectorHeight)
+        .alignmentGuide(.firstTextBaseline) { $0[.bottom] + Theme.Metrics.Agents.connectorRise }
+        .accessibilityHidden(true)
     }
 }

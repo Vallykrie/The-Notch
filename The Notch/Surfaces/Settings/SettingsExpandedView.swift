@@ -252,7 +252,11 @@ struct SettingsExpandedView: View {
             column(header: "System") {
                 SettingsToggleRow(label: "Replace OS HUD", isOn: $settings.replaceSystemHUD)
                 SettingsChoiceRow(label: "HUD dwell", selection: $settings.hudDwell)
-                SettingsLinkRow(label: mediaKeys.status.rawValue) { mediaKeys.openPermissionSettings() }
+                SettingsStatusRow(
+                    label: "Media keys",
+                    status: mediaKeys.status.rawValue,
+                    needsAction: mediaKeys.status.needsAction
+                ) { mediaKeys.openPermissionSettings() }
                     .help(mediaKeys.status == .permissionLost
                         ? "macOS tied the permission to an earlier build of The Notch. Remove The Notch from the Accessibility list and add it again."
                         : "Accessibility permission lets The Notch replace the system brightness and volume indicators.")
@@ -301,6 +305,9 @@ struct SettingsExpandedView: View {
                         RoundedRectangle(cornerRadius: Theme.Metrics.Settings.masterCornerRadius, style: .continuous)
                             .fill(Theme.Colors.textPrimary.opacity(Theme.Metrics.Settings.masterFillOpacity))
                     )
+                    // Pulled back out by the padding it took, so the plate bleeds past the
+                    // column instead of pushing the label and switch 6pt off it.
+                    .padding(.horizontal, -Theme.Metrics.Settings.masterHorizontalPadding)
                     .help(isOn
                         ? "Switch \(feature.title) off: its tab and shoulder go, and nothing runs for it in the background."
                         : "Switch \(feature.title) back on. Its settings were kept.")
@@ -467,6 +474,42 @@ private struct SettingsLinkRow: View {
     }
 }
 
+/// A labelled status with the action that changes it: "Media keys … Enable Accessibility".
+///
+/// The status used to be the whole row, so the healthy state was a bare "Off" under HUD
+/// dwell with nothing saying what was off.
+@MainActor
+private struct SettingsStatusRow: View {
+    let label: String
+    let status: String
+    let needsAction: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: Theme.Metrics.Settings.labelSpacing) {
+                Text(label)
+                    .font(Theme.Text.caption)
+                    .foregroundStyle(Theme.Colors.textPrimary)
+                    .lineLimit(1)
+
+                Spacer(minLength: .zero)
+
+                Text(status)
+                    .font(Theme.Text.micro)
+                    .foregroundStyle(needsAction ? Theme.Colors.textPrimary : Theme.Colors.textTertiary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+            .frame(height: Theme.Metrics.Settings.rowHeight)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+        .accessibilityValue(status)
+    }
+}
+
 /// A label and a value that cycles on click.
 ///
 /// Not a `Picker`. A pop-up menu is an AppKit window, and an AppKit window opening out of a
@@ -490,9 +533,11 @@ private struct SettingsChoiceRow<Option: SettingsOption>: View {
             }
         } label: {
             HStack(spacing: Theme.Metrics.Settings.labelSpacing) {
+                // Primary, like a switched-on toggle's: a choice always holds a value, and at
+                // secondary these rows read as disabled beside the toggles around them.
                 Text(label)
                     .font(Theme.Text.caption)
-                    .foregroundStyle(Theme.Colors.textSecondary)
+                    .foregroundStyle(Theme.Colors.textPrimary)
                     .lineLimit(1)
                     .truncationMode(.tail)
 

@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UI audit v2</title>
+<style>
+@font-face{font-family:'Departure';src:url('../../The%20Notch/Resources/Fonts/DepartureMono-Regular.otf') format('opentype')}
+:root{
+  --bg:#0d0d0e;--panel:#161618;--line:#2a2a2d;--text:#ececec;--muted:#8a8a8e;
+  --p1:#ff466e;--p2:#ffb020;--p3:#6f9cff;--good:#3ce196;
+  --px:'Departure',ui-monospace,Menlo,monospace;
+  --t1:#fff;--t2:rgba(255,255,255,.62);--t3:rgba(255,255,255,.38);
+  --amber:rgb(255,133,20);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:13px/1.6 var(--px)}
+main{max-width:1240px;margin:0 auto;padding:40px 16px 80px}
+h1{font:400 24px/1.1 var(--px);margin:0 0 8px;letter-spacing:.5px}
+.lede{color:var(--muted);max-width:820px;margin:0 0 24px}
+.lede b{color:var(--text);font-weight:400}
+.summary{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px;margin:0 0 40px;padding:0;list-style:none}
+.summary li{background:var(--panel);border:1px solid var(--line);padding:10px 12px;border-radius:4px}
+.summary a{color:var(--text);text-decoration:none}
+.summary small{display:block;color:var(--muted)}
+.tag{display:inline-block;font-size:11px;padding:1px 6px;border-radius:3px;margin-right:6px;color:#000}
+.tag.p1{background:var(--p1)}.tag.p2{background:var(--p2)}.tag.p3{background:var(--p3)}.tag.v1{background:#555;color:#fff}
+section{border-top:1px solid var(--line);padding:30px 0 12px}
+h2{font:400 17px var(--px);margin:0 0 6px;letter-spacing:.5px}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0}
+.pair.one{grid-template-columns:1fr}
+.pair.three{grid-template-columns:1fr 1fr 1fr}
+figure{margin:0;background:#3a3a3c;border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px;min-width:0}
+figure img{display:block;max-width:100%;height:auto;margin:0 auto;image-rendering:pixelated;border-radius:4px}
+figcaption{font-size:11px;color:#cfcfcf}
+figcaption.b::before{content:'BEFORE ';color:var(--p1)}
+figcaption.a::before{content:'AFTER ';color:var(--good)}
+.fix{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px 14px;margin:8px 0 0}
+.fix p{margin:0 0 6px}
+.fix ul{margin:0;padding-left:18px;color:var(--muted)}
+.fix ul b{color:var(--text);font-weight:400}
+code{font-family:var(--px);color:var(--text);background:#222;padding:0 4px;border-radius:3px}
+a{color:#9ec3ff}
+.why{color:var(--muted);max-width:900px;margin:0}
+/* button-system mock, in app points ×2 */
+.btns{display:flex;flex-wrap:wrap;gap:14px;align-items:center;background:#000;border-radius:8px;padding:22px}
+.btn{font:400 20px var(--px);height:52px;padding:0 22px;border-radius:12px;display:inline-flex;align-items:center;gap:10px;border:0}
+.btn.primary{background:var(--amber);color:#000}
+.btn.secondary{background:#1c1c1e;color:#fff;box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}
+.btn.tertiary{background:transparent;color:var(--t2);padding:0 6px}
+.btn.sm{height:40px;font-size:17px;padding:0 16px;border-radius:10px}
+.legend{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px;margin-top:10px;color:var(--muted);font-size:12px}
+.legend b{color:var(--text);font-weight:400}
+table{border-collapse:collapse;width:100%;margin-top:8px;font-size:12px}
+td,th{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+th{color:var(--muted);font-weight:400}
+@media (max-width:760px){.pair,.pair.three{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main>
+<h1>UI audit v2: pixel perfection</h1>
+<p class="lede">All 36 FrameDump states (collapsed, expanded, takeover, settings) were rendered from the real view tree at 2× and measured. Every “before” is a real render. Every “after” is a mockup <b>reflowed from those same pixels</b> using the proposed token values, so it shows exactly what the code change would produce. Measurements are in points (1pt = 2px in the images). <b>v1</b> marks issues the first audit flagged that are still there.</p>
+
+<ul class="summary">
+  <li><a href="#s1"><span class="tag p1">P1</span>Panel inset: 9pt sides, 20pt bottom</a><small>Your report. Affects every tab.</small></li>
+  <li><a href="#s2"><span class="tag p1">P1</span>Five different content edges</a><small>Media 0, Agents +3, Calendar +11, Crypto +12pt</small></li>
+  <li><a href="#s3"><span class="tag p1">P1</span>Header jumps 2pt entering Settings</a><small>Gear moves and gains a plate</small></li>
+  <li><a href="#s4"><span class="tag p2">P2</span>Settings “Enabled” row is 6pt inset</a><small>Label and switch off the column</small></li>
+  <li><a href="#s5"><span class="tag p2">P2</span>Watchlist prices drift 17pt</a><small>Plus placeholder dashes <span class="tag v1">v1</span></small></li>
+  <li><a href="#s6"><span class="tag p2">P2</span>Ten buttons, seven styles</a><small>Collapse to three tiers</small></li>
+  <li><a href="#s7"><span class="tag p2">P2</span>Approval card alignment</a><small>Mascot, title line, button heights</small></li>
+  <li><a href="#s8"><span class="tag p2">P2</span>Empty media: dead scrubber</a><small>Mismatched link arrows <span class="tag v1">v1</span></small></li>
+  <li><a href="#s9"><span class="tag p3">P3</span>Paused placeholder is a fake play button</a><small>Use the record</small></li>
+  <li><a href="#s10"><span class="tag p3">P3</span>Source badge sits on the art corner</a><small>Art bleeds around it</small></li>
+  <li><a href="#s11"><span class="tag p3">P3</span>Tree glyph floats above the baseline</a><small>Subagent icons off column</small></li>
+  <li><a href="#s12"><span class="tag p3">P3</span>Settings: orphan “Off”, dim labels</a><small>General section</small></li>
+  <li><a href="#s13"><span class="tag p3">P3</span>Collapsed shoulders: 4 different insets</a><small>4 / 6 / 7 / 7pt</small></li>
+  <li><a href="#s14"><span class="tag p3">P3</span>Artwork jumps 1pt opening lyrics</a><small>Media</small></li>
+  <li><a href="#s15"><span class="tag p3">P3</span>Agents overflow can't be verified</a><small>Tooling gap</small></li>
+</ul>
+
+<section id="s1">
+<h2><span class="tag p1">P1</span>1 · The panel's inset is 9pt at the sides and 20pt at the bottom</h2>
+<p class="why">This is the one you spotted. The disc is centred correctly inside its tile. What's wrong is the tile: it sits 9pt from the side and 20pt from the bottom. On top of that, its 6pt corner isn't concentric with the panel's 24pt corner, so the gap squeezes to about 5pt on the diagonal. The eye reads both as “off-centre”. The same mismatched inset frames every tab; it's just most visible where a solid block sits in the corner.</p>
+<div class="pair one"><figure><img src="ui-audit-v2/01-media-inset-before.png" alt=""><figcaption class="b">expanded-media-empty: 9pt left, 20pt bottom, 9.5pt right</figcaption></figure></div>
+<div class="pair">
+  <figure><img src="ui-audit-v2/01-media-inset-after-b.png" alt=""><figcaption class="a">Option B (recommended): one 14pt inset on left, right and bottom; artwork radius 10pt = 24 − 14, so the corners nest</figcaption></figure>
+  <figure><img src="ui-audit-v2/01-media-inset-after-a.png" alt=""><figcaption class="a">Option A: keep 9pt, shrink the panel 11pt so the bottom matches; artwork radius 15pt (very round)</figcaption></figure>
+</div>
+<div class="fix"><p>Fix: one panel inset token, and inner radii derived from it.</p><ul>
+  <li><b>Theme.swift:454–481</b>: replace <code>expandedHorizontalPadding</code>, <code>expandedVerticalPadding</code> and <code>expandedBottomContentInset</code>, which add up differently, with one <code>Metrics.panelInset = 14</code> used for left, right and bottom. Top stays as is, because the tab bar has to clear the shoulders.</li>
+  <li>Add <code>Metrics.nestedRadius(for inset:)</code> = <code>expandedBottomCornerRadius − inset</code> and use it for the artwork (<code>Media.artworkCornerRadius</code> 6 → 10) and for any block that touches the bottom edge.</li>
+  <li>Panel height stays 190pt; the artwork drops 6pt, and the 16pt gap under the tab bar is still enough.</li>
+</ul></div>
+</section>
+
+<section id="s2">
+<h2><span class="tag p1">P1</span>2 · Every tab starts its content at a different x</h2>
+<p class="why">Switching tabs makes the content slide sideways. The tab bar is at the panel inset, but the content starts at +0 (Media, Settings), +3pt (Agents mascot), +11pt (Calendar text) and +12pt (Crypto). Calendar and Trading each add their own <code>contentInset</code> on top of the shared padding.</p>
+<div class="pair">
+  <figure><img src="ui-audit-v2/02-edges-before.png" alt=""><figcaption class="b">dashed line = tab bar edge; red tags = drift</figcaption></figure>
+  <figure><img src="ui-audit-v2/02-edges-after.png" alt=""><figcaption class="a">every surface's first column on the same edge</figcaption></figure>
+</div>
+<div class="fix"><ul>
+  <li>Remove <code>Trading.contentInset</code> (Theme.swift:420, used at TradingExpandedView.swift:29) and the Calendar list's extra inset (Theme.swift:380); filled rows bleed outward with negative padding instead, so <b>text</b> lines up and highlights extend past it.</li>
+  <li>Agents: the 3pt comes from the mascot's frame being wider than its sprite. Pin the sprite to the leading edge.</li>
+  <li>Hardcoded paddings break the Theme rule: TradingExpandedView.swift:102, 124, 205 (<code>6</code>, <code>5</code>) and AgentsExpandedView.swift:121 (<code>8</code>). Move them into <code>Theme.Metrics</code>.</li>
+</ul></div>
+</section>
+
+<section id="s3">
+<h2><span class="tag p1">P1</span>3 · The header jumps when you enter Settings</h2>
+<p class="why">On the tabs, the gear's centre is at y=19pt. In Settings, the whole header row is 2pt higher (17pt), the gear gets a filled plate, and the tab track is swapped for “Restore Defaults” at a different height. The one control you just pressed is the one that moves.</p>
+<div class="pair">
+  <figure><img src="ui-audit-v2/03-header-jump-before.png" alt=""><figcaption class="b">right header: tabs vs Settings (red = tab centre line)</figcaption></figure>
+  <figure><img src="ui-audit-v2/03-header-left-before.png" alt=""><figcaption class="b">left header: tab track (26pt) vs Restore Defaults (20pt)</figcaption></figure>
+</div>
+<div class="fix"><ul>
+  <li>NotchHeaderControls: give both header states one fixed row height (<code>TabBar.trackHeight</code>) and centre everything on it. Restore Defaults and Quit use that height.</li>
+  <li>Show the gear's “selected” plate as a fill that fades in place, with no change to the gear's frame.</li>
+</ul></div>
+</section>
+
+<section id="s4">
+<h2><span class="tag p2">P2</span>4 · Settings master row pulls its label and switch inward</h2>
+<p class="why">The “Enabled” row's highlight is drawn by padding the row 6pt inside itself (<code>masterHorizontalPadding</code>, SettingsExpandedView.swift:299). So its label starts 6pt right of the rows below, and its switch ends 6pt left of theirs.</p>
+<div class="pair">
+  <figure><img src="ui-audit-v2/04-master-row-before.png" alt=""><figcaption class="b">red guides = the column every other row uses</figcaption></figure>
+  <figure><img src="ui-audit-v2/04-master-row-after.png" alt=""><figcaption class="a">contents on the column; the plate bleeds 6pt past it</figcaption></figure>
+</div>
+<div class="fix"><ul><li>Keep the row's content frame. Draw the plate with <code>.background { RoundedRectangle(...).padding(.horizontal, -masterHorizontalPadding) }</code> so it sits outside the content instead of pushing it in.</li></ul></div>
+</section>
+
+<section id="s5">
+<h2><span class="tag p2">P2</span>5 · Watchlist prices don't share a column <span class="tag v1">v1</span></h2>
+<p class="why">Only the pinned row reserves a slot for the pin, so BTC's price ends 17pt left of ETH's. The change line is a bare “–” everywhere (hero and both rows), and the “Binance live” dot is grey even while live.</p>
+<div class="pair">
+  <figure><img src="ui-audit-v2/05-watchlist-before.png" alt=""><figcaption class="b">expanded-trading-watchlist</figcaption></figure>
+  <figure><img src="ui-audit-v2/05-watchlist-after.png" alt=""><figcaption class="a">fixed pin slot on every row (ghost pin when unpinned), real ±% when known, green live dot</figcaption></figure>
+</div>
+<div class="fix"><ul>
+  <li>Every row reserves the pin slot (<code>Trading.pinSlotWidth</code>). Unpinned rows show the pin at tertiary opacity, which also makes “pin this” discoverable.</li>
+  <li>Hide the change line until a 24h change has arrived; don't fill it with a dash. Use the <code>up</code>/<code>down</code> colours.</li>
+  <li>Live dot: <code>Theme.Colors.up</code> when the stream is connected, tertiary when stale.</li>
+</ul></div>
+</section>
+
+<section id="s6">
+<h2><span class="tag p2">P2</span>6 · Ten buttons, seven styles</h2>
+<p class="why">Heights range from 14pt to 22pt, there are three corner radii, outlined and filled versions of the same role, and two font sizes. “Dismiss” is larger and heavier than “Answer in Claude Code”, which inverts their importance.</p>
+<div class="pair one"><figure><img src="ui-audit-v2/06-buttons-before.png" alt=""><figcaption class="b">every button in the app, cropped at 2×, with its height in pt</figcaption></figure></div>
+<div class="pair one"><figure>
+  <div class="btns">
+    <span class="btn primary">Answer in Claude Code ↗</span>
+    <span class="btn secondary">Connect calendars</span>
+    <span class="btn secondary">+ Add a pair</span>
+    <span class="btn secondary">Dismiss</span>
+    <span class="btn tertiary">Restore defaults</span>
+  </div>
+  <div class="btns">
+    <span class="btn secondary sm">Clear idle</span>
+    <span class="btn secondary sm">Quit</span>
+    <span class="btn primary sm" style="background:#fff">Join</span>
+    <span class="btn tertiary sm">Replay intro…</span>
+  </div>
+  <figcaption class="a">three roles × two sizes. Regular: 26pt tall, radius 6. Small (header, inline in rows): 20pt, radius 5. One font: <code>Theme.Text.body</code></figcaption>
+</figure></div>
+<div class="fix"><ul>
+  <li><code>NotchButtonStyle</code> gets <code>.primary / .secondary / .tertiary</code> × <code>.regular / .small</code>. Every surface picks from that grid, and nothing else sets a button background.</li>
+  <li>Primary = the one action that resolves the surface (Answer, Join). Secondary = everything else that's a button. Tertiary = links in rows.</li>
+  <li>Sentence case throughout (“Clear idle”, “Restore defaults”), matching the rest of the copy.</li>
+</ul></div>
+</section>
+
+<section id="s7">
+<h2><span class="tag p2">P2</span>7 · Approval card: three alignment breaks</h2>
+<p class="why">The mascot starts 5pt above the accent bar and touches the panel's top edge. The tool title (“Bash”) sits on neither the eyebrow's line nor the bar's top. The left column is about 158pt wide for 80pt of text, leaving a dead strip before the command. The buttons differ in height (19 vs 20pt) and weight.</p>
+<div class="pair one"><figure><img src="ui-audit-v2/07-approval-before.png" alt=""><figcaption class="b">expanded-approval</figcaption></figure></div>
+<div class="fix"><ul>
+  <li>Make the bar's top the card's top: mascot top = bar top, and the title's cap height lines up with the mascot's top.</li>
+  <li>Size the left column to its content (<code>fixedSize</code>) with a max, and give the freed space to the command block.</li>
+  <li>Buttons from #6: Answer = primary regular, Dismiss = secondary regular, so they're the same height.</li>
+</ul></div>
+</section>
+
+<section id="s8">
+<h2><span class="tag p2">P2</span>8 · Empty media still shows a dead 0:00 scrubber <span class="tag v1">v1</span></h2>
+<p class="why">With nothing playing, the panel shows a 0:00 / 0:00 track that can't be scrubbed, and the two “open” links use different arrow colours (Spotify orange, Apple Music white).</p>
+<div class="pair">
+  <figure><img src="ui-audit-v2/08-empty-media-before.png" alt=""><figcaption class="b">expanded-media-empty</figcaption></figure>
+  <figure><img src="ui-audit-v2/08-empty-media-after.png" alt=""><figcaption class="a">no scrubber; links share one arrow style; the column centres vertically on the artwork</figcaption></figure>
+</div>
+<div class="fix"><ul><li>MediaExpandedView: show the progress row only when <code>duration &gt; 0</code>; centre the metadata column against the artwork in the empty state. Link arrows use one colour (secondary).</li></ul></div>
+</section>
+
+<section id="s9">
+<h2><span class="tag p3">P3</span>9 · The paused placeholder looks like a second play button</h2>
+<div class="pair">
+  <figure><img src="ui-audit-v2/09-paused-before.png" alt=""><figcaption class="b">no artwork: a grey tile with a play glyph that does nothing</figcaption></figure>
+  <figure><img src="ui-audit-v2/09-paused-after.png" alt=""><figcaption class="a">reuse the pixel record from the empty state as the “no artwork” art</figcaption></figure>
+</div>
+</section>
+
+<section id="s10">
+<h2><span class="tag p3">P3</span>10 · The source badge sits exactly on the artwork's corner</h2>
+<p class="why">The badge's circle and the tile's rounded corner meet at the same point, so a sliver of artwork shows in the corner around the badge. It reads as a clipping error.</p>
+<div class="pair three">
+  <figure><img src="ui-audit-v2/10-badge-before.png" alt=""><figcaption class="b">4× zoom</figcaption></figure>
+  <figure><img src="ui-audit-v2/10-badge-after.png" alt=""><figcaption class="a">badge inset 4pt inside the corner with a 2pt black ring</figcaption></figure>
+</div>
+</section>
+
+<section id="s11">
+<h2><span class="tag p3">P3</span>11 · Tree glyph “└” floats above the text baseline</h2>
+<p class="why">The connector glyph sits a few points high on every detail line. The subagent sprites start 3.5pt left of the title column they belong to.</p>
+<div class="pair one"><figure><img src="ui-audit-v2/11-tree-before.png" alt=""><figcaption class="b">expanded-subagents at 4×: dashed = baseline / title column</figcaption></figure></div>
+<div class="fix"><ul><li>Draw the connector as a 1px <code>Path</code> (vertical to the x-height, then horizontal) instead of the font's box-drawing glyph, whose metrics vary. Align the subagent rows on the title's leading edge.</li></ul></div>
+</section>
+
+<section id="s12">
+<h2><span class="tag p3">P3</span>12 · Settings › General: orphan “Off” and labels that look disabled</h2>
+<p class="why">“Off” is the media-keys permission status rendered as a link label, with no subject. Rows with a value picker (HUD dwell, Hover speed, Keep done, Players) always dim their label, so they look disabled next to enabled toggles.</p>
+<div class="pair">
+  <figure><img src="ui-audit-v2/12-settings-general-before.png" alt=""><figcaption class="b">expanded-settings-general</figcaption></figure>
+  <figure><img src="ui-audit-v2/12-settings-general-after.png" alt=""><figcaption class="a">“Media keys” row with an actionable status; choice labels at primary</figcaption></figure>
+</div>
+<div class="fix"><ul><li>SettingsExpandedView.swift:255: <code>SettingsLinkRow(label: mediaKeys.status.rawValue)</code> becomes a labelled row: “Media keys” + trailing status/action. Only dim a label when its control is off or inert.</li></ul></div>
+</section>
+
+<section id="s13">
+<h2><span class="tag p3">P3</span>13 · Collapsed shoulders use four different insets</h2>
+<p class="why">The leading content sits 6pt (mascot), 4pt (artwork) or 7pt (HUD, crypto) from the housing edge, and the trailing side varies as well. Swapping states shifts the content sideways inside the same silhouette.</p>
+<div class="pair one"><figure><img src="ui-audit-v2/13-collapsed-before.png" alt=""><figcaption class="b">agents / media / volume HUD / crypto: insets in pt</figcaption></figure></div>
+<div class="fix"><ul><li>One <code>Collapsed.shoulderContentInset</code> (proposed 7pt, matching the artwork's 7pt top and bottom inset in the 32pt band), used by the compact and the wide (HUD/crypto) shoulders alike.</li></ul></div>
+</section>
+
+<section id="s14">
+<h2><span class="tag p3">P3</span>14 · Artwork jumps 1pt when lyrics open</h2>
+<div class="pair one"><figure><img src="ui-audit-v2/14-lyrics-jump-before.png" alt=""><figcaption class="b">playing (left) vs lyrics (right); dashed = artwork top in the playing state</figcaption></figure></div>
+<div class="fix"><ul><li>The lyrics layout centres the artwork in a 1pt taller column. Pin the artwork to the top in both layouts so only the right column changes.</li></ul></div>
+</section>
+
+<section id="s15">
+<h2><span class="tag p3">P3</span>15 · The overflowing agents list renders blank in FrameDump</h2>
+<p class="why">Not an app bug: <code>ImageRenderer</code> draws a <code>ScrollView</code> as empty. But it means the overflow state, which is where the row clipping in v1 #1 lived, has no visual regression check.</p>
+<div class="pair one"><figure><img src="ui-audit-v2/15-agents-overflow-render.png" alt=""><figcaption class="b">expanded-agents (4 sessions): only the “2 more” pill draws</figcaption></figure></div>
+<div class="fix"><ul><li>Under <code>FrameDump</code>, swap the scroll view for <code>rows</code> clipped to the viewport with the same mask and pill (a <code>debugRenderStatic</code> environment flag), so the overflow state gets a real frame.</li></ul></div>
+</section>
+
+<section>
+<h2>Execution plan</h2>
+<table>
+<tr><th>#</th><th>Step</th><th>Covers</th><th>Size</th></tr>
+<tr><td>1</td><td>Geometry tokens: <code>panelInset</code>, <code>nestedRadius</code>, header row height, shoulder inset. Migrate the shell and all surfaces; delete per-surface content insets and hardcoded paddings.</td><td>1, 2, 3, 13, 14</td><td>M</td></tr>
+<tr><td>2</td><td>Bleed-style highlights (settings master row, calendar rows, watchlist rows) via one <code>.plate()</code> modifier.</td><td>4, 2</td><td>S</td></tr>
+<tr><td>3</td><td>Button style grid in <code>NotchButtonStyle</code>; migrate all ten buttons.</td><td>6, 7</td><td>M</td></tr>
+<tr><td>4</td><td>Surface fixes: watchlist pin slot + change line + live dot, empty media, paused placeholder, badge, tree connector, General settings rows, approval column.</td><td>5, 7–12</td><td>M</td></tr>
+<tr><td>5</td><td>FrameDump static overflow render; re-run the full dump and diff against this page. Each step lands with its own frames.</td><td>15</td><td>S</td></tr>
+</table>
+</section>
+</main>
+</body>
+</html>

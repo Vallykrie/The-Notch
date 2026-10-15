@@ -107,11 +107,24 @@ applies to.
       dot, "The Notch", the battery glyph and a chevron inside a silhouette exactly the size
       of the physical notch — invisible and clipped on notched hardware. The resting shell now
       renders nothing there; the agents surface grows a shoulder either side of the housing.
+- [x] **UI audit v2, geometry pass** ([docs/design/ui-audit-v2.html](design/ui-audit-v2.html)).
+      One `panelInset` (14pt) for the panel's left, right and bottom, replacing tokens that
+      summed to 9pt at the sides and 20pt under the media artwork; artwork radius nested in
+      the panel corner (24 − 14). Every tab now starts on the same edge (Calendar and Crypto
+      had their own extra margins), highlighted rows bleed their plate instead of insetting
+      their text, the header row has a fixed height so the gear no longer jumps entering
+      settings, and every collapsed shoulder sits 7pt in. Surface fixes in the same pass:
+      watchlist pin slot and no placeholder dashes, no dead scrubber when nothing plays, the
+      record as missing-artwork art, badge inset, drawn tree connector, a labelled Media keys
+      row.
+- [ ] **UI audit v2, components pass**: one button system (three roles, two sizes) and the
+      approval card's alignment; a static render of the overflowing agents list for FrameDump.
 
 **Exit criteria:** open/close is indistinguishable from the references at normal speed, and
 in slow-motion screen capture the curve is a single coherent spring.
 
-**Last touched:** 2026-08-17 — the close was retuned after the user reported it as abrupt.
+**Last touched:** 2026-10-15 — UI audit v2 geometry pass (see the item above).
+Before that, 2026-08-17 — the close was retuned after the user reported it as abrupt.
 0.18s → 0.32s on a softer head (0.42/0/0.22/1), and `surfaceFade`, `contentExit`,
 `contentEnter` and `contentEntry` were all rescaled with it: each had been tuned against the
 old duration and resolved inside the first fifth of the new one, which is an empty box
