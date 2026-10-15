@@ -180,9 +180,14 @@ struct SettingsExpandedView: View {
         featureColumns(.media) {
             SettingsToggleRow(label: "Show on notch", isOn: $settings.showMediaActivity)
             SettingsToggleRow(label: "Hide when paused", isOn: $settings.hideMediaWhenPaused)
-        } right: {
             SettingsToggleRow(label: "Lyrics on notch", isOn: $settings.lyricsOnNotch)
-            SettingsChoiceRow(label: "Players", selection: $settings.mediaPlayers)
+        } right: {
+            SettingsToggleRow(label: "Spotify", isOn: $settings.mediaShowsSpotify)
+            SettingsToggleRow(label: "Apple Music", isOn: $settings.mediaShowsMusic)
+            SettingsToggleRow(label: "Browsers", isOn: $settings.mediaShowsBrowsers)
+                .help("YouTube, YouTube Music, Spotify Web and anything else playing in a browser.")
+            SettingsToggleRow(label: "Other apps", isOn: $settings.mediaShowsOtherApps)
+                .help("Podcast apps, other music apps and video players.")
         }
     }
 
@@ -702,6 +707,5 @@ extension SettingsOption {
 extension FinishedRetention: SettingsOption {}
 extension HUDDwell: SettingsOption {}
 extension HoverSensitivity: SettingsOption {}
-extension MediaPlayers: SettingsOption {}
 extension PanelSize: SettingsOption {}
 extension AnimationSpeed: SettingsOption {}

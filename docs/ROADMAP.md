@@ -370,11 +370,26 @@ surfaces are now exactly two — media and agents — and the notch shows both a
       for 300 ms, and the previous artwork is held up to 1.5 s while the new item's arrives.
       Verified on macOS 27.0.1 with Chrome, Safari and Brave; `tools/media-tests` covers the
       payload path. The "All" players setting includes browsers. Picking one player excludes them.
+      **Spotify and Music stay on AppleScript** even when MediaRemote works. Through
+      MediaRemote, Spotify's artwork could be missing and its position went stale, which also
+      made the notch fall behind the app after a repeat click. MediaRemote drives the UI only
+      while a browser or other app holds Now Playing.
+      **Browser tabs:** a browser sends a tab's cover only on its first play, so covers are
+      remembered per item (app, title, artist) and saved to disk (`ArtworkStore`, 24 most
+      recent). Focusing a media tab makes MediaRemote send that tab's `playing` flag before its
+      item, so a lone flag waits 250 ms to be confirmed. The playing item is kept while the same
+      browser reports a paused tab. A lone `playing: false` freezes the position at the moment
+      it arrives.
       Lyrics lookups handle video titles: a leading `Artist - ` is removed before cutting at a
       dash (it used to search for a song called "Queen"), and a known length with no result
       within 10 s shows no lyrics instead of another song's.
-- [ ] **Media: sources, settings, badge** (M2) — the badge names the real app, Settings gets
-      per-source toggles, 16:9 thumbnails are cropped to the tile, and lyrics never search ads.
+- [x] **Media: sources, settings, badge** (M2). Settings → Media replaces the All / Music /
+      Spotify choice with four switches: Spotify, Apple Music, Browsers, Other apps, all on by
+      default. A stored single choice migrates once (`Spotify` → Spotify only). `MediaSourceKind`
+      groups bundle ids; 20 known browsers count as Browsers. The badge draws a pixel globe
+      for a browser and names the real app ("Playing in Safari") from Launch Services. Lyrics
+      skip items under 30 s, so YouTube's bumper ads never reach LRCLIB. Wide thumbnails
+      needed nothing: both artwork views already fill and crop.
 - [ ] **Media: polish** (M3) — the stream sleeps when nothing plays, a force-quit leaves no
       orphaned stream, and an optional Perl-free fallback.
 - [x] **Media: controls** — play/pause, next, previous, and a draggable scrubber that seeks.
@@ -435,8 +450,14 @@ surfaces are now exactly two — media and agents — and the notch shows both a
       who never granted is still asked only once. A Developer ID signature would keep the grant
       across updates; releases without the signing secrets still ship ad-hoc.
 - [ ] Webcam mirror
-- [ ] Heart and repeat in the transport row are drawn but inert — they need real player
-      commands or they should be removed rather than shipped as dead controls.
+- [x] **Repeat works.** It takes the heart's place in the live transport row (full size only;
+      the lyrics strip has no room) and cycles off → all → one. MediaRemote's `repeat` drives
+      players that report a `repeatMode`; Spotify reports none and ignores the command, so its
+      repeat goes through AppleScript (`repeating`, off ↔ all) on both backends, read without
+      ever prompting for Automation, and Music's `song repeat` covers the AppleScript fallback.
+      Browsers report no repeat mode, so for them the glyph stays drawn disabled.
+- [ ] The heart is still drawn but inert in the empty state — MediaRemote has no favourite
+      command, so it needs a per-player integration or should be removed.
 
 **Last touched:** 2026-10-01 — a build that lost its Accessibility grant to an update asks for it
 again, and the HUD entries now describe interception-only presentation. Before that, 2026-08-17 —

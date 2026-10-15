@@ -13,14 +13,15 @@ private enum TransportCommand: Equatable, Sendable {
     case nextTrack
     case previousTrack
     case seek(seconds: TimeInterval)
+    case setRepeat(NowPlayingStatus.RepeatMode)
 }
 
 /// Where now-playing data comes from. Decided once per launch.
 private enum Backend: Equatable {
     /// The adapter's `test` is still running. Nothing is published yet (it takes ~70 ms).
     case probing
-    /// MediaRemote through the bundled adapter: every app, browsers included, and no
-    /// Automation permission.
+    /// Both: AppleScript for Spotify and Music, read straight from the app as before, and
+    /// MediaRemote through the bundled adapter for everything else (browsers, other apps).
     case mediaRemote
     /// AppleScript against Spotify and Music: the fallback when the adapter is missing, fails
     /// its test, or keeps crashing.
@@ -50,12 +51,13 @@ final class NowPlayingMonitor: ObservableObject {
     private var isSleeping = false
     /// The media feature is switched off. Nothing is polled or scripted while this is set.
     private var isSuspended = false
-    /// The players the user lets The Notch read. One left out is treated as if it were not
-    /// running, so it is never addressed from AppleScript.
-    private var allowedPlayers: Set<NowPlayingStatus.Player> = [.music, .spotify]
-    /// Whether apps other than Spotify and Music (browsers, podcast apps) may show. Only the
-    /// MediaRemote backend ever reports them.
-    private var allowsOtherApps = true
+    /// The sources the user lets The Notch show. On the AppleScript path a player left out is
+    /// treated as if it were not running, so it is never addressed from AppleScript. Browsers
+    /// and other apps only ever come from MediaRemote.
+    private var allowedSources = Set(MediaSourceKind.allCases)
+    private var allowedPlayers: Set<NowPlayingStatus.Player> {
+        Set(Self.playerPreference.filter { allowedSources.contains($0.sourceKind) })
+    }
 
     private var backend: Backend
     private let adapter: MediaRemoteAdapter?
@@ -71,6 +73,15 @@ final class NowPlayingMonitor: ObservableObject {
     private var inactiveDebounceTask: Task<Void, Never>?
     private var artworkGraceTask: Task<Void, Never>?
     private var elapsedTicker: Timer?
+    /// Whether the published status comes from MediaRemote (a browser or other app) rather than
+    /// from AppleScript polling of Spotify or Music. Only one source drives the UI at a time.
+    private var showsAdapterItem = false
+    /// The MediaRemote item last published, kept to tell a pause of that item from a switch away.
+    private var publishedAdapterTrack: AdapterTrack?
+    /// When a switch away from a playing browser item started being held back.
+    private var switchHoldStart: Date?
+    /// A `playing` flag that arrived alone, waiting to be confirmed or dropped.
+    private var tentativeTrackTask: Task<Void, Never>?
 
     /// These are defensive engineering limits rather than visual tuning, so they stay with
     /// the network boundary instead of becoming design tokens in `Theme`.
@@ -81,6 +92,13 @@ final class NowPlayingMonitor: ObservableObject {
     /// track, ad to video). Going inactive only after this long keeps the notch from collapsing
     /// and reopening on every change.
     private static let inactiveDebounce: Duration = .milliseconds(300)
+    /// Leaving a playing item for nothing waits this long, in case it comes straight back.
+    private static let switchHold: TimeInterval = 1
+    /// How long a `playing` flag that arrived alone waits for the line that says which item it
+    /// belongs to. Upstream's stream debounce is 100 ms; the item follows within it.
+    private static let tentativeConfirm: Duration = .milliseconds(250)
+    /// The longest a playing item without a known duration is kept over a paused tab.
+    private static let unknownLengthHold: TimeInterval = 10 * 60
     /// A new item's artwork arrives in a later update than its title. The previous artwork is
     /// kept this long rather than flashing an empty tile.
     private static let artworkGrace: TimeInterval = 1.5
@@ -134,6 +152,12 @@ final class NowPlayingMonitor: ObservableObject {
         issue(.previousTrack)
     }
 
+    /// Off → all → one → off. Spotify's AppleScript has only a bool, so it toggles off ↔ all.
+    func cycleRepeat() {
+        guard let current = status.repeatMode, let player = status.player else { return }
+        issue(.setRepeat(current.next(includingOne: player != .spotify)))
+    }
+
     /// `fraction` is 0...1 of the current track's duration.
     func seek(toFraction fraction: Double) {
         guard fraction.isFinite,
@@ -152,6 +176,7 @@ final class NowPlayingMonitor: ObservableObject {
         adapterRestartTask?.cancel()
         inactiveDebounceTask?.cancel()
         artworkGraceTask?.cancel()
+        tentativeTrackTask?.cancel()
         adapterStream?.stop()
 
         let workspaceCenter = NSWorkspace.shared.notificationCenter
@@ -162,7 +187,7 @@ final class NowPlayingMonitor: ObservableObject {
 
     private func issue(_ command: TransportCommand) {
         guard !isPreview else { return }
-        if backend == .mediaRemote {
+        if backend == .mediaRemote, showsAdapterItem {
             issueThroughAdapter(command)
             return
         }
@@ -194,6 +219,8 @@ final class NowPlayingMonitor: ObservableObject {
             publish(status.withPlaybackState(!status.isPlaying))
         case let .seek(seconds):
             publish(status.withElapsedPosition(seconds))
+        case let .setRepeat(mode):
+            publish(status.withRepeatMode(mode))
         case .nextTrack, .previousTrack:
             break
         }
@@ -221,18 +248,10 @@ final class NowPlayingMonitor: ObservableObject {
     }
 
     /// Applies the media preferences. Idempotent, so it can run on every settings change.
-    func configure(
-        suspended: Bool,
-        allowedPlayers: Set<NowPlayingStatus.Player>,
-        allowsOtherApps: Bool
-    ) {
-        guard suspended != isSuspended
-            || allowedPlayers != self.allowedPlayers
-            || allowsOtherApps != self.allowsOtherApps
-        else { return }
+    func configure(suspended: Bool, allowedSources: Set<MediaSourceKind>) {
+        guard suspended != isSuspended || allowedSources != self.allowedSources else { return }
         isSuspended = suspended
-        self.allowedPlayers = allowedPlayers
-        self.allowsOtherApps = allowsOtherApps
+        self.allowedSources = allowedSources
         reconcilePolling()
     }
 
@@ -287,11 +306,14 @@ final class NowPlayingMonitor: ObservableObject {
             return
         case .mediaRemote:
             reconcileAdapter()
-            return
         case .appleScript:
-            break
+            reconcileAppleScript()
         }
+    }
 
+    /// Polls Spotify and Music. On the MediaRemote backend this runs only while no browser or
+    /// other app holds Now Playing.
+    private func reconcileAppleScript() {
         guard !isSleeping, !isSuspended else {
             stopPolling()
             publish(.inactive)
@@ -583,6 +605,7 @@ final class NowPlayingMonitor: ObservableObject {
             "(artist of current track as text)",
             "trackPosition",
             "trackDuration",
+            "trackRepeat",
         ]
         if player == .spotify {
             returnedFields.append("artworkURL")
@@ -604,6 +627,11 @@ final class NowPlayingMonitor: ObservableObject {
         case .spotify: "(duration of current track)"
         case .music, .app: "((duration of current track) * 1000)"
         }
+        // Spotify's `repeating` is a bool; Music's `song repeat` is off, all or one.
+        let repeatExpression = switch player {
+        case .spotify: "(repeating as text)"
+        case .music, .app: "(song repeat as text)"
+        }
         return """
         if application "\(applicationName)" is running then
             tell application "\(applicationName)"
@@ -614,6 +642,10 @@ final class NowPlayingMonitor: ObservableObject {
                 end try
                 try
                     set trackDuration to (\(durationExpression) as integer) as text
+                end try
+                set trackRepeat to ""
+                try
+                    set trackRepeat to \(repeatExpression)
                 end try
         \(artworkSetup)
                 return \(result)
@@ -638,6 +670,13 @@ final class NowPlayingMonitor: ObservableObject {
             // Both players accept seconds here. Spotify's duration property is the odd one
             // out: it reports milliseconds and is normalised while parsing the poll response.
             "set player position to \(seconds)"
+        case let .setRepeat(mode):
+            switch player {
+            case .spotify:
+                "set repeating to \(mode == .off ? "false" : "true")"
+            case .music, .app:
+                "set song repeat to \(mode == .all ? "all" : mode == .one ? "one" : "off")"
+            }
         }
         let applicationName = applicationName(for: player)
         return """
@@ -654,7 +693,7 @@ final class NowPlayingMonitor: ObservableObject {
         player: NowPlayingStatus.Player
     ) -> ParsedStatus? {
         let fields = output.components(separatedBy: "\t")
-        let expectedFieldCount = player == .spotify ? 6 : 5
+        let expectedFieldCount = player == .spotify ? 7 : 6
         guard fields.count == expectedFieldCount else { return nil }
 
         let state = fields[0].trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -676,7 +715,7 @@ final class NowPlayingMonitor: ObservableObject {
         }
 
         let artworkURL = player == .spotify
-            ? URL(string: fields[5].trimmingCharacters(in: .whitespacesAndNewlines))
+            ? URL(string: fields[6].trimmingCharacters(in: .whitespacesAndNewlines))
             : nil
         return ParsedStatus(
             player: player,
@@ -686,7 +725,8 @@ final class NowPlayingMonitor: ObservableObject {
                 artist: artist,
                 isPlaying: isPlaying,
                 elapsedPosition: elapsedPosition,
-                duration: duration
+                duration: duration,
+                repeatMode: NowPlayingStatus.RepeatMode(appleScriptValue: fields[5])
             ),
             spotifyArtworkURL: artworkURL
         )
@@ -725,6 +765,19 @@ extension NowPlayingMonitor {
         publishAdapterTrack()
     }
 
+    /// Whether MediaRemote's item should drive the UI. Spotify and Music never do: their
+    /// MediaRemote items can lack artwork and carry a stale position, so they are read through
+    /// AppleScript straight from the app, as before.
+    private func adapterShows(_ track: AdapterTrack?) -> Bool {
+        guard let track else { return false }
+        switch track.player.sourceKind {
+        case .browser, .other:
+            return isAllowed(track.player)
+        case .spotify, .music:
+            return false
+        }
+    }
+
     private func startAdapterStreamIfNeeded() {
         guard adapterStream == nil, adapterRestartTask == nil, let adapter else { return }
 
@@ -757,6 +810,11 @@ extension NowPlayingMonitor {
         adapterRestartTask?.cancel()
         adapterRestartTask = nil
         adapterTrack = nil
+        showsAdapterItem = false
+        publishedAdapterTrack = nil
+        switchHoldStart = nil
+        tentativeTrackTask?.cancel()
+        tentativeTrackTask = nil
         inactiveDebounceTask?.cancel()
         inactiveDebounceTask = nil
         stopElapsedTicker()
@@ -767,6 +825,23 @@ extension NowPlayingMonitor {
         // A stream that delivers data is healthy; only consecutive failures count.
         adapterRestarts = 0
 
+        // Any newer line settles a waiting flag: the same item's position confirms it, and a
+        // different item means it belonged to that item and is dropped.
+        tentativeTrackTask?.cancel()
+        tentativeTrackTask = nil
+        if let track, track.isTentative {
+            tentativeTrackTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: Self.tentativeConfirm)
+                guard let self, !Task.isCancelled else { return }
+                tentativeTrackTask = nil
+                applyAdapterTrack(track)
+            }
+            return
+        }
+        applyAdapterTrack(track)
+    }
+
+    private func applyAdapterTrack(_ track: AdapterTrack?) {
         let itemKey = track.map { "\($0.sourceBundleIdentifier)\u{1F}\($0.itemIdentifier ?? $0.title)" }
         if itemKey != lastAdapterItemKey {
             lastAdapterItemKey = itemKey
@@ -785,6 +860,7 @@ extension NowPlayingMonitor {
             // asks: never keep re-invoking a broken adapter.
             backend = .appleScript
             adapterTrack = nil
+            showsAdapterItem = false
             stopElapsedTicker()
             publish(.inactive)
             reconcilePolling()
@@ -801,20 +877,42 @@ extension NowPlayingMonitor {
         }
     }
 
-    /// Publishes the latest item as a status: filtered by the user's sources, with the elapsed
-    /// position extrapolated to now, and with the previous artwork held across an item change.
+    /// Publishes the latest MediaRemote item when it is a browser or other app: filtered by the
+    /// user's sources, with the elapsed position extrapolated to now, and with the previous
+    /// artwork held across an item change. Otherwise hands the UI to AppleScript polling.
     private func publishAdapterTrack() {
         // A command owns the UI until it settles; its completion publishes the latest item.
         guard pendingCommandGeneration == nil else { return }
 
-        guard let track = adapterTrack, isAllowed(track.player) else {
+        if holdsSwitch(to: adapterTrack) {
+            // Keep the playing item's clock moving while the switch is held; the ticker also
+            // re-checks the hold every second.
+            if let shown = publishedAdapterTrack, let elapsed = shown.elapsed(at: Date()) {
+                publish(status.withElapsedPosition(elapsed))
+            }
+            startElapsedTickerIfNeeded()
+            return
+        }
+
+        guard let track = adapterTrack, adapterShows(track) else {
+            publishedAdapterTrack = nil
             stopElapsedTicker()
-            scheduleInactive()
+            if showsAdapterItem {
+                scheduleHandOffToAppleScript()
+            } else {
+                reconcileAppleScript()
+            }
             return
         }
 
         inactiveDebounceTask?.cancel()
         inactiveDebounceTask = nil
+        if !showsAdapterItem {
+            // Taking over from AppleScript: a poll still in flight must not publish over this.
+            showsAdapterItem = true
+            refreshGeneration &+= 1
+            stopPolling()
+        }
 
         var newStatus = track.nowPlayingStatus(at: Date())
         if newStatus.artwork == nil,
@@ -825,6 +923,7 @@ extension NowPlayingMonitor {
             scheduleArtworkGraceExpiry()
         }
         publish(newStatus)
+        publishedAdapterTrack = track
 
         if track.isPlaying {
             startElapsedTickerIfNeeded()
@@ -833,25 +932,59 @@ extension NowPlayingMonitor {
         }
     }
 
-    private func isAllowed(_ player: NowPlayingStatus.Player) -> Bool {
-        switch player {
-        case .spotify, .music:
-            allowedPlayers.contains(player)
-        case .app:
-            allowsOtherApps
+    /// Whether to keep showing the playing browser item instead of `next`.
+    ///
+    /// Focusing a browser tab that has its own media session (YouTube, YouTube Music, Spotify
+    /// Web) makes that tab Now Playing, usually paused, while the first tab's audio carries on.
+    /// MediaRemote reports only the one item, so the playing item is kept: until a playing
+    /// item appears, the shown item comes back, or it would have reached its end. Leaving it
+    /// for nothing at all is held only briefly, in case it comes straight back. A pause of the
+    /// shown item itself, and a newly playing item, always go through at once.
+    private func holdsSwitch(to next: AdapterTrack?) -> Bool {
+        let now = Date()
+        let deadline: Date? = {
+            guard showsAdapterItem, status.isPlaying, let shown = publishedAdapterTrack else {
+                return nil
+            }
+            guard let next, adapterShows(next) else {
+                return (switchHoldStart ?? now).addingTimeInterval(Self.switchHold)
+            }
+            if next.isPlaying { return nil }
+            let sameItem = next.sourceBundleIdentifier == shown.sourceBundleIdentifier
+                && (next.itemIdentifier ?? next.title) == (shown.itemIdentifier ?? shown.title)
+            guard !sameItem, next.sourceBundleIdentifier == shown.sourceBundleIdentifier else {
+                return nil
+            }
+            guard let duration = shown.duration, let elapsed = shown.elapsed(at: now) else {
+                return (switchHoldStart ?? now).addingTimeInterval(Self.unknownLengthHold)
+            }
+            return now.addingTimeInterval(max(duration - elapsed, 0))
+        }()
+
+        guard let deadline, now < deadline else {
+            switchHoldStart = nil
+            return false
         }
+        if switchHoldStart == nil { switchHoldStart = now }
+        return true
     }
 
-    private func scheduleInactive() {
-        guard status.isActive, inactiveDebounceTask == nil else { return }
+    private func isAllowed(_ player: NowPlayingStatus.Player) -> Bool {
+        allowedSources.contains(player.sourceKind)
+    }
+
+    /// MediaRemote briefly reports nothing between two browser items. Waiting before handing
+    /// the UI back to AppleScript keeps a paused Spotify from flashing up in that gap.
+    private func scheduleHandOffToAppleScript() {
+        guard inactiveDebounceTask == nil else { return }
         inactiveDebounceTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: Self.inactiveDebounce)
             guard let self, !Task.isCancelled else { return }
             inactiveDebounceTask = nil
-            guard pendingCommandGeneration == nil,
-                  adapterTrack.map({ !self.isAllowed($0.player) }) ?? true
-            else { return }
-            publish(.inactive)
+            guard pendingCommandGeneration == nil, !adapterShows(adapterTrack) else { return }
+            showsAdapterItem = false
+            stopPolling()
+            reconcileAppleScript()
         }
     }
 
@@ -891,6 +1024,7 @@ extension NowPlayingMonitor {
         case .nextTrack: .nextTrack
         case .previousTrack: .previousTrack
         case let .seek(seconds): .seek(seconds: seconds)
+        case let .setRepeat(mode): .setRepeat(mode)
         }
 
         refreshGeneration &+= 1
@@ -911,6 +1045,14 @@ extension NowPlayingMonitor {
             publish(optimistic)
         case let .seek(seconds):
             publish(status.withElapsedPosition(seconds))
+        case let .setRepeat(mode):
+            // Repeat changes nothing about the position: publish it at the live value, not the
+            // last one-second tick, so the clock does not step back while the command runs.
+            var optimistic = status.withRepeatMode(mode)
+            if let elapsed = adapterTrack?.elapsed(at: Date()) {
+                optimistic = optimistic.withElapsedPosition(elapsed)
+            }
+            publish(optimistic)
         case .nextTrack, .previousTrack:
             break
         }
@@ -937,7 +1079,8 @@ private extension NowPlayingStatus {
             elapsedPosition: elapsedPosition,
             duration: duration,
             artwork: artwork,
-            artworkIdentity: identity
+            artworkIdentity: identity,
+            repeatMode: repeatMode
         )
     }
 
@@ -951,7 +1094,8 @@ private extension NowPlayingStatus {
             elapsedPosition: elapsedPosition,
             duration: duration,
             artwork: artwork,
-            artworkIdentity: artworkIdentity
+            artworkIdentity: artworkIdentity,
+            repeatMode: repeatMode
         )
     }
 
@@ -965,7 +1109,8 @@ private extension NowPlayingStatus {
             elapsedPosition: elapsedPosition,
             duration: duration,
             artwork: artwork,
-            artworkIdentity: artworkIdentity
+            artworkIdentity: artworkIdentity,
+            repeatMode: repeatMode
         )
     }
 
@@ -979,7 +1124,23 @@ private extension NowPlayingStatus {
             elapsedPosition: elapsedPosition,
             duration: duration,
             artwork: artwork,
-            artworkIdentity: artworkIdentity
+            artworkIdentity: artworkIdentity,
+            repeatMode: repeatMode
+        )
+    }
+
+    func withRepeatMode(_ repeatMode: RepeatMode?) -> NowPlayingStatus {
+        guard let player else { return self }
+        return NowPlayingStatus(
+            player: player,
+            title: title,
+            artist: artist,
+            isPlaying: isPlaying,
+            elapsedPosition: elapsedPosition,
+            duration: duration,
+            artwork: artwork,
+            artworkIdentity: artworkIdentity,
+            repeatMode: repeatMode
         )
     }
 }

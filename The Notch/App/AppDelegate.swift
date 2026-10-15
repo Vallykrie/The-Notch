@@ -62,8 +62,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Each feature's monitor follows its switch. All four calls are idempotent.
         services.nowPlaying.configure(
             suspended: !settings.mediaEnabled,
-            allowedPlayers: settings.mediaPlayers.players,
-            allowsOtherApps: settings.mediaPlayers.allowsOtherApps
+            allowedSources: settings.mediaSources
         )
         services.trading.setSuspended(!settings.cryptoEnabled)
         services.calendar.showsAllDay = settings.calendarShowsAllDay

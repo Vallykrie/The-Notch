@@ -7,5 +7,7 @@ xcrun swiftc -default-isolation MainActor -parse-as-library -o "$test_dir/checks
   'The Notch/Surfaces/System/NowPlaying/AdapterPayload.swift' \
   'The Notch/Surfaces/System/NowPlaying/NowPlayingStatus.swift' \
   'The Notch/Surfaces/System/NowPlaying/LyricsProvider.swift' \
+  'The Notch/Surfaces/System/NowPlaying/MediaSource.swift' \
+  'The Notch/Surfaces/System/NowPlaying/ArtworkAccent.swift' \
   tools/media-tests/MediaTests.swift
 "$test_dir/checks"

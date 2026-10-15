@@ -80,8 +80,11 @@ SwiftUI/AppKit/Foundation.
 answers processes with a `com.apple.*` identity, so an XPC helper of our own would be refused
 too. The app runs Apple's `/usr/bin/perl` on the vendored MediaRemoteAdapter
 (`Vendor/MediaRemoteAdapter`, BSD-3), which loads its framework into that entitled process and
-streams JSON. That covers every player, browsers included, with no Automation permission
-(`MediaRemoteAdapter`, `AdapterPayload`). The adapter's `test` runs once per launch; if it fails,
+streams JSON. That covers browsers and every other app (`MediaRemoteAdapter`, `AdapterPayload`). Spotify and
+Music stay on AppleScript even when the adapter works: their MediaRemote items can lack artwork
+and carry a stale position, while AppleScript reads both straight from the app. MediaRemote
+drives the UI only while a browser or other app holds Now Playing, and hands back to AppleScript
+300 ms after that item goes away. The adapter's `test` runs once per launch; if it fails,
 or the stream keeps crashing, `NowPlayingMonitor` falls back to the original AppleScript path
 against Spotify and Music for the rest of the session. Design notes and the risks (a future macOS
 closing the loophole, or dropping system Perl) are in `docs/design/browser-media-plan.md`.

@@ -72,6 +72,8 @@ nonisolated enum LyricsLookup: Equatable, Sendable {
 actor LyricsProvider {
     static let shared = LyricsProvider()
 
+    static let minimumTrackLength: TimeInterval = 30
+
     private var cache: [String: LyricsLookup] = [:]
     private let session: URLSession
 
@@ -93,6 +95,11 @@ actor LyricsProvider {
         duration: TimeInterval?,
         ignoringCache: Bool = false
     ) async -> LyricsLookup {
+        // Nothing this short has lyrics worth fetching. Browser players report every ad as its
+        // own item (YouTube's bumpers run 6 s and 15 s), and a lookup per ad only spends the
+        // service's rate limit.
+        if let duration, duration < Self.minimumTrackLength { return .notFound }
+
         let key = "\(title)\u{1F}\(artist)"
         if !ignoringCache, let cached = cache[key] { return cached }
 

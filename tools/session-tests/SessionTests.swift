@@ -145,6 +145,27 @@ struct SessionTests {
         question.handle(request(.permissionRequest, payload: ["tool_name": .string("AskUserQuestion")]), at: start)
         question.pruneDoneSessions(now: start.addingTimeInterval(3600))
         check(question.session(for: "session")?.status == .waitingForAnswer, "unanswered question never expires from inactivity")
+
+        // Media source switches, migrated from the retired single "Players" choice. Lives here
+        // because this is the suite that already compiles `NotchSettings` and its dependencies.
+        func mediaSettings(legacy: String?) -> NotchSettings {
+            let suite = "com.thenotch.session-tests.\(UUID().uuidString)"
+            let defaults = UserDefaults(suiteName: suite)!
+            defer { defaults.removePersistentDomain(forName: suite) }
+            if let legacy { defaults.set(legacy, forKey: "NotchMediaPlayers") }
+            let settings = NotchSettings(defaults: defaults)
+            check(defaults.object(forKey: "NotchMediaPlayers") == nil,
+                  "the retired media players key is removed (\(legacy ?? "none"))")
+            return settings
+        }
+        check(mediaSettings(legacy: nil).mediaSources == Set(MediaSourceKind.allCases),
+              "a fresh install shows every media source")
+        check(mediaSettings(legacy: "all").mediaSources == Set(MediaSourceKind.allCases),
+              "\"All\" players carries over as every source")
+        check(mediaSettings(legacy: "spotify").mediaSources == [.spotify],
+              "\"Spotify\" carries over as Spotify only")
+        check(mediaSettings(legacy: "music").mediaSources == [.music],
+              "\"Music\" carries over as Apple Music only")
         if failures > 0 { exit(1) }
     }
 }

@@ -167,13 +167,14 @@ struct MediaExpandedView: View {
                 )
                 .overlay {
                     PixelGlyphView(
-                        glyph: .musicNote,
+                        glyph: player.sourceKind == .browser ? .globe : .musicNote,
                         side: Theme.Metrics.glyphCollapsedSize
                     )
                     .foregroundStyle(sourceBadgeTint(for: player))
                 }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(sourceBadgeLabel(for: player))
+                .help("Playing in \(sourceBadgeLabel(for: player))")
                 // Inside the corner, not on it: flush, the badge's circle and the artwork's
                 // rounded corner met at one point and left slivers of art showing around it.
                 .padding(Theme.Metrics.MediaPanel.sourceBadgeInset)
@@ -224,12 +225,12 @@ struct MediaExpandedView: View {
         }
     }
 
-    /// The transport row, at full size under the scrubber or folded beside it. The favourite
-    /// mark only exists at full size; it is decorative, and the strip has no room for it.
+    /// The transport row, at full size under the scrubber or folded beside it. Repeat only
+    /// exists at full size; the strip has no room for it.
     private func transportControls(stage: Bool) -> some View {
         HStack(spacing: stage ? Theme.Metrics.MediaPanel.miniSpacing : Theme.Metrics.MediaPanel.transportSpacing) {
             if !stage {
-                decorativeControl(glyph: .heart, label: "Favorite")
+                repeatButton
                     .transition(.opacity)
             }
 
@@ -279,6 +280,42 @@ struct MediaExpandedView: View {
         .help(label)
         .accessibilityLabel(label)
         .transportButtonStyle()
+    }
+
+    /// Off, all, one. A source that reports no repeat setting (browsers, most other apps) gets
+    /// the disabled glyph rather than a control that would silently do nothing.
+    @ViewBuilder
+    private var repeatButton: some View {
+        if let mode = nowPlaying.status.repeatMode {
+            let metrics = Theme.Metrics.MediaPanel.self
+            let label = switch mode {
+            case .off: "Repeat: off"
+            case .all: "Repeat: all"
+            case .one: "Repeat: this track"
+            }
+            Button {
+                nowPlaying.cycleRepeat()
+            } label: {
+                Group {
+                    if mode == .one {
+                        PixelGlyphView(glyph: .repeatOne, side: metrics.transportGlyphSize)
+                            .transition(.opacity)
+                    } else {
+                        PixelGlyphView(glyph: .repeatTrack, side: metrics.transportGlyphSize)
+                            .transition(.opacity)
+                    }
+                }
+                .foregroundStyle(mode == .off ? Theme.Colors.textSecondary : Theme.Colors.Status.playing)
+                .frame(width: metrics.transportHitSize, height: metrics.transportHitSize)
+                .contentShape(Rectangle())
+                .animation(Theme.Motion.content, value: mode)
+            }
+            .help(label)
+            .accessibilityLabel(label)
+            .transportButtonStyle()
+        } else {
+            decorativeControl(glyph: .repeatTrack, label: "Repeat")
+        }
     }
 
     /// The round play button. In the strip its disc fades out and its glyph shrinks to the
@@ -603,15 +640,7 @@ struct MediaExpandedView: View {
     }
 
     private func sourceBadgeLabel(for player: NowPlayingStatus.Player) -> String {
-        switch player {
-        case .spotify:
-            "Spotify"
-        case .music:
-            "Apple Music"
-        case .app:
-            // M2 names the real app (Chrome, Safari…) from its bundle identifier.
-            "Now Playing"
-        }
+        player.displayName
     }
 
     private func refreshArtwork() {

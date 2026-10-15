@@ -23,6 +23,51 @@ nonisolated struct NowPlayingStatus: Equatable, Sendable {
         }
     }
 
+    /// The player's repeat setting. MediaRemote numbers it 1 off, 2 one, 3 all; AppleScript
+    /// reports Spotify's `repeating` as a bool and Music's `song repeat` as off/all/one.
+    enum RepeatMode: Equatable, Sendable {
+        case off
+        case all
+        case one
+
+        init?(mediaRemoteValue: Double) {
+            switch mediaRemoteValue {
+            case 1: self = .off
+            case 2: self = .one
+            case 3: self = .all
+            default: return nil
+            }
+        }
+
+        /// Spotify's `repeating as text` ("true"/"false") or Music's `song repeat as text`.
+        init?(appleScriptValue: String) {
+            switch appleScriptValue.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+            case "false", "off": self = .off
+            case "true", "all": self = .all
+            case "one": self = .one
+            default: return nil
+            }
+        }
+
+        var mediaRemoteValue: Int {
+            switch self {
+            case .off: 1
+            case .one: 2
+            case .all: 3
+            }
+        }
+
+        /// Off, all, one, off. A player that cannot repeat one track (Spotify's AppleScript
+        /// only has a bool) toggles between off and all.
+        func next(includingOne: Bool) -> RepeatMode {
+            switch self {
+            case .off: .all
+            case .all: includingOne ? .one : .off
+            case .one: .off
+            }
+        }
+    }
+
     let availability: Availability
     let player: Player?
     let title: String
@@ -35,6 +80,9 @@ nonisolated struct NowPlayingStatus: Equatable, Sendable {
     let artwork: Data?
     /// Stable identity for that artwork — used for equality and for SwiftUI view identity.
     let artworkIdentity: String?
+    /// Nil when the source reports no repeat setting (browsers, most other apps): the control
+    /// is drawn disabled rather than guessing.
+    let repeatMode: RepeatMode?
 
     var isActive: Bool {
         availability == .active
@@ -63,7 +111,8 @@ nonisolated struct NowPlayingStatus: Equatable, Sendable {
         elapsedPosition: TimeInterval? = nil,
         duration: TimeInterval? = nil,
         artwork: Data? = nil,
-        artworkIdentity: String? = nil
+        artworkIdentity: String? = nil,
+        repeatMode: RepeatMode? = nil
     ) {
         availability = .active
         self.player = player
@@ -78,6 +127,7 @@ nonisolated struct NowPlayingStatus: Equatable, Sendable {
             title: title,
             artist: artist
         )
+        self.repeatMode = repeatMode
     }
 
     private init(availability: Availability) {
@@ -90,6 +140,7 @@ nonisolated struct NowPlayingStatus: Equatable, Sendable {
         duration = nil
         artwork = nil
         artworkIdentity = nil
+        repeatMode = nil
     }
 
     static func == (lhs: NowPlayingStatus, rhs: NowPlayingStatus) -> Bool {
@@ -104,6 +155,7 @@ nonisolated struct NowPlayingStatus: Equatable, Sendable {
             && lhs.elapsedPosition == rhs.elapsedPosition
             && lhs.duration == rhs.duration
             && lhs.artworkIdentity == rhs.artworkIdentity
+            && lhs.repeatMode == rhs.repeatMode
     }
 
     private static func artworkIdentity(

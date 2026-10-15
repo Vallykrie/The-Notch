@@ -9,7 +9,8 @@ import Combine
 /// Prints one line per published status, then quits after the given number of seconds
 /// (default 30). Never opens a window and writes no settings. With `--exercise` it also drives
 /// the player through the monitor's own controls: play/pause at 4s, seek to 30% at 8s, next
-/// track at 12s, play/pause at 18s.
+/// track at 12s, play/pause at 18s. With `--exercise-repeat` it presses repeat every 3s until
+/// the setting is back where it started (at most three presses).
 @MainActor
 enum MediaDiagnostics {
     private static var monitor: NowPlayingMonitor?
@@ -47,6 +48,19 @@ enum MediaDiagnostics {
             }
         }
 
+        if arguments.contains("--exercise-repeat") {
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(3))
+                let start = monitor.status.repeatMode
+                for _ in 0..<3 {
+                    print("[media] >>> cycleRepeat")
+                    monitor.cycleRepeat()
+                    try? await Task.sleep(for: .seconds(3))
+                    if monitor.status.repeatMode == start { break }
+                }
+            }
+        }
+
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(seconds))
             subscription = nil
@@ -58,11 +72,12 @@ enum MediaDiagnostics {
 
     private static func describe(_ status: NowPlayingStatus) -> String {
         guard status.isActive, let player = status.player else { return "inactive" }
-        let source = switch player {
-        case .spotify: "spotify"
-        case .music: "music"
+        let identifier = switch player {
+        case .spotify: "com.spotify.client"
+        case .music: "com.apple.Music"
         case let .app(bundleIdentifier): bundleIdentifier
         }
+        let source = "\(player.displayName) [\(player.sourceKind.rawValue), \(identifier)]"
         let elapsed = status.elapsedPosition.map { String(format: "%.1f", $0) } ?? "-"
         let duration = status.duration.map { String(format: "%.1f", $0) } ?? "-"
         let artwork = status.artwork.map { "\($0.count / 1_024) KB" } ?? "none"
@@ -72,6 +87,7 @@ enum MediaDiagnostics {
             "\"\(status.title)\" by \"\(status.artist)\"",
             "\(elapsed)/\(duration)s",
             "artwork \(artwork)",
+            "repeat \(status.repeatMode.map { "\($0)" } ?? "unsupported")",
         ].joined(separator: " | ")
     }
 }
