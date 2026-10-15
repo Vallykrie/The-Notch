@@ -44,6 +44,10 @@ final class NotchWindow: NSPanel {
         ignoresMouseEvents = true
         acceptsMouseMovedEvents = true
         level = .statusBar
+        // No fade on order-in. `relinquishKeyFocus` orders the panel out and straight back in,
+        // and the default behaviour faded it back over ~350ms: the notch vanished for longer
+        // than the close takes, so after any click (a tab switch) the close was never seen.
+        animationBehavior = .none
         collectionBehavior = [
             .canJoinAllSpaces,
             .fullScreenAuxiliary,
@@ -63,9 +67,12 @@ final class NotchWindow: NSPanel {
         // and discards the spring — the notch jumped straight to full size no matter how long
         // the animation was.
         // The pointer region only has to be correct by the time the cursor can move again.
-        coordinator.stateDidChange = { [weak notchHostingView] _ in
+        coordinator.stateDidChange = { [weak self, weak notchHostingView] state in
             DispatchQueue.main.async {
                 notchHostingView?.coordinatorStateDidChange()
+                if state == .collapsed {
+                    self?.relinquishKeyFocus()
+                }
             }
         }
 
@@ -84,6 +91,21 @@ final class NotchWindow: NSPanel {
     /// activates over the user's frontmost window.
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+
+    /// Gives keyboard focus back to whatever the user was typing into before the notch took it.
+    ///
+    /// A non-activating panel becomes key without activating this app, so the frontmost app
+    /// stays active but its window loses key status. Collapsing alone does not undo that: the
+    /// panel stays key, and keystrokes meant for the text field the user was in vanish into a
+    /// notch that no longer shows anything to type into. `resignKey()` does not hand focus back
+    /// either — only removing the panel from the screen makes the window server restore the
+    /// active app's key window. Ordering straight back in within the same runloop turn draws no
+    /// frame without the notch, and `orderFrontRegardless` never makes it key again.
+    private func relinquishKeyFocus() {
+        guard isKeyWindow, isVisible else { return }
+        orderOut(nil)
+        orderFrontRegardless()
+    }
 
     func apply(_ geometry: ScreenGeometry, coordinator: NotchCoordinator) {
         coordinator.updateGeometry(
