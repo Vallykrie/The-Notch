@@ -370,6 +370,10 @@ surfaces are now exactly two — media and agents — and the notch shows both a
       for 300 ms, and the previous artwork is held up to 1.5 s while the new item's arrives.
       Verified on macOS 27.0.1 with Chrome, Safari and Brave; `tools/media-tests` covers the
       payload path. The "All" players setting includes browsers. Picking one player excludes them.
+      **Spotify and Music stay on AppleScript** even when MediaRemote works. Through
+      MediaRemote, Spotify's artwork could be missing and its position went stale, which also
+      made the notch fall behind the app after a repeat click. MediaRemote drives the UI only
+      while a browser or other app holds Now Playing.
       Lyrics lookups handle video titles: a leading `Artist - ` is removed before cutting at a
       dash (it used to search for a song called "Queen"), and a known length with no result
       within 10 s shows no lyrics instead of another song's.

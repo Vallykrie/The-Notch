@@ -20,8 +20,8 @@ private enum TransportCommand: Equatable, Sendable {
 private enum Backend: Equatable {
     /// The adapter's `test` is still running. Nothing is published yet (it takes ~70 ms).
     case probing
-    /// MediaRemote through the bundled adapter: every app, browsers included, and no
-    /// Automation permission.
+    /// Both: AppleScript for Spotify and Music, read straight from the app as before, and
+    /// MediaRemote through the bundled adapter for everything else (browsers, other apps).
     case mediaRemote
     /// AppleScript against Spotify and Music: the fallback when the adapter is missing, fails
     /// its test, or keeps crashing.
@@ -73,10 +73,9 @@ final class NowPlayingMonitor: ObservableObject {
     private var inactiveDebounceTask: Task<Void, Never>?
     private var artworkGraceTask: Task<Void, Never>?
     private var elapsedTicker: Timer?
-    /// Spotify's repeat setting on the MediaRemote path. Spotify's MediaRemote item carries no
-    /// repeat mode and ignores the `repeat` command, so this one setting goes through AppleScript.
-    private var spotifyRepeatMode: NowPlayingStatus.RepeatMode?
-    private var spotifyRepeatTask: Task<Void, Never>?
+    /// Whether the published status comes from MediaRemote (a browser or other app) rather than
+    /// from AppleScript polling of Spotify or Music. Only one source drives the UI at a time.
+    private var showsAdapterItem = false
 
     /// These are defensive engineering limits rather than visual tuning, so they stay with
     /// the network boundary instead of becoming design tokens in `Theme`.
@@ -143,8 +142,7 @@ final class NowPlayingMonitor: ObservableObject {
     /// Off → all → one → off. Spotify's AppleScript has only a bool, so it toggles off ↔ all.
     func cycleRepeat() {
         guard let current = status.repeatMode, let player = status.player else { return }
-        let canRepeatOne = !(player == .spotify && adapterTrack?.repeatMode == nil)
-        issue(.setRepeat(current.next(includingOne: canRepeatOne)))
+        issue(.setRepeat(current.next(includingOne: player != .spotify)))
     }
 
     /// `fraction` is 0...1 of the current track's duration.
@@ -165,7 +163,6 @@ final class NowPlayingMonitor: ObservableObject {
         adapterRestartTask?.cancel()
         inactiveDebounceTask?.cancel()
         artworkGraceTask?.cancel()
-        spotifyRepeatTask?.cancel()
         adapterStream?.stop()
 
         let workspaceCenter = NSWorkspace.shared.notificationCenter
@@ -176,7 +173,7 @@ final class NowPlayingMonitor: ObservableObject {
 
     private func issue(_ command: TransportCommand) {
         guard !isPreview else { return }
-        if backend == .mediaRemote {
+        if backend == .mediaRemote, showsAdapterItem {
             issueThroughAdapter(command)
             return
         }
@@ -295,11 +292,14 @@ final class NowPlayingMonitor: ObservableObject {
             return
         case .mediaRemote:
             reconcileAdapter()
-            return
         case .appleScript:
-            break
+            reconcileAppleScript()
         }
+    }
 
+    /// Polls Spotify and Music. On the MediaRemote backend this runs only while no browser or
+    /// other app holds Now Playing.
+    private func reconcileAppleScript() {
         guard !isSleeping, !isSuspended else {
             stopPolling()
             publish(.inactive)
@@ -751,6 +751,19 @@ extension NowPlayingMonitor {
         publishAdapterTrack()
     }
 
+    /// Whether MediaRemote's item should drive the UI. Spotify and Music never do: their
+    /// MediaRemote items can lack artwork and carry a stale position, so they are read through
+    /// AppleScript straight from the app, as before.
+    private func adapterShows(_ track: AdapterTrack?) -> Bool {
+        guard let track else { return false }
+        switch track.player.sourceKind {
+        case .browser, .other:
+            return isAllowed(track.player)
+        case .spotify, .music:
+            return false
+        }
+    }
+
     private func startAdapterStreamIfNeeded() {
         guard adapterStream == nil, adapterRestartTask == nil, let adapter else { return }
 
@@ -783,10 +796,9 @@ extension NowPlayingMonitor {
         adapterRestartTask?.cancel()
         adapterRestartTask = nil
         adapterTrack = nil
+        showsAdapterItem = false
         inactiveDebounceTask?.cancel()
         inactiveDebounceTask = nil
-        spotifyRepeatTask?.cancel()
-        spotifyRepeatTask = nil
         stopElapsedTicker()
     }
 
@@ -796,16 +808,9 @@ extension NowPlayingMonitor {
         adapterRestarts = 0
 
         let itemKey = track.map { "\($0.sourceBundleIdentifier)\u{1F}\($0.itemIdentifier ?? $0.title)" }
-        let itemChanged = itemKey != lastAdapterItemKey
-        if itemChanged {
+        if itemKey != lastAdapterItemKey {
             lastAdapterItemKey = itemKey
             adapterItemChangedAt = Date()
-        }
-        // Spotify sends no update when only its repeat setting changes, so it is re-read when
-        // the item or the playback state does.
-        if let track, track.player == .spotify, track.repeatMode == nil,
-           itemChanged || track.isPlaying != adapterTrack?.isPlaying {
-            refreshSpotifyRepeat()
         }
         adapterTrack = track
         publishAdapterTrack()
@@ -820,6 +825,7 @@ extension NowPlayingMonitor {
             // asks: never keep re-invoking a broken adapter.
             backend = .appleScript
             adapterTrack = nil
+            showsAdapterItem = false
             stopElapsedTicker()
             publish(.inactive)
             reconcilePolling()
@@ -836,25 +842,33 @@ extension NowPlayingMonitor {
         }
     }
 
-    /// Publishes the latest item as a status: filtered by the user's sources, with the elapsed
-    /// position extrapolated to now, and with the previous artwork held across an item change.
+    /// Publishes the latest MediaRemote item when it is a browser or other app: filtered by the
+    /// user's sources, with the elapsed position extrapolated to now, and with the previous
+    /// artwork held across an item change. Otherwise hands the UI to AppleScript polling.
     private func publishAdapterTrack() {
         // A command owns the UI until it settles; its completion publishes the latest item.
         guard pendingCommandGeneration == nil else { return }
 
-        guard let track = adapterTrack, isAllowed(track.player) else {
+        guard let track = adapterTrack, adapterShows(track) else {
             stopElapsedTicker()
-            scheduleInactive()
+            if showsAdapterItem {
+                scheduleHandOffToAppleScript()
+            } else {
+                reconcileAppleScript()
+            }
             return
         }
 
         inactiveDebounceTask?.cancel()
         inactiveDebounceTask = nil
+        if !showsAdapterItem {
+            // Taking over from AppleScript: a poll still in flight must not publish over this.
+            showsAdapterItem = true
+            refreshGeneration &+= 1
+            stopPolling()
+        }
 
         var newStatus = track.nowPlayingStatus(at: Date())
-        if track.player == .spotify, track.repeatMode == nil {
-            newStatus = newStatus.withRepeatMode(spotifyRepeatMode)
-        }
         if newStatus.artwork == nil,
            status.isActive,
            status.artwork != nil,
@@ -875,16 +889,18 @@ extension NowPlayingMonitor {
         allowedSources.contains(player.sourceKind)
     }
 
-    private func scheduleInactive() {
-        guard status.isActive, inactiveDebounceTask == nil else { return }
+    /// MediaRemote briefly reports nothing between two browser items. Waiting before handing
+    /// the UI back to AppleScript keeps a paused Spotify from flashing up in that gap.
+    private func scheduleHandOffToAppleScript() {
+        guard inactiveDebounceTask == nil else { return }
         inactiveDebounceTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: Self.inactiveDebounce)
             guard let self, !Task.isCancelled else { return }
             inactiveDebounceTask = nil
-            guard pendingCommandGeneration == nil,
-                  adapterTrack.map({ !self.isAllowed($0.player) }) ?? true
-            else { return }
-            publish(.inactive)
+            guard pendingCommandGeneration == nil, !adapterShows(adapterTrack) else { return }
+            showsAdapterItem = false
+            stopPolling()
+            reconcileAppleScript()
         }
     }
 
@@ -916,72 +932,6 @@ extension NowPlayingMonitor {
         elapsedTicker = nil
     }
 
-    /// Reads Spotify's repeat setting without ever prompting: a status read is not a reason to
-    /// put an Automation dialog in front of someone. Until they have answered one, the control
-    /// shows off and the first click asks; once they decline, it is drawn disabled.
-    private func refreshSpotifyRepeat() {
-        guard spotifyRepeatTask == nil, pendingCommandGeneration == nil else { return }
-        let isDenied = deniedPlayers.contains(.spotify)
-        let runner = runner
-        spotifyRepeatTask = Task { @MainActor [weak self] in
-            let mode = await Self.readSpotifyRepeat(runner: runner, isDenied: isDenied)
-            guard let self, !Task.isCancelled else { return }
-            spotifyRepeatTask = nil
-            guard pendingCommandGeneration == nil else { return }
-            spotifyRepeatMode = mode
-            publishAdapterTrack()
-        }
-    }
-
-    nonisolated private static func readSpotifyRepeat(
-        runner: AppleScriptRunner,
-        isDenied: Bool
-    ) async -> NowPlayingStatus.RepeatMode? {
-        guard !isDenied,
-              let spotify = NSRunningApplication.runningApplications(
-                  withBundleIdentifier: "com.spotify.client"
-              ).first
-        else { return nil }
-        let processIdentifier = spotify.processIdentifier
-        switch await Task.detached(operation: { automationConsent(for: processIdentifier) }).value {
-        case noErr:
-            break
-        case OSStatus(errAEEventWouldRequireUserConsent):
-            return .off
-        default:
-            return nil
-        }
-        let script = """
-        if application "Spotify" is running then
-            tell application "Spotify" to return (repeating as text)
-        end if
-        return ""
-        """
-        guard let output = try? await runner.run(script) else { return nil }
-        return NowPlayingStatus.RepeatMode(appleScriptValue: output.standardOutput)
-    }
-
-    /// Whether this app may send Apple events to the process, asked without prompting. The
-    /// target is a process ID because a bundle-ID target never returns for Spotify.
-    nonisolated private static func automationConsent(for processIdentifier: pid_t) -> OSStatus {
-        var target = AEAddressDesc()
-        var processIdentifier = processIdentifier
-        let created = AECreateDesc(
-            DescType(typeKernelProcessID),
-            &processIdentifier,
-            MemoryLayout<pid_t>.size,
-            &target
-        )
-        guard created == noErr else { return OSStatus(created) }
-        defer { AEDisposeDesc(&target) }
-        return AEDeterminePermissionToAutomateTarget(
-            &target,
-            AEEventClass(typeWildCard),
-            AEEventID(typeWildCard),
-            false
-        )
-    }
-
     private func issueThroughAdapter(_ command: TransportCommand) {
         guard status.isActive, let adapter else { return }
 
@@ -992,14 +942,6 @@ extension NowPlayingMonitor {
         case let .seek(seconds): .seek(seconds: seconds)
         case let .setRepeat(mode): .setRepeat(mode)
         }
-        let requestedRepeat: NowPlayingStatus.RepeatMode? = if case let .setRepeat(mode) = command {
-            mode
-        } else {
-            nil
-        }
-        let repeatsThroughAppleScript = requestedRepeat != nil
-            && status.player == .spotify
-            && adapterTrack?.repeatMode == nil
 
         refreshGeneration &+= 1
         let commandGeneration = refreshGeneration
@@ -1020,37 +962,20 @@ extension NowPlayingMonitor {
         case let .seek(seconds):
             publish(status.withElapsedPosition(seconds))
         case let .setRepeat(mode):
-            publish(status.withRepeatMode(mode))
+            // Repeat changes nothing about the position: publish it at the live value, not the
+            // last one-second tick, so the clock does not step back while the command runs.
+            var optimistic = status.withRepeatMode(mode)
+            if let elapsed = adapterTrack?.elapsed(at: Date()) {
+                optimistic = optimistic.withElapsedPosition(elapsed)
+            }
+            publish(optimistic)
         case .nextTrack, .previousTrack:
             break
         }
 
-        if repeatsThroughAppleScript {
-            spotifyRepeatTask?.cancel()
-            spotifyRepeatTask = nil
-        }
-        let script = repeatsThroughAppleScript ? Self.commandScript(command, for: .spotify) : ""
-        let runner = runner
         Task { @MainActor [weak self] in
-            if repeatsThroughAppleScript {
-                // A click is the one moment it is fair to ask for Automation, so this may prompt.
-                // The value Spotify returns straight after the set is often the old one, so a
-                // set that ran is taken at its word; the next stream update re-reads it.
-                let mode: NowPlayingStatus.RepeatMode?
-                do {
-                    _ = try await runner.run(script)
-                    mode = requestedRepeat
-                } catch AppleScriptRunnerError.automationPermissionDenied {
-                    self?.deniedPlayers.insert(.spotify)
-                    mode = nil
-                } catch {
-                    mode = self?.spotifyRepeatMode
-                }
-                self?.spotifyRepeatMode = mode
-            } else {
-                _ = await adapter.send(adapterCommand)
-                try? await Task.sleep(for: Self.commandSettle)
-            }
+            _ = await adapter.send(adapterCommand)
+            try? await Task.sleep(for: Self.commandSettle)
             guard let self, pendingCommandGeneration == commandGeneration else { return }
             pendingCommandGeneration = nil
             // Success or not, the stream's view of the player wins.
