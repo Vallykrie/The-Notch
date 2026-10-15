@@ -353,6 +353,18 @@ nonisolated struct PixelGlyph: Equatable, Sendable {
         0b0000_0100,
     ])
 
+    /// The repeat loop with a 1 inside it — repeat this track.
+    static let repeatOne = PixelGlyph(rows: [
+        0b0000_0000,
+        0b0011_1100,
+        0b0101_1010,
+        0b0100_1010,
+        0b0100_1010,
+        0b0100_0100,
+        0b0011_1110,
+        0b0000_0100,
+    ])
+
     /// Hollow heart.
     static let heart = PixelGlyph(rows: [
         0b0110_0110,

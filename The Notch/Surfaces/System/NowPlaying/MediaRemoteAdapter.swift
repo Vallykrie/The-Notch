@@ -16,8 +16,10 @@ nonisolated struct MediaRemoteAdapter: Sendable {
         case nextTrack
         case previousTrack
         case seek(seconds: TimeInterval)
+        case setRepeat(NowPlayingStatus.RepeatMode)
 
-        /// `send` takes an MRCommand number; `seek` takes microseconds.
+        /// `send` takes an MRCommand number; `seek` takes microseconds; `repeat` takes an
+        /// MRARepeatMode number.
         fileprivate var arguments: [String] {
             switch self {
             case .play: ["send", "0"]
@@ -25,6 +27,7 @@ nonisolated struct MediaRemoteAdapter: Sendable {
             case .nextTrack: ["send", "4"]
             case .previousTrack: ["send", "5"]
             case let .seek(seconds): ["seek", String(Int64((max(seconds, 0) * 1_000_000).rounded()))]
+            case let .setRepeat(mode): ["repeat", String(mode.mediaRemoteValue)]
             }
         }
     }

@@ -440,8 +440,14 @@ surfaces are now exactly two — media and agents — and the notch shows both a
       who never granted is still asked only once. A Developer ID signature would keep the grant
       across updates; releases without the signing secrets still ship ad-hoc.
 - [ ] Webcam mirror
-- [ ] Heart and repeat in the transport row are drawn but inert — they need real player
-      commands or they should be removed rather than shipped as dead controls.
+- [x] **Repeat works.** It takes the heart's place in the live transport row (full size only;
+      the lyrics strip has no room) and cycles off → all → one. MediaRemote's `repeat` drives
+      players that report a `repeatMode`; Spotify reports none and ignores the command, so its
+      repeat goes through AppleScript (`repeating`, off ↔ all) on both backends, read without
+      ever prompting for Automation, and Music's `song repeat` covers the AppleScript fallback.
+      Browsers report no repeat mode, so for them the glyph stays drawn disabled.
+- [ ] The heart is still drawn but inert in the empty state — MediaRemote has no favourite
+      command, so it needs a per-player integration or should be removed.
 
 **Last touched:** 2026-10-01 — a build that lost its Accessibility grant to an update asks for it
 again, and the HUD entries now describe interception-only presentation. Before that, 2026-08-17 —

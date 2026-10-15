@@ -25,6 +25,7 @@ struct MediaTests {
         lyricsQueries()
         await shortItemsSkipLyrics()
         sourceKinds()
+        repeatModes()
 
         if failures > 0 {
             print("\(failures) check(s) failed")
@@ -202,5 +203,38 @@ struct MediaTests {
         }
         check(NowPlayingStatus.Player.app(bundleIdentifier: "com.apple.podcasts").sourceKind == .other,
               "a podcast app is an other app")
+    }
+
+    static func repeatModes() {
+        typealias Mode = NowPlayingStatus.RepeatMode
+        var snapshot = AdapterSnapshot()
+        snapshot.apply(line: line(#"{"type":"data","diff":false,"payload":{"bundleIdentifier":"com.apple.Music","title":"Track R","repeatMode":3}}"#))
+        check(snapshot.track?.repeatMode == .all, "MediaRemote 3 is repeat all")
+        snapshot.apply(line: line(#"{"type":"data","diff":true,"payload":{"repeatMode":2}}"#))
+        check(snapshot.track?.repeatMode == .one, "MediaRemote 2 is repeat one")
+        snapshot.apply(line: line(#"{"type":"data","diff":true,"payload":{"repeatMode":1}}"#))
+        check(snapshot.track?.repeatMode == .off, "MediaRemote 1 is repeat off")
+        check(snapshot.track?.nowPlayingStatus(at: Date()).repeatMode == .off, "the status carries the repeat mode")
+        snapshot.apply(line: line(#"{"type":"data","diff":true,"payload":{"repeatMode":0}}"#))
+        check(snapshot.track?.repeatMode == nil, "an unknown MediaRemote mode is unsupported, not off")
+        snapshot.apply(line: line(#"{"type":"data","diff":true,"payload":{"repeatMode":null}}"#))
+        check(snapshot.track?.repeatMode == nil, "a source without repeatMode has no repeat control")
+
+        check([Mode.off, .all, .one].allSatisfy { Mode(mediaRemoteValue: Double($0.mediaRemoteValue)) == $0 },
+              "the adapter's repeat argument round-trips")
+
+        check(Mode(appleScriptValue: "false") == .off && Mode(appleScriptValue: "true") == .all,
+              "Spotify's repeating bool maps to off and all")
+        check(Mode(appleScriptValue: "off") == .off && Mode(appleScriptValue: "all") == .all
+              && Mode(appleScriptValue: " one\n") == .one, "Music's song repeat maps to off, all and one")
+        check(Mode(appleScriptValue: "") == nil, "an empty reply is unsupported")
+
+        check(Mode.off.next(includingOne: true) == .all && Mode.all.next(includingOne: true) == .one
+              && Mode.one.next(includingOne: true) == .off, "repeat cycles off, all, one")
+        check(Mode.all.next(includingOne: false) == .off, "a player without repeat-one toggles off and all")
+
+        let base = NowPlayingStatus(player: .spotify, title: "T", artist: "A", isPlaying: true, repeatMode: .off)
+        check(base != NowPlayingStatus(player: .spotify, title: "T", artist: "A", isPlaying: true, repeatMode: .all),
+              "a repeat change is a status change")
     }
 }

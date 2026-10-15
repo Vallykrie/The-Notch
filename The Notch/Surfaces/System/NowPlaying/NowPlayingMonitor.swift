@@ -13,6 +13,7 @@ private enum TransportCommand: Equatable, Sendable {
     case nextTrack
     case previousTrack
     case seek(seconds: TimeInterval)
+    case setRepeat(NowPlayingStatus.RepeatMode)
 }
 
 /// Where now-playing data comes from. Decided once per launch.
@@ -72,6 +73,10 @@ final class NowPlayingMonitor: ObservableObject {
     private var inactiveDebounceTask: Task<Void, Never>?
     private var artworkGraceTask: Task<Void, Never>?
     private var elapsedTicker: Timer?
+    /// Spotify's repeat setting on the MediaRemote path. Spotify's MediaRemote item carries no
+    /// repeat mode and ignores the `repeat` command, so this one setting goes through AppleScript.
+    private var spotifyRepeatMode: NowPlayingStatus.RepeatMode?
+    private var spotifyRepeatTask: Task<Void, Never>?
 
     /// These are defensive engineering limits rather than visual tuning, so they stay with
     /// the network boundary instead of becoming design tokens in `Theme`.
@@ -135,6 +140,13 @@ final class NowPlayingMonitor: ObservableObject {
         issue(.previousTrack)
     }
 
+    /// Off → all → one → off. Spotify's AppleScript has only a bool, so it toggles off ↔ all.
+    func cycleRepeat() {
+        guard let current = status.repeatMode, let player = status.player else { return }
+        let canRepeatOne = !(player == .spotify && adapterTrack?.repeatMode == nil)
+        issue(.setRepeat(current.next(includingOne: canRepeatOne)))
+    }
+
     /// `fraction` is 0...1 of the current track's duration.
     func seek(toFraction fraction: Double) {
         guard fraction.isFinite,
@@ -153,6 +165,7 @@ final class NowPlayingMonitor: ObservableObject {
         adapterRestartTask?.cancel()
         inactiveDebounceTask?.cancel()
         artworkGraceTask?.cancel()
+        spotifyRepeatTask?.cancel()
         adapterStream?.stop()
 
         let workspaceCenter = NSWorkspace.shared.notificationCenter
@@ -195,6 +208,8 @@ final class NowPlayingMonitor: ObservableObject {
             publish(status.withPlaybackState(!status.isPlaying))
         case let .seek(seconds):
             publish(status.withElapsedPosition(seconds))
+        case let .setRepeat(mode):
+            publish(status.withRepeatMode(mode))
         case .nextTrack, .previousTrack:
             break
         }
@@ -576,6 +591,7 @@ final class NowPlayingMonitor: ObservableObject {
             "(artist of current track as text)",
             "trackPosition",
             "trackDuration",
+            "trackRepeat",
         ]
         if player == .spotify {
             returnedFields.append("artworkURL")
@@ -597,6 +613,11 @@ final class NowPlayingMonitor: ObservableObject {
         case .spotify: "(duration of current track)"
         case .music, .app: "((duration of current track) * 1000)"
         }
+        // Spotify's `repeating` is a bool; Music's `song repeat` is off, all or one.
+        let repeatExpression = switch player {
+        case .spotify: "(repeating as text)"
+        case .music, .app: "(song repeat as text)"
+        }
         return """
         if application "\(applicationName)" is running then
             tell application "\(applicationName)"
@@ -607,6 +628,10 @@ final class NowPlayingMonitor: ObservableObject {
                 end try
                 try
                     set trackDuration to (\(durationExpression) as integer) as text
+                end try
+                set trackRepeat to ""
+                try
+                    set trackRepeat to \(repeatExpression)
                 end try
         \(artworkSetup)
                 return \(result)
@@ -631,6 +656,13 @@ final class NowPlayingMonitor: ObservableObject {
             // Both players accept seconds here. Spotify's duration property is the odd one
             // out: it reports milliseconds and is normalised while parsing the poll response.
             "set player position to \(seconds)"
+        case let .setRepeat(mode):
+            switch player {
+            case .spotify:
+                "set repeating to \(mode == .off ? "false" : "true")"
+            case .music, .app:
+                "set song repeat to \(mode == .all ? "all" : mode == .one ? "one" : "off")"
+            }
         }
         let applicationName = applicationName(for: player)
         return """
@@ -647,7 +679,7 @@ final class NowPlayingMonitor: ObservableObject {
         player: NowPlayingStatus.Player
     ) -> ParsedStatus? {
         let fields = output.components(separatedBy: "\t")
-        let expectedFieldCount = player == .spotify ? 6 : 5
+        let expectedFieldCount = player == .spotify ? 7 : 6
         guard fields.count == expectedFieldCount else { return nil }
 
         let state = fields[0].trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -669,7 +701,7 @@ final class NowPlayingMonitor: ObservableObject {
         }
 
         let artworkURL = player == .spotify
-            ? URL(string: fields[5].trimmingCharacters(in: .whitespacesAndNewlines))
+            ? URL(string: fields[6].trimmingCharacters(in: .whitespacesAndNewlines))
             : nil
         return ParsedStatus(
             player: player,
@@ -679,7 +711,8 @@ final class NowPlayingMonitor: ObservableObject {
                 artist: artist,
                 isPlaying: isPlaying,
                 elapsedPosition: elapsedPosition,
-                duration: duration
+                duration: duration,
+                repeatMode: NowPlayingStatus.RepeatMode(appleScriptValue: fields[5])
             ),
             spotifyArtworkURL: artworkURL
         )
@@ -752,6 +785,8 @@ extension NowPlayingMonitor {
         adapterTrack = nil
         inactiveDebounceTask?.cancel()
         inactiveDebounceTask = nil
+        spotifyRepeatTask?.cancel()
+        spotifyRepeatTask = nil
         stopElapsedTicker()
     }
 
@@ -761,9 +796,16 @@ extension NowPlayingMonitor {
         adapterRestarts = 0
 
         let itemKey = track.map { "\($0.sourceBundleIdentifier)\u{1F}\($0.itemIdentifier ?? $0.title)" }
-        if itemKey != lastAdapterItemKey {
+        let itemChanged = itemKey != lastAdapterItemKey
+        if itemChanged {
             lastAdapterItemKey = itemKey
             adapterItemChangedAt = Date()
+        }
+        // Spotify sends no update when only its repeat setting changes, so it is re-read when
+        // the item or the playback state does.
+        if let track, track.player == .spotify, track.repeatMode == nil,
+           itemChanged || track.isPlaying != adapterTrack?.isPlaying {
+            refreshSpotifyRepeat()
         }
         adapterTrack = track
         publishAdapterTrack()
@@ -810,6 +852,9 @@ extension NowPlayingMonitor {
         inactiveDebounceTask = nil
 
         var newStatus = track.nowPlayingStatus(at: Date())
+        if track.player == .spotify, track.repeatMode == nil {
+            newStatus = newStatus.withRepeatMode(spotifyRepeatMode)
+        }
         if newStatus.artwork == nil,
            status.isActive,
            status.artwork != nil,
@@ -871,6 +916,72 @@ extension NowPlayingMonitor {
         elapsedTicker = nil
     }
 
+    /// Reads Spotify's repeat setting without ever prompting: a status read is not a reason to
+    /// put an Automation dialog in front of someone. Until they have answered one, the control
+    /// shows off and the first click asks; once they decline, it is drawn disabled.
+    private func refreshSpotifyRepeat() {
+        guard spotifyRepeatTask == nil, pendingCommandGeneration == nil else { return }
+        let isDenied = deniedPlayers.contains(.spotify)
+        let runner = runner
+        spotifyRepeatTask = Task { @MainActor [weak self] in
+            let mode = await Self.readSpotifyRepeat(runner: runner, isDenied: isDenied)
+            guard let self, !Task.isCancelled else { return }
+            spotifyRepeatTask = nil
+            guard pendingCommandGeneration == nil else { return }
+            spotifyRepeatMode = mode
+            publishAdapterTrack()
+        }
+    }
+
+    nonisolated private static func readSpotifyRepeat(
+        runner: AppleScriptRunner,
+        isDenied: Bool
+    ) async -> NowPlayingStatus.RepeatMode? {
+        guard !isDenied,
+              let spotify = NSRunningApplication.runningApplications(
+                  withBundleIdentifier: "com.spotify.client"
+              ).first
+        else { return nil }
+        let processIdentifier = spotify.processIdentifier
+        switch await Task.detached(operation: { automationConsent(for: processIdentifier) }).value {
+        case noErr:
+            break
+        case OSStatus(errAEEventWouldRequireUserConsent):
+            return .off
+        default:
+            return nil
+        }
+        let script = """
+        if application "Spotify" is running then
+            tell application "Spotify" to return (repeating as text)
+        end if
+        return ""
+        """
+        guard let output = try? await runner.run(script) else { return nil }
+        return NowPlayingStatus.RepeatMode(appleScriptValue: output.standardOutput)
+    }
+
+    /// Whether this app may send Apple events to the process, asked without prompting. The
+    /// target is a process ID because a bundle-ID target never returns for Spotify.
+    nonisolated private static func automationConsent(for processIdentifier: pid_t) -> OSStatus {
+        var target = AEAddressDesc()
+        var processIdentifier = processIdentifier
+        let created = AECreateDesc(
+            DescType(typeKernelProcessID),
+            &processIdentifier,
+            MemoryLayout<pid_t>.size,
+            &target
+        )
+        guard created == noErr else { return OSStatus(created) }
+        defer { AEDisposeDesc(&target) }
+        return AEDeterminePermissionToAutomateTarget(
+            &target,
+            AEEventClass(typeWildCard),
+            AEEventID(typeWildCard),
+            false
+        )
+    }
+
     private func issueThroughAdapter(_ command: TransportCommand) {
         guard status.isActive, let adapter else { return }
 
@@ -879,7 +990,16 @@ extension NowPlayingMonitor {
         case .nextTrack: .nextTrack
         case .previousTrack: .previousTrack
         case let .seek(seconds): .seek(seconds: seconds)
+        case let .setRepeat(mode): .setRepeat(mode)
         }
+        let requestedRepeat: NowPlayingStatus.RepeatMode? = if case let .setRepeat(mode) = command {
+            mode
+        } else {
+            nil
+        }
+        let repeatsThroughAppleScript = requestedRepeat != nil
+            && status.player == .spotify
+            && adapterTrack?.repeatMode == nil
 
         refreshGeneration &+= 1
         let commandGeneration = refreshGeneration
@@ -899,13 +1019,38 @@ extension NowPlayingMonitor {
             publish(optimistic)
         case let .seek(seconds):
             publish(status.withElapsedPosition(seconds))
+        case let .setRepeat(mode):
+            publish(status.withRepeatMode(mode))
         case .nextTrack, .previousTrack:
             break
         }
 
+        if repeatsThroughAppleScript {
+            spotifyRepeatTask?.cancel()
+            spotifyRepeatTask = nil
+        }
+        let script = repeatsThroughAppleScript ? Self.commandScript(command, for: .spotify) : ""
+        let runner = runner
         Task { @MainActor [weak self] in
-            _ = await adapter.send(adapterCommand)
-            try? await Task.sleep(for: Self.commandSettle)
+            if repeatsThroughAppleScript {
+                // A click is the one moment it is fair to ask for Automation, so this may prompt.
+                // The value Spotify returns straight after the set is often the old one, so a
+                // set that ran is taken at its word; the next stream update re-reads it.
+                let mode: NowPlayingStatus.RepeatMode?
+                do {
+                    _ = try await runner.run(script)
+                    mode = requestedRepeat
+                } catch AppleScriptRunnerError.automationPermissionDenied {
+                    self?.deniedPlayers.insert(.spotify)
+                    mode = nil
+                } catch {
+                    mode = self?.spotifyRepeatMode
+                }
+                self?.spotifyRepeatMode = mode
+            } else {
+                _ = await adapter.send(adapterCommand)
+                try? await Task.sleep(for: Self.commandSettle)
+            }
             guard let self, pendingCommandGeneration == commandGeneration else { return }
             pendingCommandGeneration = nil
             // Success or not, the stream's view of the player wins.
@@ -925,7 +1070,8 @@ private extension NowPlayingStatus {
             elapsedPosition: elapsedPosition,
             duration: duration,
             artwork: artwork,
-            artworkIdentity: identity
+            artworkIdentity: identity,
+            repeatMode: repeatMode
         )
     }
 
@@ -939,7 +1085,8 @@ private extension NowPlayingStatus {
             elapsedPosition: elapsedPosition,
             duration: duration,
             artwork: artwork,
-            artworkIdentity: artworkIdentity
+            artworkIdentity: artworkIdentity,
+            repeatMode: repeatMode
         )
     }
 
@@ -953,7 +1100,8 @@ private extension NowPlayingStatus {
             elapsedPosition: elapsedPosition,
             duration: duration,
             artwork: artwork,
-            artworkIdentity: artworkIdentity
+            artworkIdentity: artworkIdentity,
+            repeatMode: repeatMode
         )
     }
 
@@ -967,7 +1115,23 @@ private extension NowPlayingStatus {
             elapsedPosition: elapsedPosition,
             duration: duration,
             artwork: artwork,
-            artworkIdentity: artworkIdentity
+            artworkIdentity: artworkIdentity,
+            repeatMode: repeatMode
+        )
+    }
+
+    func withRepeatMode(_ repeatMode: RepeatMode?) -> NowPlayingStatus {
+        guard let player else { return self }
+        return NowPlayingStatus(
+            player: player,
+            title: title,
+            artist: artist,
+            isPlaying: isPlaying,
+            elapsedPosition: elapsedPosition,
+            duration: duration,
+            artwork: artwork,
+            artworkIdentity: artworkIdentity,
+            repeatMode: repeatMode
         )
     }
 }

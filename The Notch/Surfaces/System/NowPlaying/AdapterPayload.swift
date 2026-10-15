@@ -113,7 +113,8 @@ nonisolated struct AdapterSnapshot: Sendable {
             duration: fields["durationMicros"]?.number.map { $0 / micros }.flatMap {
                 $0 > 0 ? $0 : nil
             },
-            artwork: artwork
+            artwork: artwork,
+            repeatMode: fields["repeatMode"]?.number.flatMap(NowPlayingStatus.RepeatMode.init(mediaRemoteValue:))
         )
     }
 
@@ -145,6 +146,9 @@ nonisolated struct AdapterTrack: Equatable, Sendable {
     let playbackRate: Double?
     let duration: TimeInterval?
     let artwork: Data?
+    /// Nil when the source does not report one. Neither Spotify nor browsers do; their
+    /// MediaRemote items carry no `repeatMode` and ignore the `repeat` command.
+    var repeatMode: NowPlayingStatus.RepeatMode? = nil
 
     static let pausedExtrapolationLimit: TimeInterval = 1
 
@@ -194,7 +198,8 @@ nonisolated struct AdapterTrack: Equatable, Sendable {
             elapsedPosition: elapsed(at: date),
             duration: duration,
             artwork: artwork,
-            artworkIdentity: artwork == nil ? nil : artworkIdentity
+            artworkIdentity: artwork == nil ? nil : artworkIdentity,
+            repeatMode: repeatMode
         )
     }
 }
