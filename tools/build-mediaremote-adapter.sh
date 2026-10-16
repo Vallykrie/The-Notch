@@ -32,18 +32,28 @@ SOURCES=(
 
 mkdir -p "$FW/Versions/A/Resources" "$HELPERS"
 
+# Compile into a private temp folder, then copy each finished binary into the bundle. A
+# universal build ends in `lipo`, which writes a `<output>.lipo` scratch file beside its
+# output; the sandbox refuses that inside the bundle, where only declared outputs may be
+# written, but allows the temp folder.
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/mediaremote-adapter.XXXXXX")"
+trap 'rm -rf "$WORK"' EXIT
+
 cd "$SRC"
 xcrun clang -dynamiclib "${ARCH_FLAGS[@]}" -mmacosx-version-min="$MIN_OS" \
   -fobjc-arc -fvisibility=default -O2 \
   -I include -I src \
   -install_name "@rpath/MediaRemoteAdapter.framework/Versions/A/MediaRemoteAdapter" \
   -framework Foundation -framework AppKit -framework UniformTypeIdentifiers \
-  "${SOURCES[@]}" -o "$FW/Versions/A/MediaRemoteAdapter"
+  "${SOURCES[@]}" -o "$WORK/MediaRemoteAdapter"
 
 # Upstream sizes a stack buffer with a `const int`; clang folds it and warns. Unmodified source.
 xcrun clang "${ARCH_FLAGS[@]}" -mmacosx-version-min="$MIN_OS" -fobjc-arc -O2 -Wno-gnu-folding-constant \
   -I src/test -framework Foundation -framework MediaPlayer \
-  src/test/main.m src/test/NowPlayingTest.m -o "$HELPERS/MediaRemoteAdapterTestClient"
+  src/test/main.m src/test/NowPlayingTest.m -o "$WORK/MediaRemoteAdapterTestClient"
+
+cp "$WORK/MediaRemoteAdapter" "$FW/Versions/A/MediaRemoteAdapter"
+cp "$WORK/MediaRemoteAdapterTestClient" "$HELPERS/MediaRemoteAdapterTestClient"
 
 cat > "$FW/Versions/A/Resources/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
