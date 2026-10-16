@@ -3,6 +3,14 @@
     <channel>
         <title>The Notch</title>
         <item>
+            <title>1.0.0-beta.20</title>
+            <pubDate>Fri, 16 Oct 2026 00:21:53 +0000</pubDate>
+            <sparkle:version>57</sparkle:version>
+            <sparkle:shortVersionString>1.0.0-beta.20</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/Vallykrie/The-Notch/releases/download/v1.0.0-beta.20/The-Notch-1.0.0-beta.20.dmg" length="6327856" type="application/octet-stream" sparkle:edSignature="UClADgFwm9V6ETHG7L2bbclq+90p4eWkUgeUlGmFtz1cRx1LF1gdBoIwI/K6kLRVXjUO6isqbnx7HnxuCH8UCQ=="/>
+        </item>
+        <item>
             <title>1.0.0-beta.19</title>
             <pubDate>Thu, 15 Oct 2026 03:09:05 +0000</pubDate>
             <sparkle:version>43</sparkle:version>
@@ -17,14 +25,6 @@
             <sparkle:shortVersionString>1.0.0-beta.18</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <enclosure url="https://github.com/Vallykrie/The-Notch/releases/download/v1.0.0-beta.18/The-Notch-1.0.0-beta.18.dmg" length="6069849" type="application/octet-stream" sparkle:edSignature="t49cKky8XTVJilQyYLMisWlnNJCFkpVjiKR8kGf6cK9fYr1jS7LaGWK7tjMnfN6Cchl/BTKNNg5Eg580H6FeCA=="/>
-        </item>
-        <item>
-            <title>1.0.0-beta.17</title>
-            <pubDate>Wed, 14 Oct 2026 05:22:45 +0000</pubDate>
-            <sparkle:version>36</sparkle:version>
-            <sparkle:shortVersionString>1.0.0-beta.17</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/Vallykrie/The-Notch/releases/download/v1.0.0-beta.17/The-Notch-1.0.0-beta.17.dmg" length="6031612" type="application/octet-stream" sparkle:edSignature="ksXA7E16HoWwhDDYS3rXm76WL+o98RzITH4Q1Q6s+JrM6ohIAVYnoWyDMNX1PXsAYmBA5aBwQowfM1nPqsiwDA=="/>
         </item>
     </channel>
 </rss>
