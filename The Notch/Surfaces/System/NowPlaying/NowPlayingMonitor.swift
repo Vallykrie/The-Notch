@@ -66,6 +66,9 @@ final class NowPlayingMonitor: ObservableObject {
     private var adapterStreamToken: UInt = 0
     private var adapterRestarts = 0
     private var adapterRestartTask: Task<Void, Never>?
+    /// How many times MediaRemote has been re-tried since it last failed.
+    private var adapterRetries = 0
+    private var adapterRetryTask: Task<Void, Never>?
     /// The latest item the stream reported, kept even while a command owns the UI.
     private var adapterTrack: AdapterTrack?
     private var adapterItemChangedAt = Date.distantPast
@@ -111,6 +114,12 @@ final class NowPlayingMonitor: ObservableObject {
     /// Backoff before restarting a stream that exited on its own. After the last one the
     /// monitor gives up on MediaRemote for the session and falls back to AppleScript.
     private static let adapterRestartDelays: [Duration] = [.seconds(1), .seconds(5), .seconds(30)]
+    /// After a fallback to AppleScript, MediaRemote is tried again after these delays, and
+    /// again on every wake. A fallback used to last until the app quit, so one slow start
+    /// (the probe timing out while the Mac was busy, say right after an update) cost browser
+    /// playback for the whole day. Each retry runs upstream's `test`, which briefly registers
+    /// a fake now-playing item, so they stay few.
+    private static let adapterRetryDelays: [Duration] = [.seconds(30), .seconds(120), .seconds(600)]
 
     init(runner: AppleScriptRunner = AppleScriptRunner()) {
         self.runner = runner
@@ -119,13 +128,8 @@ final class NowPlayingMonitor: ObservableObject {
         adapter = MediaRemoteAdapter()
         backend = adapter == nil ? .appleScript : .probing
         installWorkspaceObservers()
-        if let adapter {
-            Task { @MainActor [weak self] in
-                let isUsable = await adapter.probe()
-                guard let self, backend == .probing else { return }
-                backend = isUsable ? .mediaRemote : .appleScript
-                reconcilePolling()
-            }
+        if adapter != nil {
+            probeAdapter()
         }
         reconcilePolling()
     }
@@ -174,6 +178,7 @@ final class NowPlayingMonitor: ObservableObject {
         refreshTask?.cancel()
         elapsedTicker?.invalidate()
         adapterRestartTask?.cancel()
+        adapterRetryTask?.cancel()
         inactiveDebounceTask?.cancel()
         artworkGraceTask?.cancel()
         tentativeTrackTask?.cancel()
@@ -286,6 +291,11 @@ final class NowPlayingMonitor: ObservableObject {
             publish(.inactive)
         case NSWorkspace.didWakeNotification:
             isSleeping = false
+            // A wake is a natural moment to try MediaRemote again after a fallback.
+            if backend == .appleScript, adapter != nil {
+                adapterRetries = 0
+                probeAdapter()
+            }
             reconcilePolling()
         case NSWorkspace.didLaunchApplicationNotification,
              NSWorkspace.didTerminateApplicationNotification:
@@ -755,6 +765,51 @@ final class NowPlayingMonitor: ObservableObject {
 // MARK: - MediaRemote backend
 
 extension NowPlayingMonitor {
+    /// Runs upstream's `test` and picks the backend from it. On a pass from the AppleScript
+    /// fallback, the AppleScript polling stops and MediaRemote takes over.
+    private func probeAdapter() {
+        guard let adapter else { return }
+        adapterRetryTask?.cancel()
+        adapterRetryTask = nil
+        Task { @MainActor [weak self] in
+            var isUsable = await adapter.probe()
+            #if DEBUG
+            // `NOTCH_FAIL_FIRST_PROBE=1` fails the launch probe once, to exercise the retry.
+            if ProcessInfo.processInfo.environment["NOTCH_FAIL_FIRST_PROBE"] == "1",
+               self?.backend == .probing {
+                isUsable = false
+            }
+            #endif
+            guard let self, !isPreview else { return }
+            guard backend == .probing || backend == .appleScript else { return }
+            if isUsable {
+                adapterRetries = 0
+                adapterRestarts = 0
+                stopPolling()
+                backend = .mediaRemote
+            } else {
+                backend = .appleScript
+                scheduleAdapterRetry()
+            }
+            reconcilePolling()
+        }
+    }
+
+    private func scheduleAdapterRetry() {
+        guard adapter != nil, adapterRetryTask == nil,
+              adapterRetries < Self.adapterRetryDelays.count
+        else { return }
+        let delay = Self.adapterRetryDelays[adapterRetries]
+        adapterRetries += 1
+        adapterRetryTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: delay)
+            guard let self, !Task.isCancelled else { return }
+            adapterRetryTask = nil
+            guard backend == .appleScript, !isSleeping else { return }
+            probeAdapter()
+        }
+    }
+
     private func reconcileAdapter() {
         guard !isSleeping, !isSuspended else {
             stopAdapterStream()
@@ -856,9 +911,10 @@ extension NowPlayingMonitor {
         adapterStream = nil
 
         guard adapterRestarts < Self.adapterRestartDelays.count else {
-            // MediaRemote keeps failing. AppleScript for the rest of the session, as upstream
-            // asks: never keep re-invoking a broken adapter.
+            // MediaRemote keeps failing. AppleScript for now, as upstream asks: never keep
+            // re-invoking a broken adapter. It is tried again later, see `scheduleAdapterRetry`.
             backend = .appleScript
+            scheduleAdapterRetry()
             adapterTrack = nil
             showsAdapterItem = false
             stopElapsedTicker()
