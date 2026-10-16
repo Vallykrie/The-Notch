@@ -380,6 +380,10 @@ surfaces are now exactly two — media and agents — and the notch shows both a
       item, so a lone flag waits 250 ms to be confirmed. The playing item is kept while the same
       browser reports a paused tab. A lone `playing: false` freezes the position at the moment
       it arrives.
+      **A fallback is no longer for the whole session.** If the launch probe fails or the
+      stream keeps crashing, MediaRemote is tried again after 30 s, 2 min and 10 min, and on
+      every wake. beta.20 kept a fallback until quit, so one slow start after a Sparkle update
+      lost browser playback for the day.
       Lyrics lookups handle video titles: a leading `Artist - ` is removed before cutting at a
       dash (it used to search for a song called "Queen"), and a known length with no result
       within 10 s shows no lyrics instead of another song's.
