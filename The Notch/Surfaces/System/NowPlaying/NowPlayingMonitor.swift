@@ -43,6 +43,9 @@ final class NowPlayingMonitor: ObservableObject {
     private var workspaceObservers: [NSObjectProtocol] = []
     private var timer: Timer?
     private var refreshTask: Task<Void, Never>?
+    /// The generation `refreshTask` was started with. Only that task may clear the handle,
+    /// whether or not its generation is still current.
+    private var refreshTaskGeneration: UInt?
     private var refreshGeneration: UInt = 0
     private var pendingCommandGeneration: UInt?
     private var deniedPlayers: Set<NowPlayingStatus.Player> = []
@@ -205,6 +208,7 @@ final class NowPlayingMonitor: ObservableObject {
         pendingCommandGeneration = commandGeneration
         refreshTask?.cancel()
         refreshTask = nil
+        refreshTaskGeneration = nil
 
         let script = Self.commandScript(command, for: player)
         let runner = runner
@@ -372,6 +376,7 @@ final class NowPlayingMonitor: ObservableObject {
         guard refreshTask == nil, pendingCommandGeneration == nil else { return }
 
         let generation = refreshGeneration
+        refreshTaskGeneration = generation
         refreshTask = Task { @MainActor [weak self] in
             guard let self else { return }
             await refresh(players: players, generation: generation)
@@ -380,8 +385,15 @@ final class NowPlayingMonitor: ObservableObject {
 
     private func refresh(players: [NowPlayingStatus.Player], generation: UInt) async {
         defer {
-            if generation == refreshGeneration {
+            // Release the handle even when the generation moved on. A MediaRemote takeover
+            // bumps the generation while a poll is inside `osascript`; keyed on the current
+            // generation, that poll never cleared the handle, `requestRefresh` refused every
+            // later poll, and Spotify could not take the notch back from a paused browser item.
+            if refreshTaskGeneration == generation {
                 refreshTask = nil
+                refreshTaskGeneration = nil
+            }
+            if generation == refreshGeneration {
                 stopTimerIfNoEligiblePlayerIsRunning()
             }
         }
