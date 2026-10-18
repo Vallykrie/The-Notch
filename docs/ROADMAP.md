@@ -384,6 +384,9 @@ surfaces are now exactly two — media and agents — and the notch shows both a
       stream keeps crashing, MediaRemote is tried again after 30 s, 2 min and 10 min, and on
       every wake. beta.20 kept a fallback until quit, so one slow start after a Sparkle update
       lost browser playback for the day.
+      **Spotify and Music take the notch back from a paused browser or other app.** When
+      MediaRemote took over while a Spotify/Music poll was in flight, that poll kept its task
+      handle forever, so AppleScript never polled again and the paused item stayed on screen.
       Lyrics lookups handle video titles: a leading `Artist - ` is removed before cutting at a
       dash (it used to search for a song called "Queen"), and a known length with no result
       within 10 s shows no lyrics instead of another song's.
