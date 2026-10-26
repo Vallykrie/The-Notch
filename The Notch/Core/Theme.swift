@@ -414,6 +414,21 @@ enum Theme {
             static let colorMarkWidth: CGFloat = 3
             static let colorMarkHeight: CGFloat = 9
         }
+        /// The scratchpad — concept A in `docs/design/notes-ui-v1.html`.
+        enum Notes {
+            /// Between the editor and the footer.
+            static let sectionSpacing: CGFloat = 6
+            static let footerHeight: CGFloat = 18
+            static let chipSpacing: CGFloat = 4
+            static let chipCornerRadius: CGFloat = 3
+            /// The 1–4 page switches.
+            static let pageButtonSize: CGFloat = 14
+            static let pageFillOpacity: CGFloat = 0.05
+            static let selectedPageFillOpacity: CGFloat = 0.14
+            /// `TextEditor` insets its text by the text container's line fragment padding; the
+            /// placeholder sits on the same line so it is replaced in place, not beside.
+            static let editorTextInset: CGFloat = 5
+        }
         enum Trading {
             static let shoulderWidth: CGFloat = 72
             static let fauxHousingGap: CGFloat = 8
@@ -836,6 +851,10 @@ enum Theme {
             /// lets "Calendar" keep its full name and still clear the housing at size S.
             static let compactHorizontalPadding: CGFloat = 3
             static let compactTabThreshold = 4
+            /// From this many tabs on, unselected tabs show only their sprite — see `NotchTabBar`.
+            static let iconTabThreshold = 5
+            static let iconSize: CGFloat = 8
+            static let iconHorizontalPadding: CGFloat = 5
             static let spacing: CGFloat = 3
             /// The header row's fixed height: the track, which pads its tabs by `spacing` on
             /// every side. Settings swaps the track for shorter buttons, and a row sized by its
@@ -948,10 +967,10 @@ enum Theme {
 
             /// The section rail down the leading edge of the settings surface.
             static let railWidth: CGFloat = 104
-            /// Six entries have to fit the same height as a five-row settings column under its
-            /// header; at 24/3 the fifth entry (Display) pushed the rail past the panel floor, and
-            /// 21/2 did the same to the sixth (Calendar).
-            static let railItemHeight: CGFloat = 20
+            /// Seven entries have to fit the same height as a five-row settings column under its
+            /// header; at 24/3 the fifth entry (Display) pushed the rail past the panel floor, 21/2
+            /// did the same to the sixth (Calendar), and 20/1 to the seventh (Notes).
+            static let railItemHeight: CGFloat = 17
             static let railItemSpacing: CGFloat = 1
             static let railIconSize: CGFloat = 8
             static let railIconSpacing: CGFloat = 7
@@ -1099,6 +1118,8 @@ enum Theme {
 
         /// Hairline separators inside the panel.
         static let divider = Color.white.opacity(0.1)
+        /// The scratchpad's caret: the notch's one warm accent.
+        static let notesAccent = Color(red: 1.0, green: 0.67, blue: 0.12)
 
         /// The nine agent states, as hues.
         ///

@@ -22,6 +22,9 @@ final class NotchSettings: ObservableObject {
     // monitor behind it stops — no player is scripted, no price socket is open, and the hook
     // socket closes so agent hooks fail open straight back to the agent's own prompt. Someone
     // who installed The Notch for one of the three should not pay for the other two.
+    //
+    // Media, agents and calendar are what a first launch shows. Crypto and notes are opt-in from
+    // settings: five tabs on day one is a lot of app to meet before the notch has proved itself.
 
     /// Now playing: the media tab, its shoulder, the lyric pill, and the player polling.
     @Published var mediaEnabled: Bool { didSet { commit(mediaEnabled, .mediaEnabled) } }
@@ -34,6 +37,10 @@ final class NotchSettings: ObservableObject {
 
     /// The calendar: its tab and the EventKit observers behind it.
     @Published var calendarEnabled: Bool { didSet { commit(calendarEnabled, .calendarEnabled) } }
+
+    /// Notes: the scratchpad tab. Nothing runs behind it, so off only removes the tab; what was
+    /// written stays where it was.
+    @Published var notesEnabled: Bool { didSet { commit(notesEnabled, .notesEnabled) } }
 
     // MARK: Calendar
 
@@ -216,6 +223,7 @@ final class NotchSettings: ObservableObject {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        Self.keepCryptoForExistingUsers(in: defaults)
         defaults.register(defaults: Self.registeredDefaults)
 
         // Direct assignment inside `init` does not run `didSet`, which is exactly what is wanted
@@ -225,6 +233,7 @@ final class NotchSettings: ObservableObject {
         agentsEnabled = defaults.bool(forKey: Key.agentsEnabled.rawValue)
         cryptoEnabled = defaults.bool(forKey: Key.cryptoEnabled.rawValue)
         calendarEnabled = defaults.bool(forKey: Key.calendarEnabled.rawValue)
+        notesEnabled = defaults.bool(forKey: Key.notesEnabled.rawValue)
         calendarShowsAllDay = defaults.bool(forKey: Key.calendarShowsAllDay.rawValue)
         showMediaActivity = defaults.bool(forKey: Key.showMediaActivity.rawValue)
         hideMediaWhenPaused = defaults.bool(forKey: Key.hideMediaWhenPaused.rawValue)
@@ -272,10 +281,16 @@ final class NotchSettings: ObservableObject {
 
     /// A settings object that writes nowhere. Used by `FrameDump` and previews, which build real
     /// views and must not leave preferences behind on the machine that rendered them.
+    ///
+    /// Every feature is switched on, whatever the shipped defaults say: a frame dump of the crypto
+    /// or notes panel has to render the panel, not the "switched off" placeholder.
     static func ephemeral() -> NotchSettings {
-        NotchSettings(
+        let settings = NotchSettings(
             defaults: UserDefaults(suiteName: "com.thenotch.TheNotch.ephemeral") ?? .standard
         )
+        settings.cryptoEnabled = true
+        settings.notesEnabled = true
+        return settings
     }
 
     // MARK: Defaults
@@ -290,8 +305,9 @@ final class NotchSettings: ObservableObject {
         [
             Key.mediaEnabled.rawValue: true,
             Key.agentsEnabled.rawValue: true,
-            Key.cryptoEnabled.rawValue: true,
+            Key.cryptoEnabled.rawValue: false,
             Key.calendarEnabled.rawValue: true,
+            Key.notesEnabled.rawValue: false,
             Key.calendarShowsAllDay.rawValue: true,
             Key.showMediaActivity.rawValue: true,
             Key.hideMediaWhenPaused.rawValue: true,
@@ -323,8 +339,9 @@ final class NotchSettings: ObservableObject {
     var isAtDefaults: Bool {
         mediaEnabled
             && agentsEnabled
-            && cryptoEnabled
+            && !cryptoEnabled
             && calendarEnabled
+            && !notesEnabled
             && calendarShowsAllDay
             && showMediaActivity
             && hideMediaWhenPaused
@@ -362,8 +379,9 @@ final class NotchSettings: ObservableObject {
         // button the user presses once, which is cheaper than a second write path to get wrong.
         mediaEnabled = true
         agentsEnabled = true
-        cryptoEnabled = true
+        cryptoEnabled = false
         calendarEnabled = true
+        notesEnabled = false
         calendarShowsAllDay = true
         showMediaActivity = true
         hideMediaWhenPaused = true
@@ -430,6 +448,7 @@ final class NotchSettings: ObservableObject {
         case .agents: agentsEnabled
         case .trading: cryptoEnabled
         case .calendar: calendarEnabled
+        case .notes: notesEnabled
         }
     }
 
@@ -445,6 +464,7 @@ final class NotchSettings: ObservableObject {
         case agentsEnabled = "NotchAgentsEnabled"
         case cryptoEnabled = "NotchCryptoEnabled"
         case calendarEnabled = "NotchCalendarEnabled"
+        case notesEnabled = "NotchNotesEnabled"
         case calendarShowsAllDay = "NotchCalendarShowsAllDay"
         case showMediaActivity = "NotchShowMediaActivity"
         case hideMediaWhenPaused = "NotchHideMediaWhenPaused"
@@ -478,6 +498,15 @@ final class NotchSettings: ObservableObject {
         case hasSeenIntro = "NotchHasSeenIntro"
         case agentHookConsent = "NotchAgentHookConsent"
         case declinedAgentHooks = "NotchDeclinedAgentHooks"
+    }
+
+    /// Crypto used to be on out of the box. Someone who already had it on screen keeps it after
+    /// the default changed; only a first launch meets the shorter set. Runs before the defaults
+    /// are registered, because afterwards a never-touched key would read as the registered value.
+    private static func keepCryptoForExistingUsers(in defaults: UserDefaults) {
+        guard defaults.object(forKey: Key.cryptoEnabled.rawValue) == nil,
+              defaults.bool(forKey: StateKey.hasSeenIntro.rawValue) else { return }
+        defaults.set(true, forKey: Key.cryptoEnabled.rawValue)
     }
 
     /// Carries the retired single choice over to the switches once, then deletes it. "All" is

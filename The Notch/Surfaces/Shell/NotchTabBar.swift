@@ -55,10 +55,7 @@ struct NotchTabBar: View {
                 selection = surface
             }
         } label: {
-            Text(surface.title)
-                // `micro`, not `caption`: at the reduced 20pt track height caption crowds the
-                // pill to its edges and the switch stops reading as chrome.
-                .font(Theme.Text.micro)
+            label(surface)
                 .foregroundStyle(
                     selection == surface
                         ? Theme.Colors.textPrimary
@@ -68,7 +65,9 @@ struct NotchTabBar: View {
                 )
                 .padding(
                     .horizontal,
-                    surfaces.count >= Theme.Metrics.TabBar.compactTabThreshold
+                    usesIcons && selection != surface
+                        ? Theme.Metrics.TabBar.iconHorizontalPadding
+                        : surfaces.count >= Theme.Metrics.TabBar.compactTabThreshold
                         ? Theme.Metrics.TabBar.compactHorizontalPadding
                         : Theme.Metrics.TabBar.horizontalPadding
                 )
@@ -87,6 +86,25 @@ struct NotchTabBar: View {
         .buttonStyle(.plain)
         .accessibilityLabel(surface.title)
         .accessibilityAddTraits(selection == surface ? [.isSelected] : [])
+    }
+
+    /// Five named tabs run under the camera housing, even at compact padding. Past that many,
+    /// the unselected tabs shrink to their sprite and only the selected one keeps its name, so
+    /// the bar still says where you are and still clears the housing.
+    private var usesIcons: Bool {
+        surfaces.count >= Theme.Metrics.TabBar.iconTabThreshold
+    }
+
+    @ViewBuilder
+    private func label(_ surface: NotchSurface) -> some View {
+        if usesIcons, selection != surface {
+            PixelGlyphView(glyph: surface.glyph, side: Theme.Metrics.TabBar.iconSize)
+        } else {
+            Text(surface.title)
+                // `micro`, not `caption`: at the reduced 20pt track height caption crowds the
+                // pill to its edges and the switch stops reading as chrome.
+                .font(Theme.Text.micro)
+        }
     }
 
     /// One shared `matchedGeometryEffect` so the selected pill *slides* between tabs instead of

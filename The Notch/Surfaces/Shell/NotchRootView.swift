@@ -11,6 +11,7 @@ struct NotchRootView: View {
     @ObservedObject private var settings: NotchSettings
     @ObservedObject private var trading: TradingStore
     @ObservedObject private var calendar: CalendarStore
+    @ObservedObject private var notes: NotesStore
     @ObservedObject private var lyrics: LyricsController
     private let services: SystemServices
     @Namespace private var contentNamespace
@@ -85,6 +86,7 @@ struct NotchRootView: View {
         _settings = ObservedObject(wrappedValue: services.settings)
         _trading = ObservedObject(wrappedValue: services.trading)
         _calendar = ObservedObject(wrappedValue: services.calendar)
+        _notes = ObservedObject(wrappedValue: services.notes)
         _lyrics = ObservedObject(wrappedValue: services.lyrics)
         _animatedCollapsedSize = State(initialValue: coordinator.collapsedSize)
         _isShowingSettings = State(initialValue: debugShowsSettings)
@@ -497,6 +499,17 @@ struct NotchRootView: View {
                         }
                     case .calendar:
                         CalendarExpandedView(store: calendar)
+                    case .notes:
+                        NotesExpandedView(
+                            notes: notes,
+                            onEditingChanged: { editing in
+                                if !isShowingSettings { coordinator.setPinnedOpen(editing) }
+                            },
+                            onCopied: {
+                                coordinator.setPinnedOpen(false)
+                                Self.transition(coordinator, to: .collapsed)
+                            }
+                        )
                     }
                 }
             }
@@ -601,6 +614,9 @@ struct NotchRootView: View {
         surfaces.insert(.trading)
         if !calendar.events(on: Date()).isEmpty {
             surfaces.insert(.calendar)
+        }
+        if notes.pages.contains(where: { !$0.isEmpty }) {
+            surfaces.insert(.notes)
         }
         if settings.showsMedia(nowPlaying.status) {
             surfaces.insert(.media)
