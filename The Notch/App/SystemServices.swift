@@ -27,6 +27,9 @@ final class SystemServices {
     /// Upcoming events from every calendar account on the Mac. Idle until calendar access is
     /// granted, and suspended while the feature is off.
     let calendar: CalendarStore
+    /// The scratchpad's pages. Kept whether or not the feature is on, so switching it off and
+    /// back loses nothing.
+    let notes: NotesStore
     /// Lyrics for the playing track, read by both the media panel and the collapsed notch.
     let lyrics: LyricsController
     /// Scheduled and manual update checks. Inert in Debug builds and when no public key is set.
@@ -40,6 +43,7 @@ final class SystemServices {
         settings = NotchSettings()
         trading = TradingStore()
         calendar = CalendarStore()
+        notes = NotesStore()
         lyrics = LyricsController(nowPlaying: nowPlaying)
         integrations = AgentIntegrationManager(settings: settings)
         updater = AppUpdater()
@@ -57,7 +61,8 @@ final class SystemServices {
         nowPlaying: NowPlayingMonitor,
         systemHUD: SystemHUDMonitor,
         trading: TradingStore? = nil,
-        calendar: CalendarStore? = nil
+        calendar: CalendarStore? = nil,
+        notes: NotesStore? = nil
     ) {
         self.nowPlaying = nowPlaying
         self.systemHUD = systemHUD
@@ -67,6 +72,7 @@ final class SystemServices {
         settings = NotchSettings.ephemeral()
         self.trading = trading ?? TradingPreviewData.emptyStore()
         self.calendar = calendar ?? CalendarPreviewData.emptyStore()
+        self.notes = notes ?? NotesStore(defaults: nil)
         lyrics = LyricsController(nowPlaying: nowPlaying)
         integrations = AgentIntegrationManager()
         updater = AppUpdater(enabled: false)

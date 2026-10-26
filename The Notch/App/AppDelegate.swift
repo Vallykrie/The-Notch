@@ -102,6 +102,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         services?.integrations.stop()
         services?.trading.stop()
         services?.calendar.setSuspended(true)
+        services?.notes.flush()
 
         if let screenParametersObserver {
             NotificationCenter.default.removeObserver(screenParametersObserver)

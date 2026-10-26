@@ -88,8 +88,9 @@ are.
 
 ### 1. Open the panel
 
-Move your pointer onto the notch and the panel opens. Move away and it closes. It has four tabs
-at the top: **Media**, **Agents**, **Crypto** and **Calendar**. The gear on the right opens **Settings**.
+Move your pointer onto the notch and the panel opens. Move away and it closes. Out of the box it
+has three tabs at the top: **Media**, **Agents** and **Calendar**. **Crypto** and **Notes** are off
+until you switch them on in **Settings**. The gear on the right opens **Settings**.
 
 ### 2. Connect your coding agents
 
@@ -177,7 +178,7 @@ the macOS overlay. The app asks for the permission it needs to read the media ke
 
 ### 7. Crypto
 
-In the **Crypto** tab, use **Add pair** to search Binance Spot pairs (such as `BTC/USDT`) and
+Switch it on in **Settings › Crypto** first. In the **Crypto** tab, use **Add pair** to search Binance Spot pairs (such as `BTC/USDT`) and
 build a watchlist. Pin a pair to keep its live price in the closed notch. It uses Binance's
 public feed, so there is no account or API key. See [Crypto feed details](docs/TRADING.md).
 
@@ -199,7 +200,19 @@ Click an event to open it in Calendar. If it has a Meet, Zoom, Teams, Webex or s
 **Join** opens the call. In **Settings › Calendar** you can pick which calendars are shown and
 whether to list all-day events. Nothing leaves your Mac.
 
-### 9. Settings
+### 9. Notes
+
+Switch it on in **Settings › Notes**. The **Notes** tab is a scratchpad: somewhere to write a
+prompt before you give it to an agent, or jot anything down without opening another app. Click
+into it and type; it saves as you go, and the notch stays open while you type (press **Esc** to
+let it close).
+
+- Four pages, **1**–**4** (⌘1–⌘4), for keeping a few things apart.
+- **Copy** (⌘↩) copies the page and closes the notch, so you can paste straight into your
+  terminal or chat.
+- **Clear** empties the page.
+
+### 10. Settings
 
 | Section | Options |
 | --- | --- |

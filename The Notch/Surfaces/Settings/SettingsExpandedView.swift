@@ -10,7 +10,7 @@ import SwiftUI
 /// inside the same 640x190 silhouette as the others.
 ///
 /// It used to be one grid of four columns, which was full: a fifteenth preference had nowhere
-/// to go. Now a rail down the leading edge picks a section — Media, Agents, Crypto, Calendar, Display, General —
+/// to go. Now a rail down the leading edge picks a section — Media, Agents, Crypto, Calendar, Notes, Display, General —
 /// and the section gets the rest of the panel as two columns. Each feature section is headed
 /// by that feature's own on/off switch, because someone who installed The Notch for agents
 /// alone should be able to make the other two disappear, not merely look quieter.
@@ -171,6 +171,7 @@ struct SettingsExpandedView: View {
         case .agents: agentsSection
         case .crypto: cryptoSection
         case .calendar: calendarSection
+        case .notes: notesSection
         case .display: displaySection
         case .general: generalSection
         }
@@ -231,6 +232,14 @@ struct SettingsExpandedView: View {
             .help("Choose which calendars the notch shows.")
             SettingsLinkRow(label: "Add account…") { CalendarStore.openInternetAccounts() }
                 .help("Google, Microsoft Exchange / Outlook and CalDAV accounts are added in System Settings › Internet Accounts. Turn on Calendars for the account and it appears here.")
+        }
+    }
+
+    private var notesSection: some View {
+        featureColumns(.notes) {
+            EmptyView()
+        } right: {
+            EmptyView()
         }
     }
 
@@ -297,6 +306,7 @@ struct SettingsExpandedView: View {
                     case .agents: settings.agentsEnabled = value
                     case .trading: settings.cryptoEnabled = value
                     case .calendar: settings.calendarEnabled = value
+                    case .notes: settings.notesEnabled = value
                     }
                 }
             }
@@ -353,6 +363,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     case agents
     case crypto
     case calendar
+    case notes
     case display
     case general
 
@@ -362,6 +373,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .agents: self = .agents
         case .trading: self = .crypto
         case .calendar: self = .calendar
+        case .notes: self = .notes
         }
     }
 
@@ -375,6 +387,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .agents: "Agents"
         case .crypto: "Crypto"
         case .calendar: "Calendar"
+        case .notes: "Notes"
         case .display: "Display"
         case .general: "General"
         }
@@ -386,6 +399,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .agents: .chip
         case .crypto: .coin
         case .calendar: .calendar
+        case .notes: .pencil
         case .display: .openWindow
         case .general: .gear
         }
@@ -398,6 +412,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .agents: .agents
         case .crypto: .trading
         case .calendar: .calendar
+        case .notes: .notes
         case .display, .general: nil
         }
     }

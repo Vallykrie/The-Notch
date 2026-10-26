@@ -20,6 +20,7 @@ enum NotchSurface: String, Equatable, CaseIterable, Identifiable {
     case agents
     case trading
     case calendar
+    case notes
 
     var id: String { rawValue }
 
@@ -29,6 +30,18 @@ enum NotchSurface: String, Equatable, CaseIterable, Identifiable {
         case .agents: "Agents"
         case .trading: "Crypto"
         case .calendar: "Calendar"
+        case .notes: "Notes"
+        }
+    }
+
+    /// The tab's sprite, shown instead of its name once the tab bar is too crowded for names.
+    var glyph: PixelGlyph {
+        switch self {
+        case .media: .musicNote
+        case .agents: .chip
+        case .trading: .coin
+        case .calendar: .calendar
+        case .notes: .pencil
         }
     }
 }

@@ -21,6 +21,24 @@ Last touched: 2026-09-26. Current scope: Binance Spot crypto only.
 
 See [crypto feed details](TRADING.md). The earlier multi-asset plan is historical.
 
+## Notes `[~]`
+
+Last touched: 2026-10-26. Added on user request: write something down in the notch instead of
+opening Notes or a chat app first — most often a prompt before it goes to an agent.
+
+- [x] Notes tab (concept A from `docs/design/notes-ui-v1.html`): four autosaved pages (⌘1–⌘4),
+      an editor that pins the panel open while it is being typed into, Copy (⌘↩) that copies and
+      closes the notch, Clear.
+- [x] Settings › Notes: feature switch, off by default. Five tabs collapse the unselected ones to
+      sprites so the bar clears the camera housing.
+- [x] First launch shows Media, Agents and Calendar; Crypto and Notes are opt-in. Existing users
+      who finished the intro keep Crypto on.
+- [x] FrameDump scenarios for an empty and a written page.
+- [x] ~~Send to an agent session~~ — dropped after trying it: without typing into the agent it was
+      only copy plus a window jump, and calling that "Send" overpromised. Copy says what it does.
+- [ ] Verify typing, pinning and Copy on hardware.
+- [ ] Global hotkey (⌥⌘N) to open straight into Notes.
+
 ## Calendar `[~]`
 
 Last touched: 2026-10-14. Added on user request: see the calendar from the notch, across accounts.

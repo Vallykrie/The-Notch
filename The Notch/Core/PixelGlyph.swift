@@ -190,6 +190,18 @@ nonisolated struct PixelGlyph: Equatable, Sendable {
         0b0011_1100,
     ])
 
+    /// Pencil, tip at the bottom left, its cap ringed off at the top right.
+    static let pencil = PixelGlyph(rows: [
+        0b0000_0110,
+        0b0000_1011,
+        0b0001_1110,
+        0b0011_1100,
+        0b0111_1000,
+        0b0111_0000,
+        0b1110_0000,
+        0b1000_0000,
+    ])
+
     // MARK: Chrome
 
     /// Cog: a hollow body with four teeth on the axes and four bulges on the diagonals.

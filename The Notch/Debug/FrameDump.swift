@@ -342,6 +342,21 @@ enum FrameDump {
     /// to `.expanded` and only varies the aperture, so it renders expanded content squeezed into
     /// a collapsed box rather than the collapsed surface itself. These are also the frames worth
     /// eyeballing after a visual change, since the pill is what is on screen ~all of the time.
+    /// A prompt half written on page 1, and something kept on page 3.
+    private static func notesPreview() -> NotesStore {
+        let notes = NotesStore(defaults: nil)
+        notes.select(2)
+        notes.updateText("Call back about the demo at 4")
+        notes.select(0)
+        notes.updateText("""
+        Refactor the media handoff so a paused app can't hold the notch.
+        - keep MediaRemote as the primary source
+        - fall back to Spotify/Music polling only when MR is silent for 3s
+        - add a test for the stuck-poll case
+        """)
+        return notes
+    }
+
     private static func writeScenarios(to directory: URL, geometry: ScreenGeometry) -> Int {
         let scenarios: [(
             name: String,
@@ -568,6 +583,8 @@ enum FrameDump {
             ("expanded-calendar-denied", .calendar, .expanded, AgentsPreviewData.emptyStore(), SystemServices(nowPlaying: MediaPreviewData.inactiveMonitor(), systemHUD: .previewIdle(), calendar: CalendarPreviewData.emptyStore(access: .denied)), false),
             ("expanded-calendar-clear", .calendar, .expanded, AgentsPreviewData.emptyStore(), SystemServices(nowPlaying: MediaPreviewData.inactiveMonitor(), systemHUD: .previewIdle(), calendar: CalendarPreviewData.emptyStore(access: .granted)), false),
             ("expanded-calendar-agenda", .calendar, .expanded, AgentsPreviewData.emptyStore(), SystemServices(nowPlaying: MediaPreviewData.inactiveMonitor(), systemHUD: .previewIdle(), calendar: CalendarPreviewData.populatedStore()), false),
+            ("expanded-notes-empty", .notes, .expanded, AgentsPreviewData.emptyStore(), SystemServices(nowPlaying: MediaPreviewData.inactiveMonitor(), systemHUD: .previewIdle()), false),
+            ("expanded-notes-written", .notes, .expanded, AgentsPreviewData.emptyStore(), SystemServices(nowPlaying: MediaPreviewData.inactiveMonitor(), systemHUD: .previewIdle(), notes: notesPreview()), false),
         ]
         for scenario in scenarios + tradingScenarios {
             let coordinator = NotchCoordinator(
