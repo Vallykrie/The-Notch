@@ -17,6 +17,8 @@ extension LiveActivityLayout {
             Theme.Metrics.LiveActivity.hudShoulderWidth
         case .trading:
             Theme.Metrics.Trading.shoulderWidth
+        case .focus, .focusWithMedia, .focusWithAgents:
+            Theme.Metrics.LiveActivity.focusShoulderWidth
         case .welcome:
             Theme.Metrics.LiveActivity.welcomeShoulderWidth
         }
@@ -33,7 +35,7 @@ extension LiveActivityLayout {
     /// inside a 40pt shoulder at all.
     var horizontalPadding: CGFloat {
         switch self {
-        case .idle, .mediaOnly, .agentsOnly, .both:
+        case .idle, .mediaOnly, .agentsOnly, .both, .focus, .focusWithMedia, .focusWithAgents:
             Theme.Metrics.LiveActivity.compactHorizontalPadding
         case .systemHUD, .trading, .welcome:
             Theme.Metrics.collapsedHorizontalPadding

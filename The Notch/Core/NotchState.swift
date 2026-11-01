@@ -21,6 +21,7 @@ enum NotchSurface: String, Equatable, CaseIterable, Identifiable {
     case trading
     case calendar
     case notes
+    case focus
 
     var id: String { rawValue }
 
@@ -31,6 +32,7 @@ enum NotchSurface: String, Equatable, CaseIterable, Identifiable {
         case .trading: "Crypto"
         case .calendar: "Calendar"
         case .notes: "Notes"
+        case .focus: "Focus"
         }
     }
 
@@ -42,6 +44,7 @@ enum NotchSurface: String, Equatable, CaseIterable, Identifiable {
         case .trading: .coin
         case .calendar: .calendar
         case .notes: .pencil
+        case .focus: .stopwatch
         }
     }
 }

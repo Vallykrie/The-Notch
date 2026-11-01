@@ -202,6 +202,18 @@ nonisolated struct PixelGlyph: Equatable, Sendable {
         0b1000_0000,
     ])
 
+    /// Stopwatch: the crown on top, a round face, one hand pointing up and to the right.
+    static let stopwatch = PixelGlyph(rows: [
+        0b0011_1100,
+        0b0001_1000,
+        0b0111_1110,
+        0b1000_0101,
+        0b1001_1001,
+        0b1000_0001,
+        0b0100_0010,
+        0b0011_1100,
+    ])
+
     // MARK: Chrome
 
     /// Cog: a hollow body with four teeth on the axes and four bulges on the diagonals.

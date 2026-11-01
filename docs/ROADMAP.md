@@ -14,7 +14,8 @@ Last touched: 2026-09-26. Current scope: Binance Spot crypto only.
 
 - [x] Crypto surface, Binance pair search, watchlist, pin/unpin, persisted preferences.
 - [x] Public Binance REST catalog and WebSocket ticker, reconnect and sleep/wake lifecycle.
-- [x] Collapsed symbol/price with HUD and agent-attention priority; independent geometry policy tests.
+- [x] Collapsed symbol/price with HUD priority; independent geometry policy tests. (Agent
+      attention no longer overrides a pinned price — 2026-11-01, user decision.)
 - [x] Decimal formatting, source timestamps, stale/offline/closed state, subscription failure handling.
 - [x] Remove US stock, IDX, and forex feed controls and provider integrations; archive older saved assets during migration.
 - [ ] Full hardware interaction/performance acceptance with the public crypto feed.
@@ -38,6 +39,28 @@ opening Notes or a chat app first — most often a prompt before it goes to an a
       only copy plus a window jump, and calling that "Send" overpromised. Copy says what it does.
 - [ ] Verify typing, pinning and Copy on hardware.
 - [ ] Global hotkey (⌥⌘N) to open straight into Notes.
+
+## Focus (Pomodoro) `[~]`
+
+Last touched: 2026-11-01. Added on user request: a Pomodoro timer in the notch, off by default.
+Design rounds live in `docs/design/pomodoro-ui-v1…v4.html` and `pomodoro-ui-v5-rules.html`;
+the build is v4 option 3 (strip + walker).
+
+- [x] Focus tab: two rulers (Focus 5–90 min, Break 1–30 min) for setup only; once started, the
+      countdown and the set's strip with the mascot walking along it. Pause, Skip, Reset.
+- [x] The mascot is the agent mascot (`AgentActivityGlyph.Posed`, drawn by the shared
+      `GlyphCellsView`) at a desk: typing with keys lighting and code appearing on a monitor,
+      filling with colour through the phase; hop, cheer, tea break, nap, paused.
+- [x] `FocusTimer`: end-date clock (survives sleep), rounds per set, Auto long break (3× the
+      break, 10–45 min, none from a 15-min break up), auto-start breaks/rounds, rounds today.
+- [x] Notch: countdown on the trailing shoulder; leading shows the focus mascot, the artwork, or
+      the agent sprite (agents beat media). Pinned crypto now outranks everything but the HUD,
+      agent attention included.
+- [x] Round end: chime (own switch) and the notch opens on Focus for 6 s; waits behind an
+      agent prompt.
+- [x] Settings › Focus: feature switch (off by default), show on notch, chime, auto-start,
+      rounds, long break. FrameDump scenarios for setup, running and the three shoulders.
+- [ ] Verify on hardware: ruler dragging, Space to start/pause, round-end takeover, sleep/wake.
 
 ## Calendar `[~]`
 

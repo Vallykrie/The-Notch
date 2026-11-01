@@ -10,7 +10,7 @@ import SwiftUI
 /// inside the same 640x190 silhouette as the others.
 ///
 /// It used to be one grid of four columns, which was full: a fifteenth preference had nowhere
-/// to go. Now a rail down the leading edge picks a section — Media, Agents, Crypto, Calendar, Notes, Display, General —
+/// to go. Now a rail down the leading edge picks a section — Media, Agents, Crypto, Calendar, Notes, Focus, Display, General —
 /// and the section gets the rest of the panel as two columns. Each feature section is headed
 /// by that feature's own on/off switch, because someone who installed The Notch for agents
 /// alone should be able to make the other two disappear, not merely look quieter.
@@ -39,6 +39,11 @@ struct SettingsExpandedView: View {
     @State private var direction: CGFloat = 1
     @State private var showingConnections = false
     @State private var showingCalendars = false
+    @Environment(\.rendersOffscreen) private var rendersOffscreen
+    /// Whether the rail has entries hidden above or below it — which edges fade.
+    @State private var railHiddenAbove = false
+    @State private var railHiddenBelow = false
+    @State private var railViewport: CGFloat = .zero
     @Namespace private var railNamespace
 
     init(
@@ -95,13 +100,60 @@ struct SettingsExpandedView: View {
 
     // MARK: Rail
 
+    /// Scrolls, so each entry gets a comfortable row however many features there are. The
+    /// edges fade out where there is more above or below, and the open section is scrolled
+    /// into view when settings open.
+    ///
+    /// A plain list when rendered offscreen: `ImageRenderer` draws a scroll view as empty, and
+    /// `FrameDump` has to be able to see the rail.
+    @ViewBuilder
     private var rail: some View {
+        if rendersOffscreen {
+            railEntries
+                .frame(width: Theme.Metrics.Settings.railWidth, alignment: .topLeading)
+        } else {
+            ScrollViewReader { proxy in
+                ScrollView(.vertical) {
+                    railEntries
+                        .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(Self.railSpace)) } action: { frame in
+                            railHiddenAbove = frame.minY < -1
+                            railHiddenBelow = frame.maxY > railViewport + 1
+                        }
+                }
+                .coordinateSpace(.named(Self.railSpace))
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { railViewport = $0 }
+                .scrollIndicators(.never)
+                .scrollBounceBehavior(.basedOnSize)
+                .mask(railFade)
+                .frame(width: Theme.Metrics.Settings.railWidth, alignment: .topLeading)
+                .onAppear { proxy.scrollTo(section, anchor: .center) }
+            }
+        }
+    }
+
+    private var railEntries: some View {
         VStack(alignment: .leading, spacing: Theme.Metrics.Settings.railItemSpacing) {
             ForEach(SettingsSection.allCases) { item in
                 railItem(item)
+                    .id(item)
             }
         }
-        .frame(width: Theme.Metrics.Settings.railWidth, alignment: .topLeading)
+        .padding(.vertical, Theme.Metrics.Settings.railItemSpacing)
+    }
+
+    private static let railSpace = "settingsRail"
+
+    /// Only the edges with something beyond them fade, so the first entry is crisp at rest.
+    private var railFade: some View {
+        VStack(spacing: .zero) {
+            LinearGradient(colors: [railHiddenAbove ? .clear : .black, .black], startPoint: .top, endPoint: .bottom)
+                .frame(height: Theme.Metrics.Settings.railFadeHeight)
+            Color.black
+            LinearGradient(colors: [.black, railHiddenBelow ? .clear : .black], startPoint: .top, endPoint: .bottom)
+                .frame(height: Theme.Metrics.Settings.railFadeHeight)
+        }
+        .animation(Theme.Motion.content, value: railHiddenAbove)
+        .animation(Theme.Motion.content, value: railHiddenBelow)
     }
 
     private func railItem(_ item: SettingsSection) -> some View {
@@ -172,6 +224,7 @@ struct SettingsExpandedView: View {
         case .crypto: cryptoSection
         case .calendar: calendarSection
         case .notes: notesSection
+        case .focus: focusSection
         case .display: displaySection
         case .general: generalSection
         }
@@ -243,6 +296,23 @@ struct SettingsExpandedView: View {
         }
     }
 
+    /// The lengths themselves are set on the Focus tab's rulers; these are the shape of a set.
+    private var focusSection: some View {
+        featureColumns(.focus) {
+            SettingsToggleRow(label: "Show on notch", isOn: $settings.focusShowOnNotch)
+            SettingsToggleRow(label: "Chime", isOn: $settings.focusChime)
+                .help("A sound when a focus round or a break ends.")
+            SettingsToggleRow(label: "Auto-start breaks", isOn: $settings.focusAutoStartBreaks)
+        } right: {
+            SettingsChoiceRow(label: "Rounds", selection: $settings.focusRounds)
+                .help("Focus rounds in a set. The long break follows the last one.")
+            SettingsChoiceRow(label: "Long break", selection: $settings.focusLongBreak)
+                .help("Auto is three times your break, between 10 and 45 minutes, and none once the break is 15 minutes or more — a break that long is already a long one.")
+            SettingsToggleRow(label: "Auto-start rounds", isOn: $settings.focusAutoStartRounds)
+                .help("Start the next focus round by itself when a break ends.")
+        }
+    }
+
     /// How the notch looks and moves: the panel's size and shadow, and its open/close motion.
     private var displaySection: some View {
         HStack(alignment: .top, spacing: Theme.Metrics.Settings.sectionColumnSpacing) {
@@ -307,6 +377,7 @@ struct SettingsExpandedView: View {
                     case .trading: settings.cryptoEnabled = value
                     case .calendar: settings.calendarEnabled = value
                     case .notes: settings.notesEnabled = value
+                    case .focus: settings.focusEnabled = value
                     }
                 }
             }
@@ -364,6 +435,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     case crypto
     case calendar
     case notes
+    case focus
     case display
     case general
 
@@ -374,6 +446,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .trading: self = .crypto
         case .calendar: self = .calendar
         case .notes: self = .notes
+        case .focus: self = .focus
         }
     }
 
@@ -388,6 +461,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .crypto: "Crypto"
         case .calendar: "Calendar"
         case .notes: "Notes"
+        case .focus: "Focus"
         case .display: "Display"
         case .general: "General"
         }
@@ -400,6 +474,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .crypto: .coin
         case .calendar: .calendar
         case .notes: .pencil
+        case .focus: .stopwatch
         case .display: .openWindow
         case .general: .gear
         }
@@ -413,6 +488,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .crypto: .trading
         case .calendar: .calendar
         case .notes: .notes
+        case .focus: .focus
         case .display, .general: nil
         }
     }
@@ -724,3 +800,5 @@ extension HUDDwell: SettingsOption {}
 extension HoverSensitivity: SettingsOption {}
 extension PanelSize: SettingsOption {}
 extension AnimationSpeed: SettingsOption {}
+extension FocusLongBreak: SettingsOption {}
+extension FocusRounds: SettingsOption {}

@@ -68,6 +68,13 @@ struct AgentActivityGlyph {
         /// A colour of its own. Only the confetti, which is the one place the mascot celebrates
         /// in more than its own hue.
         case accent(Color)
+        /// Scenery around the mascot — the focus timer's desk and monitor. Drawn without the
+        /// bloom: furniture that glowed would compete with the creature for the eye.
+        case flat(Color)
+
+        var glows: Bool {
+            if case .flat = self { false } else { true }
+        }
     }
 
     /// One lit cell of the grid.
@@ -600,6 +607,67 @@ struct AgentActivityGlyph {
         return shown
     }
 
+    // MARK: Posed by other surfaces
+
+    /// The same creature, posed by a surface other than the agents — the focus timer.
+    ///
+    /// The point is that it *is* the agent mascot: same art, same shading, same eyes. A second
+    /// sprite drawn to look like this one would drift from it the first time either changed.
+    /// So another surface describes a pose in these terms and `render` draws it.
+    struct Posed {
+        enum Eyes {
+            case open, wide, narrow, closed, asleep
+        }
+
+        var bob = 0
+        var lean = 0
+        /// The leg frame, or `nil` when the legs are hidden behind something (a desk).
+        var legs: Int? = 0
+        var antennaLeft = 1
+        var antennaRight = 1
+        var eyes = Eyes.open
+        var eyeShift = 0
+        var eyeLift = 0
+        var squashed = false
+        var brightness = 1.0
+    }
+
+    static func cells(for figure: Posed, headroom: Int) -> [Cell] {
+        var pose = Pose()
+        pose.bob = figure.bob
+        pose.lean = figure.lean
+        pose.legPhase = figure.legs ?? 0
+        pose.antennaLeft = figure.antennaLeft
+        pose.antennaRight = figure.antennaRight
+        pose.eyeShift = figure.eyeShift
+        pose.eyeLift = figure.eyeLift
+        pose.squashed = figure.squashed
+        pose.brightness = figure.brightness
+        pose.eyes = switch figure.eyes {
+        case .open: .open
+        case .wide: .wide
+        case .narrow: .narrow
+        case .closed: .closed
+        case .asleep: .asleep
+        }
+        var cells = render(pose, headroom: headroom)
+        if figure.legs == nil {
+            cells.removeAll { $0.row - pose.bob > Art.bodyFloorRow }
+        }
+        return cells.filter {
+            (0 ..< columns).contains($0.column) && (-headroom ..< rows).contains($0.row)
+        }
+    }
+
+    /// The body's rows and the columns each one spans, before any pose moves it. Lets a surface
+    /// fill the body bit by bit while the outline stays exactly the mascot's.
+    static func bodySpans(squashed: Bool) -> [(row: Int, columns: ClosedRange<Int>)] {
+        (squashed ? Art.squashed : Art.rest).body
+    }
+
+    /// The left column of each eye, for surfaces that need to know where the holes are.
+    static var eyeColumns: [Int] { Art.eyeColumns }
+
     // MARK: Drawing
 
     /// How the blob is sitting at one instant. Everything a state can change is here, so the
@@ -1016,19 +1084,69 @@ struct AgentActivityGlyphView: View {
         )
     }
 
-    /// The sprite and its glow.
-    ///
-    /// Two passes of the same cells: a blurred copy composited additively underneath, then the
-    /// crisp one on top. That is how a phosphor display behaves — the lit cell is sharp and the
-    /// light around it is not. Additive rather than a plain overlay so the glow only ever
-    /// brightens; a normal blend would grey the black between the cells.
-    ///
-    /// Both numbers are deliberately restrained. A wide, strong bloom fills the gaps between
-    /// the cells and leaves a glowing blob where there was pixel art.
     private func sprite(elapsed: Double, context: AgentActivityGlyph.Context) -> some View {
-        let cells = AgentActivityGlyph.cells(for: status, elapsed: elapsed, context: context)
-        return ZStack {
-            canvas(cells)
+        GlyphCellsView(
+            cells: AgentActivityGlyph.cells(for: status, elapsed: elapsed, context: context),
+            pixel: pixel,
+            rowOffset: headroom
+        )
+    }
+
+    /// Where each state is drawn when motion is off. Chosen to be the most legible instant of
+    /// that state's cycle, not an arbitrary t=0 — `done` at zero has not hopped yet, which is
+    /// the one pose that does not say "finished".
+    private static func restingSample(for status: SessionStatus) -> Double {
+        switch status {
+        case .done: 0.5
+        case .working: 0.25
+        case .compacting: 1.4
+        case .runningTool: 0.3
+        case .needsApproval: 0.02
+        case .waitingForAnswer: 0.5
+        case .waitingForInput: 0.25
+        case .thinking: 0.7
+        default: 0
+        }
+    }
+
+    /// The cell size, snapped down to a whole number of points so no row is ever half-lit.
+    private var pixel: CGFloat {
+        max(1, (side / CGFloat(AgentActivityGlyph.rows)).rounded(.down))
+    }
+
+    private var drawnWidth: CGFloat {
+        pixel * CGFloat(AgentActivityGlyph.columns)
+    }
+
+    private var drawnHeight: CGFloat {
+        pixel * CGFloat(AgentActivityGlyph.rows)
+    }
+}
+
+/// The sprite and its glow: how every grid of `AgentActivityGlyph.Cell`s is drawn.
+///
+/// Shared by the agent mascot and the focus timer's scene, so the two are the same creature down
+/// to the gap between its pixels.
+///
+/// Two passes of the same cells: a blurred copy composited additively underneath, then the
+/// crisp one on top. That is how a phosphor display behaves — the lit cell is sharp and the
+/// light around it is not. Additive rather than a plain overlay so the glow only ever
+/// brightens; a normal blend would grey the black between the cells.
+///
+/// Both numbers are deliberately restrained. A wide, strong bloom fills the gaps between
+/// the cells and leaves a glowing blob where there was pixel art.
+@MainActor
+struct GlyphCellsView: View {
+    let cells: [AgentActivityGlyph.Cell]
+    /// One cell's side, in points.
+    let pixel: CGFloat
+    /// Rows added to every cell before drawing, so negative rows (a hop into headroom) land
+    /// inside the canvas.
+    var rowOffset = 0
+
+    var body: some View {
+        ZStack {
+            canvas(cells.filter(\.tone.glows))
                 .blur(radius: pixel * Self.bloomRadius)
                 .blendMode(.plusLighter)
                 .opacity(Self.bloomStrength)
@@ -1065,7 +1183,7 @@ struct AgentActivityGlyphView: View {
                 let path = Path(
                     CGRect(
                         x: CGFloat(cell.column) * pixel + gap,
-                        y: CGFloat(cell.row + headroom) * pixel + gap,
+                        y: CGFloat(cell.row + rowOffset) * pixel + gap,
                         width: pixel - gap * 2,
                         height: pixel - gap * 2
                     )
@@ -1086,41 +1204,11 @@ struct AgentActivityGlyphView: View {
                     context.fill(path, with: .color(.black))
                 case .white:
                     context.fill(path, with: .color(.white))
-                case let .accent(color):
+                case let .accent(color), let .flat(color):
                     context.fill(path, with: .color(color))
                 }
             }
         }
-    }
-
-    /// Where each state is drawn when motion is off. Chosen to be the most legible instant of
-    /// that state's cycle, not an arbitrary t=0 — `done` at zero has not hopped yet, which is
-    /// the one pose that does not say "finished".
-    private static func restingSample(for status: SessionStatus) -> Double {
-        switch status {
-        case .done: 0.5
-        case .working: 0.25
-        case .compacting: 1.4
-        case .runningTool: 0.3
-        case .needsApproval: 0.02
-        case .waitingForAnswer: 0.5
-        case .waitingForInput: 0.25
-        case .thinking: 0.7
-        default: 0
-        }
-    }
-
-    /// The cell size, snapped down to a whole number of points so no row is ever half-lit.
-    private var pixel: CGFloat {
-        max(1, (side / CGFloat(AgentActivityGlyph.rows)).rounded(.down))
-    }
-
-    private var drawnWidth: CGFloat {
-        pixel * CGFloat(AgentActivityGlyph.columns)
-    }
-
-    private var drawnHeight: CGFloat {
-        pixel * CGFloat(AgentActivityGlyph.rows)
     }
 }
 

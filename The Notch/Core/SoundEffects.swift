@@ -36,12 +36,16 @@ final class SoundEffects {
         case questionAsked
         /// An agent finished or went idle. Informational.
         case sessionFinished
+        /// A focus round or a break ran out. Gated by Focus's own chime switch rather than by
+        /// ``isEnabled``, which is the Agents section's "Sound cues": someone who silenced the
+        /// agents still asked for a timer that tells them when time is up.
+        case focusPhaseEnded
 
         fileprivate var resourceName: String {
             switch self {
             case .approvalRequested: "sfx-approval"
             case .questionAsked: "sfx-question"
-            case .sessionFinished: "sfx-done"
+            case .sessionFinished, .focusPhaseEnded: "sfx-done"
             }
         }
 
@@ -59,7 +63,7 @@ final class SoundEffects {
         fileprivate var cooldown: TimeInterval {
             switch self {
             case .approvalRequested: 0.75
-            case .questionAsked, .sessionFinished: 2.5
+            case .questionAsked, .sessionFinished, .focusPhaseEnded: 2.5
             }
         }
 
@@ -126,7 +130,7 @@ final class SoundEffects {
     /// control for "I do not want sounds".
     func play(_ cue: Cue, now: Date = Date()) {
         guard !Self.isHeadless else { return }
-        guard isEnabled else { return }
+        guard isEnabled || cue == .focusPhaseEnded else { return }
 
         if let previous = lastPlayed[cue], now.timeIntervalSince(previous) < cue.cooldown {
             return

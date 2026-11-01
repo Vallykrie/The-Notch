@@ -95,6 +95,20 @@ enum Theme {
         )
         static let content = Animation.smooth(duration: 0.22)
 
+        /// The focus timer — see `FocusScene` and `docs/design/pomodoro-ui-v4.html`.
+        enum Focus {
+            /// The hop when Start is pressed, before the mascot sits down at the desk.
+            static let hop: Double = 0.75
+            /// The cheer after a focus round ends on its own.
+            static let cheer: Double = 3.4
+            /// How long a dragged ruler keeps the mascot looking at it after the last move.
+            static let rulerGlance: Double = 0.4
+            /// The rulers giving way to the countdown, and back.
+            static let swap = Animation.spring(response: 0.45, dampingFraction: 0.82)
+            /// The round-end card stays this long on the notch.
+            static let roundEndCard: Double = 6
+        }
+
         /// The settings surface. Every curve its controls use, so the panel stays one motion
         /// language with the rest of the notch.
         enum Settings {
@@ -414,6 +428,40 @@ enum Theme {
             static let colorMarkWidth: CGFloat = 3
             static let colorMarkHeight: CGFloat = 9
         }
+        /// The focus timer — `docs/design/pomodoro-ui-v4.html`, option 3 (strip + walker).
+        enum Focus {
+            /// The scene is 24 x 14 cells at this size: 144 x 84.
+            static let sceneCell: CGFloat = 6
+            /// Between the scene and the rulers or the countdown.
+            static let sceneSpacing: CGFloat = 20
+            static let rulerHeight: CGFloat = 28
+            static let rulerRowSpacing: CGFloat = 6
+            /// Points per minute on each ruler. Break minutes are fewer, so they are spaced wider.
+            static let focusRulerPointsPerMinute: CGFloat = 7.5
+            static let breakRulerPointsPerMinute: CGFloat = 13
+            /// Where the needle sits from the ruler's leading edge.
+            static let needleOffset: CGFloat = 60
+            static let needleWidth: CGFloat = 2
+            static let countdownSize: CGFloat = 46
+            static let rulerValueSize: CGFloat = 15
+            /// The strip's blocks and the walker riding on it.
+            static let stripHeight: CGFloat = 8
+            static let stripGap: CGFloat = 2
+            static let walkerCell: CGFloat = 1.5
+            static let stripTop: CGFloat = 26
+            static let footerHeight: CGFloat = 18
+            /// An unfilled body cell, its outline, and an eye in the unfilled part.
+            static let ghostAlpha: Double = 0.13
+            static let ghostEdgeAlpha: Double = 0.34
+            static let ghostEyeAlpha: Double = 0.38
+            static let pausedBrightness: Double = 0.55
+            static let stripTrackOpacity: Double = 0.16
+            /// The collapsed countdown's progress line.
+            static let lineHeight: CGFloat = 2
+            static let lineWidth: CGFloat = 32
+            static let lineSpacing: CGFloat = 2
+        }
+
         /// The scratchpad — concept A in `docs/design/notes-ui-v1.html`.
         enum Notes {
             /// Between the editor and the footer.
@@ -576,6 +624,11 @@ enum Theme {
             /// over the menu bar. The contrast between the two widths is the point: a notch
             /// that grows when you press a key reads as a response.
             static let hudShoulderWidth: CGFloat = 92
+
+            /// A running focus timer: the countdown on the trailing shoulder needs text room,
+            /// and the leading one holds the mascot or the agent sprite. Both sides take it, to
+            /// stay symmetric.
+            static let focusShoulderWidth: CGFloat = 56
 
             /// The intro's closing shoulder: the mascot on one side, "ready" on the other. Wide
             /// enough for the word at caption size and nothing more.
@@ -967,11 +1020,13 @@ enum Theme {
 
             /// The section rail down the leading edge of the settings surface.
             static let railWidth: CGFloat = 104
-            /// Seven entries have to fit the same height as a five-row settings column under its
-            /// header; at 24/3 the fifth entry (Display) pushed the rail past the panel floor, 21/2
-            /// did the same to the sixth (Calendar), and 20/1 to the seventh (Notes).
-            static let railItemHeight: CGFloat = 17
-            static let railItemSpacing: CGFloat = 1
+            /// The rail scrolls, so entries are sized to read comfortably rather than to fit.
+            /// Squeezing each new feature in shrank the rows from 24 to 15pt across four
+            /// releases, and at eight entries the rail read as a crammed list.
+            static let railItemHeight: CGFloat = 20
+            static let railItemSpacing: CGFloat = 2
+            /// The fade at the rail's top and bottom edges that says there is more to scroll to.
+            static let railFadeHeight: CGFloat = 14
             static let railIconSize: CGFloat = 8
             static let railIconSpacing: CGFloat = 7
             static let railStatusSize: CGFloat = 5
@@ -1120,6 +1175,18 @@ enum Theme {
         static let divider = Color.white.opacity(0.1)
         /// The scratchpad's caret: the notch's one warm accent.
         static let notesAccent = Color(red: 1.0, green: 0.67, blue: 0.12)
+
+        /// The focus timer. One meaning per colour: amber is focus, green is a break, grey is
+        /// not started.
+        enum Focus {
+            static let focus = Color(red: 1.0, green: 0.67, blue: 0.12)
+            static let rest = Color(red: 0.37, green: 0.82, blue: 0.48)
+            static let idle = Color(red: 0.85, green: 0.84, blue: 0.81)
+            static let confetti: [Color] = [
+                focus, rest, Color(red: 0.54, green: 0.71, blue: 1.0),
+                Color(red: 1.0, green: 0.42, blue: 0.30), .white,
+            ]
+        }
 
         /// The nine agent states, as hues.
         ///

@@ -343,6 +343,16 @@ enum FrameDump {
     /// a collapsed box rather than the collapsed surface itself. These are also the frames worth
     /// eyeballing after a visual change, since the pill is what is on screen ~all of the time.
     /// A prompt half written on page 1, and something kept on page 3.
+    /// Focus services: the timer either on its rulers or ten minutes into a 25-minute round.
+    private static func focusServices(running: Bool, playing: Bool = false) -> SystemServices {
+        let services = SystemServices(
+            nowPlaying: playing ? MediaPreviewData.playingMonitor() : MediaPreviewData.inactiveMonitor(),
+            systemHUD: .previewIdle()
+        )
+        if running { services.focus.toggle(now: Date().addingTimeInterval(-600)) }
+        return services
+    }
+
     private static func notesPreview() -> NotesStore {
         let notes = NotesStore(defaults: nil)
         notes.select(2)
@@ -585,6 +595,11 @@ enum FrameDump {
             ("expanded-calendar-agenda", .calendar, .expanded, AgentsPreviewData.emptyStore(), SystemServices(nowPlaying: MediaPreviewData.inactiveMonitor(), systemHUD: .previewIdle(), calendar: CalendarPreviewData.populatedStore()), false),
             ("expanded-notes-empty", .notes, .expanded, AgentsPreviewData.emptyStore(), SystemServices(nowPlaying: MediaPreviewData.inactiveMonitor(), systemHUD: .previewIdle()), false),
             ("expanded-notes-written", .notes, .expanded, AgentsPreviewData.emptyStore(), SystemServices(nowPlaying: MediaPreviewData.inactiveMonitor(), systemHUD: .previewIdle(), notes: notesPreview()), false),
+            ("expanded-focus-setup", .focus, .expanded, AgentsPreviewData.emptyStore(), focusServices(running: false), false),
+            ("expanded-focus-running", .focus, .expanded, AgentsPreviewData.emptyStore(), focusServices(running: true), false),
+            ("collapsed-focus", .focus, .collapsed, AgentsPreviewData.emptyStore(), focusServices(running: true), false),
+            ("collapsed-focus-media", .focus, .collapsed, AgentsPreviewData.emptyStore(), focusServices(running: true, playing: true), false),
+            ("collapsed-focus-media-agents", .focus, .collapsed, AgentsPreviewData.concurrentStore(), focusServices(running: true, playing: true), false),
         ]
         for scenario in scenarios + tradingScenarios {
             let coordinator = NotchCoordinator(
@@ -618,7 +633,7 @@ enum FrameDump {
             coordinator.hasSystemHUD = settings.replaceSystemHUD
                 && scenario.services.systemHUD.event != nil
             coordinator.hasTradingActivity = scenario.services.trading.wantsShoulder
-            coordinator.agentNeedsAttention = !scenario.store.pendingApprovals.isEmpty || scenario.store.sessions.contains { $0.status.demandsAttention }
+            coordinator.hasFocusActivity = settings.showsFocus(isActive: scenario.services.focus.isActive)
 
             let view = NotchRootView(
                 coordinator: coordinator,

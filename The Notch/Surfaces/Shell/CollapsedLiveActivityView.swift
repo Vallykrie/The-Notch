@@ -16,6 +16,10 @@ import SwiftUI
 /// | `.agentsOnly`| one status sprite | live session count  |
 /// | `.both`      | artwork           | one status sprite   |
 /// | `.systemHUD` | icon and label    | level bar           |
+/// | `.trading`   | pinned pair       | its price           |
+/// | `.focus`     | focus mascot      | countdown           |
+/// | `.focusWithMedia` | artwork      | countdown           |
+/// | `.focusWithAgents` | agent sprite | countdown          |
 /// | `.welcome`   | the intro's mascot | "ready"            |
 ///
 /// Each surface previously rendered its *full* collapsed presentation on its shoulder — media
@@ -28,6 +32,7 @@ struct CollapsedLiveActivityView: View {
     @ObservedObject var nowPlaying: NowPlayingMonitor
     @ObservedObject var store: AgentSessionStore
     @ObservedObject var trading: TradingStore
+    @ObservedObject var focus: FocusTimer
     let hudEvent: SystemHUDEvent?
 
     @Environment(\.notchLayout) private var notchLayout
@@ -116,11 +121,14 @@ struct CollapsedLiveActivityView: View {
                 .foregroundStyle(Theme.Colors.ink)
                 .mascotAnchor(.shoulder)
                 .transition(.opacity)
-        case .mediaOnly, .both:
+        case .mediaOnly, .both, .focusWithMedia:
             NowPlayingArtworkView(status: nowPlaying.status)
                 .transition(.opacity)
-        case .agentsOnly:
+        case .agentsOnly, .focusWithAgents:
             AgentsCollapsedView(store: store)
+                .transition(.opacity)
+        case .focus:
+            FocusShoulderMascotView(timer: focus)
                 .transition(.opacity)
         case .systemHUD:
             hudShoulder { SystemHUDLeadingView(event: $0) }
@@ -162,6 +170,9 @@ struct CollapsedLiveActivityView: View {
             // live, the pair of glyphs is the whole message — a title squeezed in beside them
             // is what made this silhouette 445pt wide.
             AgentsCollapsedView(store: store)
+                .transition(.opacity)
+        case .focus, .focusWithMedia, .focusWithAgents:
+            FocusCountdownShoulderView(timer: focus)
                 .transition(.opacity)
         case .systemHUD:
             hudShoulder { SystemHUDTrailingView(event: $0) }

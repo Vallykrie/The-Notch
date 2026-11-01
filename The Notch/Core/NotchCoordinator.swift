@@ -46,8 +46,9 @@ final class NotchCoordinator: ObservableObject {
     @Published var isWelcoming = false {
         didSet { if oldValue != isWelcoming { stateDidChange?(state) } }
     }
-    @Published var agentNeedsAttention = false {
-        didSet { if oldValue != agentNeedsAttention { stateDidChange?(state) } }
+    /// Whether a focus session (running, paused or between phases) is on the notch.
+    @Published var hasFocusActivity = false {
+        didSet { if oldValue != hasFocusActivity { stateDidChange?(state) } }
     }
 
     /// Holds the panel open regardless of where the pointer is.
@@ -121,7 +122,7 @@ final class NotchCoordinator: ObservableObject {
             hasAgents: hasAgentActivity,
             hasHUD: hasSystemHUD,
             hasTrading: hasTradingActivity,
-            agentNeedsAttention: agentNeedsAttention,
+            hasFocus: hasFocusActivity,
             isWelcoming: isWelcoming
         )
     }

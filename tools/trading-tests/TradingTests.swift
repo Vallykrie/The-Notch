@@ -10,9 +10,12 @@ struct TradingTests {
     }
 
     static func main() async throws {
-        check(LiveActivityLayout(hasMedia: true, hasAgents: true, hasHUD: false, hasTrading: true, agentNeedsAttention: false) == .trading, "pinned crypto wins over ordinary activity")
-        check(LiveActivityLayout(hasMedia: true, hasAgents: true, hasHUD: true, hasTrading: true, agentNeedsAttention: true) == .systemHUD, "HUD wins over crypto")
-        check(LiveActivityLayout(hasMedia: true, hasAgents: true, hasHUD: false, hasTrading: true, agentNeedsAttention: true) == .agentsOnly, "agent attention wins over crypto")
+        check(LiveActivityLayout(hasMedia: true, hasAgents: true, hasHUD: false, hasTrading: true) == .trading, "pinned crypto wins over ordinary activity")
+        check(LiveActivityLayout(hasMedia: true, hasAgents: true, hasHUD: true, hasTrading: true, hasFocus: true) == .systemHUD, "HUD wins over crypto")
+        check(LiveActivityLayout(hasMedia: true, hasAgents: true, hasHUD: false, hasTrading: true, hasFocus: true) == .trading, "pinned crypto wins over agents and focus")
+        check(LiveActivityLayout(hasMedia: true, hasAgents: true, hasHUD: false, hasFocus: true) == .focusWithAgents, "focus with agents drops media")
+        check(LiveActivityLayout(hasMedia: true, hasAgents: false, hasHUD: false, hasFocus: true) == .focusWithMedia, "focus with media keeps the artwork")
+        check(LiveActivityLayout(hasMedia: false, hasAgents: false, hasHUD: false, hasFocus: true) == .focus, "focus alone shows its mascot")
 
         let btc = TradingInstrument(provider: "binance", symbol: "BTC/USDT", name: "Bitcoin", exchange: "Binance", mic: "", currency: "USDT", assetClass: .crypto)
         let eth = TradingInstrument(provider: "binance", symbol: "ETH/USDT", name: "Ethereum", exchange: "Binance", mic: "", currency: "USDT", assetClass: .crypto)
