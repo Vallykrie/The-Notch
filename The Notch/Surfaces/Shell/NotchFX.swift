@@ -776,7 +776,7 @@ final class NotchFX {
                     layer.fill(path, with: .color(.black))
                 case .white:
                     layer.fill(path, with: .color(.white))
-                case let .accent(color):
+                case let .accent(color), let .flat(color):
                     layer.fill(path, with: .color(color))
                 }
                 if flash > 0 {

@@ -12,6 +12,7 @@ struct NotchRootView: View {
     @ObservedObject private var trading: TradingStore
     @ObservedObject private var calendar: CalendarStore
     @ObservedObject private var notes: NotesStore
+    @ObservedObject private var focus: FocusTimer
     @ObservedObject private var lyrics: LyricsController
     private let services: SystemServices
     @Namespace private var contentNamespace
@@ -66,6 +67,9 @@ struct NotchRootView: View {
     @State private var choreography: Task<Void, Never>?
     @State private var nudger: Task<Void, Never>?
     @State private var onboarding: OnboardingDirector?
+    /// A focus round ended while an agent's prompt had the panel. Shown once the prompt is dealt
+    /// with: blocking an agent costs more than a late "time for a break".
+    @State private var pendingRoundEnd: FocusTimer.Ended?
 
     /// `debugShowsSettings` is for `FrameDump` and nothing else. The settings surface is local
     /// view state by design (see `isShowingSettings`), and `ImageRenderer` cannot press a
@@ -87,6 +91,7 @@ struct NotchRootView: View {
         _trading = ObservedObject(wrappedValue: services.trading)
         _calendar = ObservedObject(wrappedValue: services.calendar)
         _notes = ObservedObject(wrappedValue: services.notes)
+        _focus = ObservedObject(wrappedValue: services.focus)
         _lyrics = ObservedObject(wrappedValue: services.lyrics)
         _animatedCollapsedSize = State(initialValue: coordinator.collapsedSize)
         _isShowingSettings = State(initialValue: debugShowsSettings)
@@ -224,6 +229,16 @@ struct NotchRootView: View {
             .onChange(of: pillLine) { old, new in updatePill(from: old, to: new) }
             .onReceive(coordinator.$attentionCue.compactMap { $0 }) { cue in handleAttention(cue) }
             .onReceive(coordinator.$onboardingRequest.compactMap { $0 }) { _ in beginOnboarding() }
+            .onChange(of: focus.run) { _, _ in refreshActivity() }
+            .onChange(of: focus.lastEnded) { _, ended in
+                if let ended { focusPhaseEnded(ended) }
+            }
+            .onChange(of: store.pendingApprovals.isEmpty) { _, isEmpty in
+                if isEmpty, let ended = pendingRoundEnd {
+                    pendingRoundEnd = nil
+                    focusPhaseEnded(ended, chime: false)
+                }
+            }
     }
 
     private func observingActivity(_ content: some View) -> some View {
@@ -428,6 +443,7 @@ struct NotchRootView: View {
             nowPlaying: nowPlaying,
             store: store,
             trading: trading,
+            focus: focus,
             hudEvent: systemHUD.event
         )
     }
@@ -499,6 +515,8 @@ struct NotchRootView: View {
                         }
                     case .calendar:
                         CalendarExpandedView(store: calendar)
+                    case .focus:
+                        FocusExpandedView(timer: focus)
                     case .notes:
                         NotesExpandedView(
                             notes: notes,
@@ -618,6 +636,9 @@ struct NotchRootView: View {
         if notes.pages.contains(where: { !$0.isEmpty }) {
             surfaces.insert(.notes)
         }
+        if focus.isActive {
+            surfaces.insert(.focus)
+        }
         if settings.showsMedia(nowPlaying.status) {
             surfaces.insert(.media)
         }
@@ -640,7 +661,7 @@ struct NotchRootView: View {
             )
             coordinator.hasSystemHUD = settings.replaceSystemHUD && systemHUD.event != nil
             coordinator.hasTradingActivity = settings.cryptoEnabled && trading.wantsShoulder
-            coordinator.agentNeedsAttention = !store.pendingApprovals.isEmpty || store.sessions.contains { $0.status.demandsAttention }
+            coordinator.hasFocusActivity = settings.showsFocus(isActive: focus.isActive)
             animatedCollapsedSize = coordinator.collapsedSize
             fx.setCollapsedSize(coordinator.collapsedSize, animated: animated)
         }
@@ -751,6 +772,8 @@ struct NotchRootView: View {
 enum Takeover: Equatable {
     case approval
     case question
+    /// A focus round ended: the Focus tab, with the mascot cheering, for a few seconds.
+    case focusRound
 }
 
 extension NotchRootView {
@@ -886,6 +909,44 @@ extension NotchRootView {
             try? await Task.sleep(for: attention.breathHold)
             guard !Task.isCancelled else { return }
             withAnimation(Theme.Motion.breathIn) { flex = .zero }
+        }
+    }
+
+    // MARK: Focus
+
+    /// A phase ran out. The chime always (if it is on); the notch drops open on the Focus tab
+    /// when a round ends, or when a break ends and the next round is waiting to be started —
+    /// the two moments the user has something to do. A break that just rolls into the next
+    /// round only chimes.
+    ///
+    /// It never pushes an agent's prompt aside. If one is up, the card waits for it.
+    func focusPhaseEnded(_ ended: FocusTimer.Ended, chime: Bool = true) {
+        guard settings.focusEnabled, !coordinator.isOnboarding else { return }
+        if chime, settings.focusChime { SoundEffects.shared.play(.focusPhaseEnded) }
+        guard ended.phase == .focus || focus.run == .waiting else { return }
+        let tint = ended.phase == .focus ? Theme.Colors.Focus.focus : Theme.Colors.Focus.rest
+
+        if !store.pendingApprovals.isEmpty || takeover == .approval || takeover == .question {
+            pendingRoundEnd = ended
+            return
+        }
+        guard coordinator.state == .collapsed else {
+            // Already open: a sweep of the rim, and nothing moves under the pointer.
+            if !reduceMotion { fx.rim(tint, mode: .sweep) }
+            return
+        }
+
+        takeover = .focusRound
+        choreography?.cancel()
+        choreography = Task { @MainActor in
+            coordinator.show(.focus)
+            change(to: .expanded, with: Theme.Motion.open)
+            if !reduceMotion { fx.rim(tint, mode: .sweep) }
+            try? await Task.sleep(for: .seconds(Theme.Motion.Focus.roundEndCard))
+            guard !Task.isCancelled, takeover == .focusRound, coordinator.state == .expanded,
+                  !coordinator.pointerIsInsideLiveRegion, !coordinator.isPinnedOpen else { return }
+            takeover = nil
+            change(to: .collapsed, with: Theme.Motion.homecoming)
         }
     }
 

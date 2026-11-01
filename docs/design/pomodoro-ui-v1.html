@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Focus Timer Concepts</title>
+<style>
+@font-face{font-family:'Departure';src:url('../../The%20Notch/Resources/Fonts/DepartureMono-Regular.otf') format('opentype')}
+:root{
+  --bg:#07070a; --line:#22222a; --text:#ecece4; --muted:#8a8a94; --amber:#ffaa1e;
+  --px:'Departure', ui-monospace, 'SF Mono', Menlo, monospace;
+  --t1:#fff; --t2:rgba(255,255,255,.62); --t3:rgba(255,255,255,.38); --live:#5fd17a;
+  --tom:#ff6a4d; --brk:#5fd17a;
+  --z:1.5;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:13px/1.55 var(--px)}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 16px 80px}
+h1{font:400 24px/1.1 var(--px);margin:0 0 8px;letter-spacing:.5px}
+.sub{color:var(--muted);margin:0 0 20px;max-width:840px}
+.bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;position:sticky;top:0;background:var(--bg);padding:10px 0;z-index:5;border-bottom:1px solid var(--line);margin-bottom:26px}
+.bar .lab{color:var(--muted);margin:0 4px 0 10px}
+.bar .lab:first-child{margin-left:0}
+.bar a,.chip{font:400 12px var(--px);background:#0e0e12;color:var(--muted);border:1px solid var(--line);padding:7px 10px;border-radius:3px;cursor:pointer;text-decoration:none}
+.bar a:hover,.chip:hover{border-color:var(--muted);color:var(--text)}
+.chip[aria-pressed=true]{color:#000;background:var(--text);border-color:var(--text)}
+section{margin:0 0 54px}
+section h2{font:400 16px var(--px);margin:0 0 4px;letter-spacing:.5px}
+section h2 .rec{color:var(--amber);font-size:12px;margin-left:8px}
+section .pitch{color:var(--muted);margin:0 0 14px;max-width:840px}
+.stage{background:#5a5a60;border-radius:8px;padding:0 0 28px;overflow-x:auto;display:flex;gap:28px;justify-content:center}
+.notes{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:12px;font-size:12px;color:var(--muted)}
+.notes b{color:var(--text);font-weight:400;display:block;margin-bottom:2px}
+@media (max-width:700px){.notes{grid-template-columns:1fr}}
+
+/* ---------- the panel, 1px = 1pt ---------- */
+.panel{zoom:var(--z);width:640px;height:190px;background:#000;border-radius:0 0 30px 30px;position:relative;color:var(--t1);font-family:var(--px);overflow:hidden;flex:none;box-shadow:0 18px 40px rgba(0,0,0,.45)}
+.housing{position:absolute;top:0;left:227px;width:186px;height:32px;border-radius:0 0 11px 11px;background:repeating-linear-gradient(45deg,rgba(255,93,108,.22) 0 3px,transparent 3px 6px);outline:1px dashed rgba(255,93,108,.55);outline-offset:-1px;pointer-events:none;display:none;z-index:9}
+body.show-housing .housing{display:block}
+.hd{position:absolute;top:6px;left:28px;right:28px;height:26px;display:flex;align-items:center;justify-content:space-between}
+.tabs{display:inline-flex;gap:3px;padding:3px;background:rgba(255,255,255,.06);border-radius:8px}
+.tabs span{height:20px;min-width:20px;display:inline-flex;align-items:center;justify-content:center;gap:3px;padding:0 3px;font-size:8px;color:var(--t3);border-radius:5px}
+.tabs span.on{background:rgba(255,255,255,.14);color:var(--t1);padding:0 5px}
+.tabs i{width:8px;height:8px;border-radius:2px;background:var(--t3);display:inline-block}
+.gear{width:12px;height:12px;border-radius:3px;border:3px solid var(--t2);margin-right:5px}
+.bd{position:absolute;top:42px;left:34px;right:34px;bottom:18px}
+
+.micro{font-size:8px;line-height:10px}
+.cap{font-size:9px;line-height:12px}
+.bod{font-size:11px;line-height:14px}
+.t2{color:var(--t2)} .t3{color:var(--t3)} .tomc{color:var(--tom)} .brkc{color:var(--brk)}
+.up{text-transform:uppercase;letter-spacing:.04em}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:4px;height:18px;padding:0 8px;font-size:9px;border-radius:5px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.14);color:var(--t1);white-space:nowrap;font-family:var(--px);cursor:pointer;user-select:none}
+.btn:hover{background:rgba(255,255,255,.16)}
+.btn.pri{background:var(--t1);color:#000;border-color:var(--t1)}
+.btn.sm{height:14px;padding:0 5px;font-size:8px;border-radius:4px}
+.kbd{font-size:8px;color:var(--t3);border:1px solid rgba(255,255,255,.18);border-radius:3px;padding:0 3px;line-height:10px}
+.btn.pri .kbd{color:rgba(0,0,0,.5);border-color:rgba(0,0,0,.25)}
+.sprite{display:block;image-rendering:pixelated;flex:none}
+.pdots{display:flex;gap:3px}
+.pdots b{width:6px;height:6px;border-radius:1px;background:rgba(255,255,255,.14)}
+.pdots b.done{background:var(--tom)}
+.pdots b.cur{background:transparent;box-shadow:inset 0 0 0 1px var(--tom)}
+.presets{display:flex;gap:4px}
+.presets span{font-size:8px;line-height:13px;padding:0 5px;border-radius:3px;color:var(--t3);background:rgba(255,255,255,.05);cursor:pointer}
+.presets span.on{color:var(--t1);background:rgba(255,255,255,.14)}
+
+/* ---------- A · Ring ---------- */
+.a-ring{position:absolute;left:6px;top:0;width:128px;height:128px}
+.a-ring svg{width:128px;height:128px;transform:rotate(-90deg)}
+.a-ring .mid{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.a-ring .tm{font-size:26px;line-height:28px;letter-spacing:.5px}
+.a-side{position:absolute;left:166px;right:0;top:4px;bottom:0}
+.a-side .ph{font-size:13px;line-height:16px}
+.a-ctrl{position:absolute;left:0;bottom:0;display:flex;gap:6px;align-items:center}
+
+/* ---------- B · Big clock ---------- */
+.b-tm{position:absolute;left:0;top:-4px;font-size:64px;line-height:68px;letter-spacing:1px}
+.b-tm .col{opacity:1}
+.b-tm.paused .col{opacity:.25}
+.b-meta{position:absolute;left:2px;top:68px;display:flex;align-items:center;gap:8px}
+.b-cells{position:absolute;left:0;right:0;top:92px;height:8px;display:flex;gap:2px}
+.b-cells b{flex:1;border-radius:1px;background:rgba(255,255,255,.1)}
+.b-cells b.f{background:var(--tom)}
+.b-cells.brk b.f{background:var(--brk)}
+.b-right{position:absolute;right:0;top:4px;width:200px;display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.b-task{width:200px;height:20px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:5px;color:var(--t1);font:9px var(--px);padding:0 6px;outline:none;caret-color:var(--amber)}
+.b-task::placeholder{color:var(--t3)}
+.b-foot{position:absolute;left:0;right:0;bottom:0;height:18px;display:flex;align-items:center;gap:8px}
+.b-foot .sp{flex:1}
+
+/* ---------- C · Day strip ---------- */
+.c-top{position:absolute;left:0;right:0;top:0;height:40px;display:flex;align-items:flex-end;gap:12px}
+.c-top .tm{font-size:34px;line-height:36px}
+.c-strip{position:absolute;left:0;right:0;top:56px;height:30px}
+.c-strip .row{position:absolute;left:0;right:0;top:0;height:14px;display:flex;gap:2px}
+.c-strip .seg{height:14px;border-radius:2px;background:rgba(255,255,255,.08);position:relative;overflow:hidden}
+.c-strip .seg.f{background:rgba(255,106,77,.18)} .c-strip .seg.b{background:rgba(95,209,122,.16)}
+.c-strip .seg i{position:absolute;left:0;top:0;bottom:0;width:0}
+.c-strip .seg.f i{background:var(--tom)} .c-strip .seg.b i{background:var(--brk)}
+.c-strip .lbls{position:absolute;left:0;right:0;top:17px;display:flex;justify-content:space-between}
+.c-guard{position:absolute;left:0;bottom:22px;display:flex;align-items:center;gap:6px}
+.sw{position:relative;width:20px;height:11px;border-radius:6px;background:rgba(255,255,255,.14);flex:none;cursor:pointer}
+.sw i{position:absolute;left:1px;top:1px;width:9px;height:9px;border-radius:5px;background:#fff;transition:left .2s}
+.sw.on{background:var(--live)} .sw.on i{left:10px}
+.c-foot{position:absolute;left:0;right:0;bottom:0;height:18px;display:flex;align-items:center;gap:8px}
+.c-foot .sp{flex:1}
+
+/* ---------- collapsed ---------- */
+.flow{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:6px}
+.flow .st{background:#5a5a60;border-radius:8px;padding:0 0 16px;display:flex;flex-direction:column;align-items:center;gap:10px;overflow:hidden}
+.flow .st p{margin:0;padding:0 14px;font-size:11px;color:#eee;text-align:center}
+@media (max-width:900px){.flow{grid-template-columns:1fr}}
+.mini{zoom:1.4;height:32px;width:280px;max-width:calc(100% / 1.4 - 10px);background:#000;border-radius:0 0 12px 12px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;color:var(--t1);font-family:var(--px);flex:none;position:relative;overflow:hidden}
+.mini .cam{position:absolute;left:50%;transform:translateX(-50%);top:0;width:150px;height:32px;background:repeating-linear-gradient(45deg,rgba(255,93,108,.22) 0 3px,transparent 3px 6px)}
+.mini .tm{font-size:11px}
+.mini .line{position:absolute;left:12px;right:12px;bottom:2px;height:2px;background:rgba(255,255,255,.1);border-radius:1px}
+.mini .line i{position:absolute;left:0;top:0;bottom:0;background:var(--tom);border-radius:1px}
+.alert{zoom:1.2;width:280px;max-width:calc(100% / 1.2 - 10px);height:70px;background:#000;border-radius:0 0 18px 18px;position:relative;color:var(--t1);font-family:var(--px);overflow:hidden}
+.alert .cam{position:absolute;left:50%;transform:translateX(-50%);top:0;width:150px;height:32px;background:repeating-linear-gradient(45deg,rgba(255,93,108,.22) 0 3px,transparent 3px 6px)}
+.alert .body{position:absolute;left:14px;right:14px;bottom:10px;display:flex;align-items:center;gap:8px}
+.alert .body .sp{flex:1}
+.pulse{animation:pu 1.2s ease-in-out infinite}
+@keyframes pu{50%{opacity:.35}}
+
+/* ---------- settings ---------- */
+.set .rail{position:absolute;left:0;top:-4px;width:84px;display:flex;flex-direction:column;gap:0}
+.set .rail span{height:16px;line-height:16px;font-size:8.5px;color:var(--t3);padding:0 6px;border-radius:5px;display:flex;align-items:center;gap:5px}
+.set .rail span.on{background:rgba(255,255,255,.14);color:var(--t1)}
+.set .rail span em{font-style:normal;font-size:7px;color:#000;background:var(--amber);border-radius:2px;padding:0 2px;line-height:9px}
+.set .body{position:absolute;left:98px;right:0;top:-4px;bottom:0;display:grid;grid-template-columns:1fr 1fr;column-gap:16px;align-content:start}
+.set .r{display:flex;align-items:center;gap:6px;height:19px;font-size:9.5px;color:var(--t2)}
+.set .r .l{flex:1;white-space:nowrap}
+.set .r.master{grid-column:1 / span 2;background:rgba(255,255,255,.08);border-radius:5px;padding:0 6px;color:var(--t1);height:22px;margin-bottom:4px}
+.set .r .stp{display:flex;align-items:center;gap:3px;font-size:9px;color:var(--t1)}
+.set .r .stp b{font-weight:400;width:12px;height:12px;line-height:11px;text-align:center;border-radius:3px;background:rgba(255,255,255,.1);color:var(--t2);cursor:pointer;user-select:none}
+.set .body.off .r:not(.master){opacity:.12;filter:blur(.6px);pointer-events:none}
+</style>
+</head>
+<body class="show-housing">
+<div class="wrap">
+  <h1>Focus timer (Pomodoro) · three directions</h1>
+  <p class="sub">A sixth, opt-in feature: a Pomodoro timer that lives in the notch. It is <b>off by default</b>, so a fresh install or an upgrade never shows the tab until it's switched on in Settings → Focus. Each panel is the real 640 × 190 pt panel at 1 px = 1 pt. <b>All three timers are live and share one clock</b>: press Start in any of them, and use the Speed chip to run 60× faster. The red hatching is the camera housing.</p>
+
+  <div class="bar">
+    <span class="lab">Jump</span>
+    <a href="#a">A Ring</a><a href="#b">B Big clock</a><a href="#c">C Day strip</a><a href="#flow">On the notch</a><a href="#set">Settings</a>
+    <span class="lab">Speed</span>
+    <button class="chip" data-sp="1" aria-pressed="true">1×</button><button class="chip" data-sp="60">60×</button>
+    <span class="lab">Zoom</span>
+    <button class="chip" data-z="1">1×</button><button class="chip" data-z="1.5" aria-pressed="true">1.5×</button><button class="chip" data-z="2">2×</button>
+  </div>
+
+  <!-- ================= A ================= -->
+  <section id="a">
+    <h2>A · Ring</h2>
+    <p class="pitch">The classic face: a ring made of 48 pixel ticks drains as the minutes go, time in the middle. To the right, which phase you're in, where you are in the set of four, presets, and the controls. Familiar to anyone who has used a Pomodoro app.</p>
+    <div class="stage"><div class="panel">
+      <div class="housing"></div>
+      <div class="hd">
+        <div class="tabs"><span><i></i></span><span><i></i></span><span><i></i></span><span class="on" data-tab><canvas class="sprite tsp" width="9" height="9" style="width:9px;height:9px"></canvas>Focus</span></div>
+        <div class="gear"></div>
+      </div>
+      <div class="bd">
+        <div class="a-ring">
+          <svg viewBox="0 0 128 128"><g id="ticks"></g></svg>
+          <div class="mid"><span class="tm" data-time>25:00</span><span class="micro t3 up" data-state>ready</span></div>
+        </div>
+        <div class="a-side">
+          <div class="ph" data-phase>Focus</div>
+          <div class="cap t3" style="margin:3px 0 10px">Round <span data-round>1</span> of 4 · long break after the 4th</div>
+          <div class="pdots" data-dots></div>
+          <div class="micro t3 up" style="margin:14px 0 4px">Length</div>
+          <div class="presets" data-presets><span class="on" data-p="25,5">25 / 5</span><span data-p="50,10">50 / 10</span><span data-p="15,3">15 / 3</span></div>
+          <div class="a-ctrl">
+            <span class="btn pri" data-go style="width:74px">Start <span class="kbd">␣</span></span>
+            <span class="btn" data-skip>Skip</span>
+            <span class="btn" data-reset>Reset</span>
+            <span class="micro t3" style="margin-left:6px">today · <span data-today>3</span> 🍅</span>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <div class="notes">
+      <div><b>Why it might win</b>Reads instantly as "a timer". The ring is the one thing that moves, so it's calm. Everything fits without crowding.</div>
+      <div><b>Where it falls short</b>The ring leaves the right two-thirds of a wide panel doing little. Most generic of the three — it looks like every timer app.</div>
+    </div>
+  </section>
+
+  <!-- ================= B ================= -->
+  <section id="b">
+    <h2>B · Big clock <span class="rec">recommended</span></h2>
+    <p class="pitch">The time is the interface: a 64 pt Departure Mono countdown you can read from across the desk, a row of 25 cells beneath it (one per minute, fills as you go), and an optional "working on" line so the panel says <i>what</i> you're focusing on. The colon dims while paused. It uses the panel's width the way the Media tab does.</p>
+    <div class="stage"><div class="panel">
+      <div class="housing"></div>
+      <div class="hd">
+        <div class="tabs"><span><i></i></span><span><i></i></span><span><i></i></span><span class="on" data-tab><canvas class="sprite tsp" width="9" height="9" style="width:9px;height:9px"></canvas>Focus</span></div>
+        <div class="gear"></div>
+      </div>
+      <div class="bd">
+        <div class="b-tm paused" data-big>25<span class="col">:</span>00</div>
+        <div class="b-meta"><span class="cap" data-phase>Focus</span><span class="cap t3">· round <span data-round>1</span>/4</span><div class="pdots" data-dots></div></div>
+        <div class="b-cells" data-cells></div>
+        <div class="b-right">
+          <input class="b-task" spellcheck="false" placeholder="Working on… (optional)" value="Pomodoro settings section">
+          <div class="presets" data-presets><span class="on" data-p="25,5">25 / 5</span><span data-p="50,10">50 / 10</span><span data-p="15,3">15 / 3</span></div>
+        </div>
+        <div class="b-foot">
+          <span class="micro t3"><span data-today>3</span> done today · next: <span data-next>5 min break</span></span>
+          <span class="sp"></span>
+          <span class="btn sm" data-reset>Reset</span>
+          <span class="btn sm" data-skip>Skip</span>
+          <span class="btn pri" data-go style="width:70px">Start <span class="kbd">␣</span></span>
+        </div>
+      </div>
+    </div></div>
+    <div class="notes">
+      <div><b>Why it might win</b>Glanceable at any zoom, no chart to decode. The "working on" line is the cheapest possible focus aid, and it shows up again in the collapsed notch. Cells give a sense of progress without a ring.</div>
+      <div><b>Where it falls short</b>The cell row is a fixed count, so a 50-minute focus shows 50 thin cells (still fine at 572 pt wide). Less "cute" than A.</div>
+    </div>
+  </section>
+
+  <!-- ================= C ================= -->
+  <section id="c">
+    <h2>C · Day strip + focus guard</h2>
+    <p class="pitch">The whole set laid out as one strip: focus, break, focus, break … long break, with the current block filling. Adds the one thing a notch timer can do that a phone timer can't: <b>Hold popups while focusing</b>, which keeps lyrics, media changes and finished-agent celebrations quiet until the break. Approvals and questions from agents still come through, because those block your work.</p>
+    <div class="stage"><div class="panel">
+      <div class="housing"></div>
+      <div class="hd">
+        <div class="tabs"><span><i></i></span><span><i></i></span><span><i></i></span><span class="on" data-tab><canvas class="sprite tsp" width="9" height="9" style="width:9px;height:9px"></canvas>Focus</span></div>
+        <div class="gear"></div>
+      </div>
+      <div class="bd">
+        <div class="c-top">
+          <span class="tm" data-time>25:00</span>
+          <span class="bod" style="padding-bottom:5px"><span data-phase>Focus</span> <span class="t3">· round <span data-round>1</span>/4</span></span>
+        </div>
+        <div class="c-strip"><div class="row" data-strip></div><div class="lbls micro t3"><span>start</span><span data-endsat>ends ≈ 11:42</span></div></div>
+        <div class="c-guard"><span class="sw on" id="guard"><i></i></span><span class="cap">Hold popups while focusing</span><span class="micro t3">approvals still come through</span></div>
+        <div class="c-foot">
+          <span class="micro t3"><span data-today>3</span> done today</span>
+          <span class="sp"></span>
+          <span class="btn sm" data-reset>Reset</span>
+          <span class="btn sm" data-skip>Skip</span>
+          <span class="btn pri" data-go style="width:70px">Start <span class="kbd">␣</span></span>
+        </div>
+      </div>
+    </div></div>
+    <div class="notes">
+      <div><b>Why it might win</b>Shows the shape of the next two hours, and "Hold popups" makes it a real focus mode instead of just a clock. Uniquely a notch idea.</div>
+      <div><b>Where it falls short</b>Most to build: the guard touches the media, lyrics and agent-celebration paths. The time is smaller than B. The guard could also be added to A or B later as a setting.</div>
+    </div>
+  </section>
+
+  <!-- ================= collapsed ================= -->
+  <section id="flow">
+    <h2>On the notch (shared by A, B, C)</h2>
+    <p class="pitch">While a timer runs and the panel is closed, the notch wings show it, the same way Media and Agents show their live activity. When a phase ends, the notch drops open briefly with one button for the next step, and a soft chime plays (can be turned off).</p>
+    <div class="flow">
+      <div class="st">
+        <div class="mini"><div class="cam"></div><canvas class="sprite tsp" width="9" height="9" style="width:9px;height:9px"></canvas><span class="tm" data-time>25:00</span><div class="line"><i data-line style="width:0"></i></div></div>
+        <p>Running: tomato on the left wing, countdown on the right, a 2 pt progress line along the bottom edge. Green tomato and line during a break.</p>
+      </div>
+      <div class="st">
+        <div class="mini"><div class="cam"></div><canvas class="sprite tsp" width="9" height="9" style="width:9px;height:9px;opacity:.4"></canvas><span class="tm t3 pulse" data-time>25:00</span></div>
+        <p>Paused: the time stays but blinks slowly at 35%, so a forgotten pause is noticeable without nagging.</p>
+      </div>
+      <div class="st">
+        <div class="alert"><div class="cam"></div><div class="body"><canvas class="sprite tsp-b" width="9" height="9" style="width:9px;height:9px"></canvas><span class="cap" style="white-space:nowrap">Focus done</span><span class="sp"></span><span class="btn sm pri">Start break</span></div></div>
+        <p>Phase end: drops open for 6 s. With "Auto-start breaks" on, the break just starts and this shows "Break started".</p>
+      </div>
+    </div>
+    <div class="notes">
+      <div><b>Priority</b>An agent approval/question always wins the notch over the timer; the timer comes back in the wings afterwards. Media and the timer share the wings by whichever changed last, like Media and Crypto do today.</div>
+      <div><b>Keyboard</b>Space starts/pauses while the Focus tab is open. No global hotkey in v1.</div>
+    </div>
+  </section>
+
+  <!-- ================= settings ================= -->
+  <section id="set">
+    <h2>Settings → Focus (off by default)</h2>
+    <p class="pitch">A new "Focus" entry in the settings rail, below Notes. The section is headed by its on/off switch like every feature section; while it's off, the rows are dimmed and the Focus tab doesn't exist. <b>Flip the switch</b> to see it come alive. Eight rail entries at 16 pt fit the panel height.</p>
+    <div class="stage"><div class="panel">
+      <div class="housing"></div>
+      <div class="hd">
+        <div class="tabs"><span class="t2" style="font-size:8px;padding:0 6px">Restore defaults</span></div>
+        <div class="gear"></div>
+      </div>
+      <div class="bd set">
+        <div class="rail"><span>Media</span><span>Agents</span><span>Crypto</span><span>Calendar</span><span>Notes</span><span class="on">Focus <em>NEW</em></span><span>Display</span><span>General</span></div>
+        <div class="body off" id="setBody">
+          <div class="r master"><span class="l">Focus timer</span><span class="sw" id="master"><i></i></span></div>
+          <div class="r"><span class="l">Focus</span><span class="stp"><b>−</b>25 min<b>+</b></span></div>
+          <div class="r"><span class="l">Auto-start breaks</span><span class="sw on"><i></i></span></div>
+          <div class="r"><span class="l">Short break</span><span class="stp"><b>−</b>5 min<b>+</b></span></div>
+          <div class="r"><span class="l">Auto-start focus</span><span class="sw"><i></i></span></div>
+          <div class="r"><span class="l">Long break</span><span class="stp"><b>−</b>15 min<b>+</b></span></div>
+          <div class="r"><span class="l">Chime at phase end</span><span class="sw on"><i></i></span></div>
+          <div class="r"><span class="l">Long break every</span><span class="stp"><b>−</b>4<b>+</b></span></div>
+          <div class="r"><span class="l">Show on notch</span><span class="sw on"><i></i></span></div>
+        </div>
+      </div>
+    </div></div>
+    <div class="notes">
+      <div><b>Defaults</b>Feature off. Once on: 25 / 5 / 15, long break every 4, auto-start breaks on, auto-start focus off, chime on, countdown on the notch on. (C would add "Hold popups while focusing", default on.)</div>
+      <div><b>Persistence</b>A running timer survives the panel closing and the Mac sleeping (it's stored as an end date, not a tick count). Quitting the app stops it. "Done today" resets at midnight.</div>
+    </div>
+  </section>
+</div>
+
+<script>
+// ---------- pixel tomato ----------
+const TOM = ["....G....","..GGGGG..",".RRRGRRR.","RRRRRRRRR","RRRRRRRRR","RRRRRRRRR","RRRRRRRRR",".RRRRRRR.","..RRRRR.."];
+function paint(cv, red){ const c=cv.getContext('2d'); c.clearRect(0,0,9,9);
+  TOM.forEach((row,y)=>[...row].forEach((ch,x)=>{ if(ch==='.')return; c.fillStyle = ch==='G' ? '#5fd17a' : red; c.fillRect(x,y,1,1); })); }
+
+// ---------- one shared clock ----------
+const S = { focus:25, brk:5, long:15, phase:'focus', round:1, running:false, left:25*60, total:25*60, today:3, speed:1 };
+const phaseLen = p => (p==='focus'?S.focus:p==='long'?S.long:S.brk)*60;
+function skip(){
+  if (S.phase==='focus'){ S.today++; S.phase = S.round===4 ? 'long' : 'brk'; }
+  else { if (S.phase==='long') S.round=1; else S.round++; S.phase='focus'; }
+  S.total = S.left = phaseLen(S.phase); render();
+}
+const fmt = s => { s=Math.max(0,Math.ceil(s)); return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); };
+const $$ = q => document.querySelectorAll(q);
+
+// ring ticks
+const g=document.getElementById('ticks'); const N=48;
+for(let i=0;i<N;i++){ const a=i/N*2*Math.PI; const r1=56,r2=63; const x=64+Math.cos(a)*r1, y=64+Math.sin(a)*r1;
+  const r=document.createElementNS('http://www.w3.org/2000/svg','rect'); r.setAttribute('x',x-2); r.setAttribute('y',y-2); r.setAttribute('width',4); r.setAttribute('height',4); r.setAttribute('rx',.6); g.appendChild(r); }
+
+function render(){
+  const color = S.phase==='focus' ? '#ff6a4d' : '#5fd17a';
+  const frac = 1 - S.left/S.total;
+  const label = S.phase==='focus' ? 'Focus' : S.phase==='long' ? 'Long break' : 'Short break';
+  $$('[data-time]').forEach(e=>e.textContent=fmt(S.left));
+  $$('[data-phase]').forEach(e=>{ e.textContent=label; e.style.color=color; });
+  $$('[data-round]').forEach(e=>e.textContent=S.round);
+  $$('[data-today]').forEach(e=>e.textContent=S.today);
+  $$('[data-state]').forEach(e=>e.textContent=S.running?'':(S.left===S.total?'ready':'paused'));
+  $$('[data-next]').forEach(e=>e.textContent= S.phase==='focus' ? (S.round===4?S.long+' min long break':S.brk+' min break') : 'focus');
+  $$('[data-go]').forEach(e=>e.innerHTML=(S.running?'Pause':(S.left===S.total?'Start':'Resume'))+' <span class="kbd">␣</span>');
+  $$('[data-dots]').forEach(e=>e.innerHTML=[1,2,3,4].map(i=>`<b class="${i<S.round||(i===S.round&&S.phase!=='focus')?'done':i===S.round?'cur':''}"></b>`).join(''));
+  // ring
+  [...g.children].forEach((r,i)=>r.setAttribute('fill', i < Math.round((1-frac)*N) ? color : 'rgba(255,255,255,.12)'));
+  // big clock
+  const big=document.querySelector('[data-big]'); const t=fmt(S.left).split(':');
+  big.innerHTML=`${t[0]}<span class="col">:</span>${t[1]}`; big.classList.toggle('paused',!S.running); big.style.color = S.phase==='focus' ? '#fff' : '#5fd17a';
+  const cells=document.querySelector('[data-cells]'); const n=Math.round(S.total/60);
+  if (cells.children.length!==n) cells.innerHTML='<b></b>'.repeat(n);
+  [...cells.children].forEach((c,i)=>c.classList.toggle('f', i < Math.floor(frac*n+1e-9)));
+  cells.classList.toggle('brk', S.phase!=='focus');
+  // strip
+  const plan=[]; for(let r=1;r<=4;r++){ plan.push(['focus',r]); plan.push([r===4?'long':'brk',r]); }
+  const strip=document.querySelector('[data-strip]');
+  const cur = plan.findIndex(([p,r])=>r===S.round && (p==='focus') === (S.phase==='focus'));
+  strip.innerHTML = plan.map(([p,r],i)=>{ const len=phaseLen(p); const w = i<cur?100: i===cur? frac*100 : 0;
+    return `<div class="seg ${p==='focus'?'f':'b'}" style="flex:${len}"><i style="width:${w}%"></i></div>`; }).join('');
+  let rest = S.left; plan.slice(cur+1).forEach(([p])=>rest+=phaseLen(p));
+  const end=new Date(Date.now()+rest*1000); document.querySelector('[data-endsat]').textContent='set ends ≈ '+end.toTimeString().slice(0,5);
+  // collapsed
+  $$('.tsp').forEach(cv=>paint(cv, S.phase==='focus'?'#ff6a4d':'#5fd17a'));
+  $$('[data-line]').forEach(e=>{ e.style.width=(frac*100)+'%'; e.style.background=color; });
+}
+$$('.tsp-b').forEach(cv=>paint(cv,'#ff6a4d'));
+
+let last=performance.now();
+function tick(now){ const dt=(now-last)/1000; last=now;
+  if (S.running){ S.left -= dt*S.speed; if (S.left<=0){ skip(); } render(); }
+  requestAnimationFrame(tick); }
+requestAnimationFrame(tick);
+
+$$('[data-go]').forEach(b=>b.onclick=()=>{ S.running=!S.running; render(); });
+$$('[data-skip]').forEach(b=>b.onclick=()=>skip());
+$$('[data-reset]').forEach(b=>b.onclick=()=>{ S.running=false; S.left=S.total; render(); });
+$$('[data-presets] span').forEach(b=>b.onclick=()=>{ const [f,br]=b.dataset.p.split(',').map(Number); S.focus=f; S.brk=br; S.long=f>=50?20:15;
+  $$('[data-presets] span').forEach(x=>x.classList.toggle('on', x.dataset.p===b.dataset.p)); S.running=false; S.phase='focus'; S.round=1; S.total=S.left=phaseLen('focus'); render(); });
+document.addEventListener('keydown',e=>{ if(e.code==='Space' && e.target.tagName!=='INPUT'){ e.preventDefault(); S.running=!S.running; render(); }});
+
+$$('[data-sp]').forEach(b=>b.onclick=()=>{ S.speed=+b.dataset.sp; $$('[data-sp]').forEach(x=>x.setAttribute('aria-pressed', x===b)); });
+$$('[data-z]').forEach(b=>b.onclick=()=>{ document.documentElement.style.setProperty('--z', b.dataset.z); $$('[data-z]').forEach(x=>x.setAttribute('aria-pressed', x===b)); });
+document.getElementById('guard').onclick=e=>e.currentTarget.classList.toggle('on');
+document.getElementById('master').onclick=e=>{ e.currentTarget.classList.toggle('on'); document.getElementById('setBody').classList.toggle('off'); };
+document.querySelectorAll('.set .r:not(.master) .sw').forEach(s=>s.onclick=()=>s.classList.toggle('on'));
+render();
+</script>
+</body>
+</html>

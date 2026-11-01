@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Focus Timer Concepts II</title>
+<style>
+@font-face{font-family:'Departure';src:url('../../The%20Notch/Resources/Fonts/DepartureMono-Regular.otf') format('opentype')}
+:root{
+  --bg:#07070a; --line:#22222a; --text:#ecece4; --muted:#8a8a94; --amber:#ffaa1e;
+  --px:'Departure', ui-monospace, 'SF Mono', Menlo, monospace;
+  --t1:#fff; --t2:rgba(255,255,255,.62); --t3:rgba(255,255,255,.38); --live:#5fd17a;
+  --tom:#ff6a4d; --brk:#5fd17a;
+  --z:1.5;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:13px/1.55 var(--px)}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 16px 80px}
+h1{font:400 24px/1.1 var(--px);margin:0 0 8px;letter-spacing:.5px}
+.sub{color:var(--muted);margin:0 0 20px;max-width:840px}
+.sub a{color:var(--text)}
+.bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;position:sticky;top:0;background:var(--bg);padding:10px 0;z-index:5;border-bottom:1px solid var(--line);margin-bottom:26px}
+.bar .lab{color:var(--muted);margin:0 4px 0 10px}
+.bar .lab:first-child{margin-left:0}
+.bar a,.chip{font:400 12px var(--px);background:#0e0e12;color:var(--muted);border:1px solid var(--line);padding:7px 10px;border-radius:3px;cursor:pointer;text-decoration:none}
+.bar a:hover,.chip:hover{border-color:var(--muted);color:var(--text)}
+.chip[aria-pressed=true]{color:#000;background:var(--text);border-color:var(--text)}
+section{margin:0 0 54px}
+section h2{font:400 16px var(--px);margin:0 0 4px;letter-spacing:.5px}
+section .pitch{color:var(--muted);margin:0 0 14px;max-width:840px}
+.stage{background:#5a5a60;border-radius:8px;padding:0 0 22px;overflow-x:auto;display:flex;flex-direction:column;align-items:center;gap:16px}
+.notes{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:12px;font-size:12px;color:var(--muted)}
+.notes b{color:var(--text);font-weight:400;display:block;margin-bottom:2px}
+@media (max-width:700px){.notes{grid-template-columns:1fr}}
+
+.panel{zoom:var(--z);width:640px;height:190px;background:#000;border-radius:0 0 30px 30px;position:relative;color:var(--t1);font-family:var(--px);overflow:hidden;flex:none;box-shadow:0 18px 40px rgba(0,0,0,.45)}
+.housing{position:absolute;top:0;left:227px;width:186px;height:32px;border-radius:0 0 11px 11px;background:repeating-linear-gradient(45deg,rgba(255,93,108,.22) 0 3px,transparent 3px 6px);outline:1px dashed rgba(255,93,108,.55);outline-offset:-1px;pointer-events:none;z-index:9}
+.hd{position:absolute;top:6px;left:28px;right:28px;height:26px;display:flex;align-items:center;justify-content:space-between}
+.tabs{display:inline-flex;gap:3px;padding:3px;background:rgba(255,255,255,.06);border-radius:8px}
+.tabs span{height:20px;min-width:20px;display:inline-flex;align-items:center;justify-content:center;gap:3px;padding:0 3px;font-size:8px;color:var(--t3);border-radius:5px}
+.tabs span.on{background:rgba(255,255,255,.14);color:var(--t1);padding:0 5px}
+.tabs i{width:8px;height:8px;border-radius:2px;background:var(--t3);display:inline-block}
+.gear{width:12px;height:12px;border-radius:3px;border:3px solid var(--t2);margin-right:5px}
+.bd{position:absolute;top:42px;left:34px;right:34px;bottom:18px}
+
+.micro{font-size:8px;line-height:10px}
+.cap{font-size:9px;line-height:12px}
+.bod{font-size:11px;line-height:14px}
+.t2{color:var(--t2)} .t3{color:var(--t3)}
+.up{text-transform:uppercase;letter-spacing:.04em}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:4px;height:18px;padding:0 8px;font-size:9px;border-radius:5px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.14);color:var(--t1);white-space:nowrap;font-family:var(--px);cursor:pointer;user-select:none}
+.btn:hover{background:rgba(255,255,255,.16)}
+.btn.pri{background:var(--t1);color:#000;border-color:var(--t1)}
+.btn.sm{height:14px;padding:0 5px;font-size:8px;border-radius:4px}
+.kbd{font-size:8px;color:rgba(0,0,0,.5);border:1px solid rgba(0,0,0,.25);border-radius:3px;padding:0 3px;line-height:10px}
+canvas.px{image-rendering:pixelated;display:block}
+.foot{position:absolute;left:0;right:0;bottom:0;height:18px;display:flex;align-items:center;gap:8px}
+.foot .sp{flex:1}
+.pdots{display:flex;gap:3px}
+.pdots b{width:6px;height:6px;border-radius:1px;background:rgba(255,255,255,.14)}
+.pdots b.done{background:var(--tom)}
+.pdots b.cur{background:transparent;box-shadow:inset 0 0 0 1px var(--tom)}
+
+/* collapsed wings under each panel */
+.mini{zoom:1.4;height:32px;width:300px;background:#000;border-radius:0 0 12px 12px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;color:var(--t1);font-family:var(--px);flex:none;position:relative;overflow:hidden}
+.mini .cam{position:absolute;left:50%;transform:translateX(-50%);top:0;width:160px;height:32px;background:repeating-linear-gradient(45deg,rgba(255,93,108,.22) 0 3px,transparent 3px 6px)}
+.mini .tm{font-size:11px}
+.minicap{font-size:11px;color:#eee;margin-top:-8px}
+
+/* D · Tomato */
+.d-tom{position:absolute;left:10px;top:-2px}
+.d-side{position:absolute;left:150px;top:4px;right:0}
+.d-tm{font-size:44px;line-height:46px}
+
+/* E · Hourglass */
+.e-glass{position:absolute;left:250px;top:-6px}
+.e-l{position:absolute;left:0;top:6px;width:220px}
+.e-r{position:absolute;right:0;top:6px;width:220px;text-align:right}
+.e-tm{font-size:34px;line-height:36px}
+
+/* F · Tape */
+.f-top{position:absolute;left:0;right:0;top:0;text-align:center}
+.f-tm{font-size:30px;line-height:32px}
+.f-tape{position:absolute;left:-34px;right:-34px;top:42px;height:52px;cursor:grab;touch-action:none}
+.f-tape:active{cursor:grabbing}
+.f-hint{position:absolute;left:0;right:0;top:98px;text-align:center}
+
+/* G · Flip */
+.g-cards{position:absolute;left:0;top:0;display:flex;align-items:center;gap:6px}
+.g-card{width:58px;height:84px;border-radius:7px;background:#16161a;position:relative;display:flex;align-items:center;justify-content:center;font-size:62px;line-height:62px;perspective:200px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+.g-card:after{content:'';position:absolute;left:0;right:0;top:41px;height:2px;background:#000}
+.g-card span{display:block}
+.g-card.flip span{animation:flp .32s ease-in-out}
+@keyframes flp{0%{transform:rotateX(0)}50%{transform:rotateX(90deg);opacity:.4}100%{transform:rotateX(0)}}
+.g-col{font-size:40px;color:var(--t3);width:12px;text-align:center}
+.g-side{position:absolute;left:296px;right:0;top:4px}
+
+/* H · Walk */
+.h-top{position:absolute;left:0;right:0;top:0;display:flex;align-items:baseline;gap:10px}
+.h-tm{font-size:28px;line-height:30px}
+.h-path{position:absolute;left:0;top:40px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Focus timer · five more directions</h1>
+  <p class="sub">A second round, after A · Ring, B · Big clock and C · Day strip didn't land (they're kept in <a href="pomodoro-ui-v1.html">pomodoro-ui-v1.html</a>). These lean harder into the app's pixel look and give the timer an object to watch, not just numbers. Same rules as before: the feature is off until it's switched on in Settings → Focus. Every panel is live and shares one clock. Press Start (or Space) and use <b>60×</b> to watch a whole round. Under each panel is how the closed notch shows it while running.</p>
+
+  <div class="bar">
+    <span class="lab">Jump</span>
+    <a href="#d">D Tomato</a><a href="#e">E Hourglass</a><a href="#f">F Kitchen tape</a><a href="#g">G Flip clock</a><a href="#h">H The walk</a>
+    <span class="lab">Speed</span>
+    <button class="chip" data-sp="1" aria-pressed="true">1×</button><button class="chip" data-sp="60">60×</button>
+    <span class="lab">Zoom</span>
+    <button class="chip" data-z="1">1×</button><button class="chip" data-z="1.5" aria-pressed="true">1.5×</button><button class="chip" data-z="2">2×</button>
+  </div>
+
+  <!-- D -->
+  <section id="d">
+    <h2>D · Ripening tomato</h2>
+    <p class="pitch">A big pixel tomato that ripens as you work: it starts as a pale outline and fills with red, pixel by pixel from the bottom up, until it's whole when the round ends. During a break it's a green tomato filling with green. Finished tomatoes line up on a little shelf: that's your day's count.</p>
+    <div class="stage">
+      <div class="panel"><div class="housing"></div>
+        <div class="hd"><div class="tabs"><span><i></i></span><span><i></i></span><span><i></i></span><span class="on"><canvas class="px tsp" width="9" height="9" style="width:9px;height:9px"></canvas>Focus</span></div><div class="gear"></div></div>
+        <div class="bd">
+          <canvas class="px d-tom" id="dTom" width="32" height="32" style="width:112px;height:112px"></canvas>
+          <div class="d-side">
+            <div class="d-tm" data-time>25:00</div>
+            <div class="cap" style="margin-top:2px"><span data-phase>Focus</span> <span class="t3">· round <span data-round>1</span> of 4</span></div>
+            <div class="micro t3 up" style="margin:14px 0 4px">Today's harvest</div>
+            <canvas class="px" id="dShelf" width="80" height="9" style="width:240px;height:27px"></canvas>
+          </div>
+          <div class="foot" style="left:150px"><span class="sp"></span><span class="btn sm" data-reset>Reset</span><span class="btn sm" data-skip>Skip</span><span class="btn pri" data-go style="width:72px">Start</span></div>
+        </div>
+      </div>
+      <div class="mini"><div class="cam"></div><canvas class="px" data-mini="d" width="9" height="9" style="width:12px;height:12px"></canvas><span class="tm" data-time>25:00</span></div>
+    </div>
+    <div class="notes">
+      <div><b>Why it might win</b>Charming and on-brand with the pixel mascot. The "harvest" makes finished rounds feel like something you collected. Progress reads without reading any numbers.</div>
+      <div><b>Where it falls short</b>Cute can wear thin over months of daily use. Pixel-fill progress is coarse (about 500 pixels), fine for a 25-minute round.</div>
+    </div>
+  </section>
+
+  <!-- E -->
+  <section id="e">
+    <h2>E · Hourglass</h2>
+    <p class="pitch">A pixel hourglass in the middle of the panel, right under the camera, with sand actually falling: the top drains, a thin stream runs through the neck, the pile grows below. When it's paused, the stream stops. The time sits on the left; the round and controls on the right, so the panel is symmetrical around the notch.</p>
+    <div class="stage">
+      <div class="panel"><div class="housing"></div>
+        <div class="hd"><div class="tabs"><span><i></i></span><span><i></i></span><span><i></i></span><span class="on"><canvas class="px tsp" width="9" height="9" style="width:9px;height:9px"></canvas>Focus</span></div><div class="gear"></div></div>
+        <div class="bd">
+          <div class="e-l"><div class="e-tm" data-time>25:00</div><div class="cap" style="margin-top:4px" data-phase>Focus</div><div class="micro t3" style="margin-top:2px">left in this round</div></div>
+          <canvas class="px e-glass" id="eGlass" width="25" height="35" style="width:75px;height:105px"></canvas>
+          <div class="e-r"><div class="bod">Round <span data-round>1</span> / 4</div><div class="pdots" data-dots style="justify-content:flex-end;margin-top:6px"></div><div class="micro t3" style="margin-top:6px"><span data-today>3</span> done today</div></div>
+          <div class="foot"><span class="sp"></span><span class="btn sm" data-reset>Reset</span><span class="btn sm" data-skip>Skip</span><span class="btn pri" data-go style="width:72px">Start</span></div>
+        </div>
+      </div>
+      <div class="mini"><div class="cam"></div><canvas class="px" data-mini="e" width="7" height="11" style="width:7px;height:11px"></canvas><span class="tm" data-time>25:00</span></div>
+    </div>
+    <div class="notes">
+      <div><b>Why it might win</b>Everyone understands an hourglass, and falling sand is calm to watch. The layout frames the notch instead of fighting it.</div>
+      <div><b>Where it falls short</b>Constant motion in the corner of your eye while you're trying to focus. (Could stop the stream animation when the panel is closed, which it is most of the time.)</div>
+    </div>
+  </section>
+
+  <!-- F -->
+  <section id="f">
+    <h2>F · Kitchen tape</h2>
+    <p class="pitch">Like a mechanical kitchen timer: a minute ruler slides under a fixed amber needle. <b>Drag the tape to set any length</b> (when stopped), let go, press Start, and the tape creeps back toward zero. No preset buttons and no settings needed for the focus length; you just pull out as many minutes as you want.</p>
+    <div class="stage">
+      <div class="panel"><div class="housing"></div>
+        <div class="hd"><div class="tabs"><span><i></i></span><span><i></i></span><span><i></i></span><span class="on"><canvas class="px tsp" width="9" height="9" style="width:9px;height:9px"></canvas>Focus</span></div><div class="gear"></div></div>
+        <div class="bd">
+          <div class="f-top"><span class="f-tm" data-time>25:00</span></div>
+          <canvas class="f-tape" id="fTape"></canvas>
+          <div class="f-hint micro t3" id="fHint">drag the tape to set the time</div>
+          <div class="foot"><span class="cap"><span data-phase>Focus</span> <span class="t3">· round <span data-round>1</span>/4</span></span><span class="sp"></span><span class="btn sm" data-reset>Reset</span><span class="btn sm" data-skip>Skip</span><span class="btn pri" data-go style="width:72px">Start</span></div>
+        </div>
+      </div>
+      <div class="mini"><div class="cam"></div><canvas class="px" data-mini="f" width="17" height="9" style="width:17px;height:9px"></canvas><span class="tm" data-time>25:00</span></div>
+    </div>
+    <div class="notes">
+      <div><b>Why it might win</b>The most physical and the most direct: setting the time and seeing the time are the same gesture. Great for "I only have 40 minutes before a call".</div>
+      <div><b>Where it falls short</b>Less obviously "Pomodoro" (rounds and long breaks fade into the background). Dragging needs care so it doesn't fight the panel's own swipe gestures.</div>
+    </div>
+  </section>
+
+  <!-- G -->
+  <section id="g">
+    <h2>G · Flip clock</h2>
+    <p class="pitch">Four split-flap cards that flip each time a digit changes, like an old station board or desk clock. Quiet most of the time (the minutes flip once a minute; seconds can be hidden in Settings to make it calmer still). The right side holds the round, the task line and controls.</p>
+    <div class="stage">
+      <div class="panel"><div class="housing"></div>
+        <div class="hd"><div class="tabs"><span><i></i></span><span><i></i></span><span><i></i></span><span class="on"><canvas class="px tsp" width="9" height="9" style="width:9px;height:9px"></canvas>Focus</span></div><div class="gear"></div></div>
+        <div class="bd">
+          <div class="g-cards"><div class="g-card"><span>2</span></div><div class="g-card"><span>5</span></div><div class="g-col">:</div><div class="g-card"><span>0</span></div><div class="g-card"><span>0</span></div></div>
+          <div class="g-side">
+            <div class="bod" data-phase>Focus</div>
+            <div class="cap t3" style="margin:2px 0 8px">round <span data-round>1</span> of 4 · next: <span data-next>5 min break</span></div>
+            <div class="pdots" data-dots></div>
+            <div class="micro t3" style="margin-top:10px"><span data-today>3</span> done today</div>
+          </div>
+          <div class="foot" style="left:296px"><span class="sp"></span><span class="btn sm" data-reset>Reset</span><span class="btn sm" data-skip>Skip</span><span class="btn pri" data-go style="width:72px">Start</span></div>
+        </div>
+      </div>
+      <div class="mini"><div class="cam"></div><span class="micro" style="color:var(--tom)" data-phase>Focus</span><span class="tm" data-time>25:00</span></div>
+    </div>
+    <div class="notes">
+      <div><b>Why it might win</b>Tactile and satisfying, very legible, and the flip gives a little moment every minute without being busy. Fits the app's "animation quality" bar.</div>
+      <div><b>Where it falls short</b>A familiar idea (lots of flip clocks exist), so it's less distinctly "The Notch".</div>
+    </div>
+  </section>
+
+  <!-- H -->
+  <section id="h">
+    <h2>H · The walk</h2>
+    <p class="pitch">The whole set of four rounds is a path across the panel, with a flag at each break. A little pixel walker makes its way along it while you focus, sits down by a campfire at each break, and reaches the finish flag after round 4. Where it stands is how far through your session you are.</p>
+    <div class="stage">
+      <div class="panel"><div class="housing"></div>
+        <div class="hd"><div class="tabs"><span><i></i></span><span><i></i></span><span><i></i></span><span class="on"><canvas class="px tsp" width="9" height="9" style="width:9px;height:9px"></canvas>Focus</span></div><div class="gear"></div></div>
+        <div class="bd">
+          <div class="h-top"><span class="h-tm" data-time>25:00</span><span class="cap"><span data-phase>Focus</span> <span class="t3">· round <span data-round>1</span> of 4</span></span></div>
+          <canvas class="px h-path" id="hPath" width="286" height="34" style="width:572px;height:68px"></canvas>
+          <div class="foot"><span class="micro t3"><span data-today>3</span> done today</span><span class="sp"></span><span class="btn sm" data-reset>Reset</span><span class="btn sm" data-skip>Skip</span><span class="btn pri" data-go style="width:72px">Start</span></div>
+        </div>
+      </div>
+      <div class="mini"><div class="cam"></div><canvas class="px" data-mini="h" width="7" height="8" style="width:10px;height:11px"></canvas><span class="tm" data-time>25:00</span></div>
+    </div>
+    <div class="notes">
+      <div><b>Why it might win</b>Shows the whole session at once and gives it a story: you're getting somewhere. Pairs naturally with the agent mascot, which could be the walker.</div>
+      <div><b>Where it falls short</b>Per-round progress is small (each round is a quarter of the path), so the time text carries the detail. The most custom pixel art to draw.</div>
+    </div>
+  </section>
+</div>
+
+<script>
+// ---------- one shared clock ----------
+const S = { focus:25, brk:5, long:15, phase:'focus', round:1, running:false, left:25*60, total:25*60, today:3, speed:1 };
+const phaseLen = p => (p==='focus'?S.focus:p==='long'?S.long:S.brk)*60;
+function skip(){
+  if (S.phase==='focus'){ S.today++; S.phase = S.round===4 ? 'long' : 'brk'; }
+  else { if (S.phase==='long') S.round=1; else S.round++; S.phase='focus'; }
+  S.total = S.left = phaseLen(S.phase);
+}
+const fmt = s => { s=Math.max(0,Math.ceil(s)); return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); };
+const $$ = q => document.querySelectorAll(q);
+const TOMC='#ff6a4d', BRKC='#5fd17a';
+const col = () => S.phase==='focus' ? TOMC : BRKC;
+const frac = () => 1 - S.left/S.total;
+let rng=7; const rand=()=>((rng=(rng*16807)%2147483647)/2147483647);
+
+// ---------- small tomato (tab + minis) ----------
+const TOM = ["....G....","..GGGGG..",".RRRGRRR.","RRRRRRRRR","RRRRRRRRR","RRRRRRRRR","RRRRRRRRR",".RRRRRRR.","..RRRRR.."];
+function smallTom(c, red, fill=1){ c.clearRect(0,0,9,9);
+  TOM.forEach((row,y)=>[...row].forEach((ch,x)=>{ if(ch==='.')return;
+    if(ch==='G'){ c.fillStyle=BRKC; } else c.fillStyle = (8-y)/7 < fill+0.01 ? red : 'rgba(255,255,255,.18)';
+    c.fillRect(x,y,1,1); })); }
+
+// ---------- D · tomato ----------
+const dCells=[], dLeaf=[];
+for(let y=0;y<32;y++)for(let x=0;x<32;x++){
+  const dx=(x-15.5)/14.5, dy=(y-18.5)/12.5;
+  if(dx*dx+dy*dy<=1) dCells.push([x,y]);
+}
+[[15,3],[16,3],[15,4],[16,4],[15,5],[16,5],[12,6],[13,6],[14,6],[15,6],[16,6],[17,6],[18,6],[19,6],[11,7],[13,7],[14,7],[17,7],[18,7],[20,7],[14,8],[17,8]].forEach(p=>dLeaf.push(p));
+dCells.forEach(c=>c.k = -c[1] + rand()*4); dCells.sort((a,b)=>a.k-b.k);
+const dEdge=new Set(dCells.filter(([x,y])=>{const n=(xx,yy)=>dCells.some(c=>c[0]===xx&&c[1]===yy);return !(n(x+1,y)&&n(x-1,y)&&n(x,y+1)&&n(x,y-1));}).map(([x,y])=>x+','+y));
+function drawD(){
+  const c=document.getElementById('dTom').getContext('2d'); c.clearRect(0,0,32,32);
+  const n=Math.floor(frac()*dCells.length);
+  dCells.forEach(([x,y],i)=>{ const on=i<n; const edge=dEdge.has(x+','+y);
+    c.fillStyle = on ? col() : edge ? 'rgba(255,255,255,.28)' : 'rgba(255,255,255,.05)'; c.fillRect(x,y,1,1);
+    if(on && x>8&&x<12&&y>11&&y<15){ c.fillStyle='rgba(255,255,255,.55)'; c.fillRect(x,y,1,1);} });
+  c.fillStyle=BRKC; dLeaf.forEach(([x,y])=>c.fillRect(x,y,1,1));
+  const s=document.getElementById('dShelf').getContext('2d'); s.clearRect(0,0,80,9);
+  for(let i=0;i<8;i++){ s.save(); s.translate(i*10,0); smallTom(s, i<S.today?TOMC:'rgba(255,255,255,.12)', 1); s.restore(); }
+}
+
+// ---------- E · hourglass ----------
+const W=25, H=35, cx=12;
+const hw = y => y<=16 ? Math.round(1+9*(16-y)/15) : y===17 ? 0 : Math.round(1+9*(y-18)/15);
+const topC=[], botC=[];
+for(let y=2;y<=16;y++) for(let x=cx-hw(y);x<=cx+hw(y);x++) topC.push([x,y]);
+for(let y=18;y<=32;y++) for(let x=cx-hw(y);x<=cx+hw(y);x++) botC.push([x,y]);
+topC.sort((a,b)=> (b[1]-a[1]) || (Math.abs(a[0]-cx)-Math.abs(b[0]-cx)));
+botC.forEach(c=>c.k=(32-c[1])*1.0 + Math.abs(c[0]-cx)*0.55 + rand()*.3); botC.sort((a,b)=>a.k-b.k);
+function drawE(t){
+  const c=document.getElementById('eGlass').getContext('2d'); c.clearRect(0,0,W,H);
+  c.fillStyle='rgba(255,255,255,.55)'; c.fillRect(0,0,W,2); c.fillRect(0,33,W,2);
+  c.fillStyle='rgba(255,255,255,.22)';
+  for(let y=2;y<=32;y++){ const h=hw(y); c.fillRect(cx-h-1,y,1,1); c.fillRect(cx+h+1,y,1,1); }
+  const f=frac(); const nt=Math.round((1-f)*topC.length), nb=Math.round(f*Math.min(botC.length,topC.length));
+  c.fillStyle=col(); topC.slice(0,nt).forEach(([x,y])=>c.fillRect(x,y,1,1)); botC.slice(0,nb).forEach(([x,y])=>c.fillRect(x,y,1,1));
+  if(S.running && nt>0){ const pileTop = nb? Math.min(...botC.slice(0,nb).filter(p=>p[0]===cx).map(p=>p[1]).concat([33])) : 33;
+    for(let y=17;y<pileTop;y++) if(((y+Math.floor(t/90))%3)!==0) c.fillRect(cx,y,1,1); }
+}
+
+// ---------- F · tape ----------
+const tape=document.getElementById('fTape'); const PPM=24;
+function drawF(){
+  const r=tape.getBoundingClientRect(); const dpr=window.devicePixelRatio||1; const w=640, h=52;
+  if(tape.width!==w*dpr*2){ tape.width=w*dpr*2; tape.height=h*dpr*2; }
+  const c=tape.getContext('2d'); c.setTransform(dpr*2,0,0,dpr*2,0,0); c.clearRect(0,0,w,h);
+  const mid=w/2, lm=S.left/60;
+  // the band between zero and the needle is the time remaining
+  const x0 = mid - lm*PPM;
+  c.fillStyle= S.phase==='focus'?'rgba(255,106,77,.16)':'rgba(95,209,122,.14)'; c.fillRect(x0,10,lm*PPM,26);
+  for(let m=0;m<=120;m++){ const x=x0+m*PPM; if(x<-10||x>w+10) continue;
+    const big=m%5===0; c.fillStyle= m<=lm ? 'rgba(255,255,255,.75)' : 'rgba(255,255,255,.3)';
+    c.fillRect(Math.round(x),10,1,big?14:7);
+    if(big){ c.font='9px Departure, ui-monospace, monospace'; c.textAlign='center'; c.fillText(String(m),x,34); }
+    for(let q=1;q<4;q++){ c.fillStyle='rgba(255,255,255,.14)'; c.fillRect(Math.round(x+q*PPM/4),10,1,3); } }
+  const g=c.createLinearGradient(0,0,w,0); g.addColorStop(0,'#000'); g.addColorStop(.12,'rgba(0,0,0,0)'); g.addColorStop(.88,'rgba(0,0,0,0)'); g.addColorStop(1,'#000');
+  c.fillStyle=g; c.fillRect(0,0,w,h);
+  c.fillStyle='#ffaa1e'; c.fillRect(mid-1,4,2,34); c.beginPath(); c.moveTo(mid-4,2); c.lineTo(mid+4,2); c.lineTo(mid,7); c.fill();
+}
+let drag=null;
+tape.addEventListener('pointerdown',e=>{ if(S.running) return; drag={x:e.clientX,left:S.left}; tape.setPointerCapture(e.pointerId); });
+tape.addEventListener('pointermove',e=>{ if(!drag) return; const z=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--z'))||1;
+  const dx=(e.clientX-drag.x)/z; S.left=Math.min(120*60,Math.max(60, drag.left - dx/PPM*60)); S.total=Math.max(S.total,S.left); render(); });
+tape.addEventListener('pointerup',()=>{ if(!drag) return; drag=null; S.left=Math.round(S.left/60)*60; S.total=S.left; if(S.phase==='focus') S.focus=S.left/60; render(); });
+
+// ---------- G · flip ----------
+const gCards=[...document.querySelectorAll('.g-card')];
+function drawG(){ const d=fmt(S.left).replace(':','');
+  gCards.forEach((card,i)=>{ const sp=card.firstElementChild; if(sp.dataset.v!==d[i]){ if(sp.dataset.v!==undefined){ card.classList.remove('flip'); void card.offsetWidth; card.classList.add('flip'); setTimeout(()=>sp.textContent=d[i],150);} else sp.textContent=d[i]; sp.dataset.v=d[i]; }
+    card.style.color = S.phase==='focus' ? '#fff' : BRKC; }); }
+
+// ---------- H · walk ----------
+const WALK=[ ["..KK...","..KK...",".KKKK..","K.KK.K.","..KK...",".K..K..","K....K.","......."],
+             ["..KK...","..KK...",".KKKK..",".KKKK..","..KK...","..KK...",".K.K...","......."] ];
+const SIT=["..KK...","..KK...",".KKKK..","K.KK.K.","..KKKK.",".......","......."];
+function sprite(c,map,x,y,color){ c.fillStyle=color; map.forEach((r,j)=>[...r].forEach((ch,i)=>{ if(ch==='K') c.fillRect(x+i,y+j,1,1); })); }
+function drawH(t){
+  const c=document.getElementById('hPath').getContext('2d'); const w=286; c.clearRect(0,0,w,34);
+  const plan=[]; for(let r=1;r<=4;r++){ plan.push(['focus',r]); plan.push([r===4?'long':'brk',r]); }
+  const tot=plan.reduce((a,[p])=>a+phaseLen(p),0); const cur=plan.findIndex(([p,r])=>r===S.round && (p==='focus')===(S.phase==='focus'));
+  let acc=0, x=4; const scale=(w-12)/tot; let walkerX=4;
+  const gy=26;
+  plan.forEach(([p,r],i)=>{ const len=phaseLen(p)*scale; const done = i<cur ? 1 : i===cur ? frac() : 0;
+    for(let k=0;k<len;k+=2){ c.fillStyle = k/len < done ? (p==='focus'?TOMC:BRKC) : 'rgba(255,255,255,.18)'; c.fillRect(Math.round(x+k),gy,1,1); }
+    if(p!=='focus'){ // campfire / flag at the start of each break
+      const fx=Math.round(x); c.fillStyle='rgba(255,255,255,.4)'; c.fillRect(fx,gy-9,1,9); c.fillStyle= i<cur||i===cur?BRKC:'rgba(255,255,255,.3)'; c.fillRect(fx+1,gy-9,3,1); c.fillRect(fx+1,gy-8,2,1);
+    }
+    if(i===cur) walkerX = x + len*done;
+    x+=len; });
+  c.fillStyle='rgba(255,255,255,.6)'; c.fillRect(w-6,gy-11,1,11); for(let j=0;j<4;j++)for(let k=0;k<4;k++) if((j+k)%2===0){ c.fillRect(w-5+k,gy-11+j,1,1);}
+  const wx=Math.round(walkerX)-3;
+  if(S.phase==='focus'){ sprite(c, WALK[S.running?Math.floor(t/260)%2:1], wx, gy-8, '#fff'); }
+  else { sprite(c, SIT, wx+4, gy-7, '#fff'); c.fillStyle= Math.floor(t/200)%2? '#ffaa1e':TOMC; c.fillRect(wx+1,gy-2,1,2); c.fillRect(wx,gy-1,3,1);
+         c.fillStyle='rgba(255,255,255,.4)'; if(S.running){ const zz=Math.floor(t/400)%3; c.fillRect(wx+11+zz,gy-12-zz*2,2,1);} }
+}
+
+// ---------- minis ----------
+function drawMinis(t){
+  $$('[data-mini]').forEach(cv=>{ const c=cv.getContext('2d'); c.clearRect(0,0,cv.width,cv.height); const k=cv.dataset.mini;
+    if(k==='d') smallTom(c, col(), frac());
+    if(k==='e'){ c.fillStyle='rgba(255,255,255,.5)'; c.fillRect(0,0,7,1); c.fillRect(0,10,7,1); const f=frac(); c.fillStyle=col();
+      const tp=[[1,1],[2,1],[3,1],[4,1],[5,1],[1,2],[2,2],[3,2],[4,2],[5,2],[2,3],[3,3],[4,3],[3,4]].reverse(); tp.slice(0,Math.round((1-f)*tp.length)).forEach(([x,y])=>c.fillRect(x,y,1,1));
+      const bp=[[1,9],[2,9],[3,9],[4,9],[5,9],[2,8],[3,8],[4,8],[3,7],[2,7],[4,7],[3,6]]; bp.slice(0,Math.round(f*bp.length)).forEach(([x,y])=>c.fillRect(x,y,1,1)); if(S.running) c.fillRect(3,5,1,1); }
+    if(k==='f'){ const off=(S.left/60)%1*4; for(let x=-4;x<20;x+=4){ c.fillStyle='rgba(255,255,255,.45)'; c.fillRect(Math.round(x+off),3,1,4);} c.fillStyle='#ffaa1e'; c.fillRect(8,0,1,9); }
+    if(k==='h') sprite(c, S.phase==='focus'?WALK[S.running?Math.floor(t/260)%2:1]:SIT, 0, 0, '#fff');
+  });
+}
+
+function render(t=performance.now()){
+  const label = S.phase==='focus' ? 'Focus' : S.phase==='long' ? 'Long break' : 'Short break';
+  $$('[data-time]').forEach(e=>e.textContent=fmt(S.left));
+  $$('[data-phase]').forEach(e=>{ e.textContent=label; e.style.color=col(); });
+  $$('[data-round]').forEach(e=>e.textContent=S.round);
+  $$('[data-today]').forEach(e=>e.textContent=S.today);
+  $$('[data-next]').forEach(e=>e.textContent= S.phase==='focus' ? (S.round===4?S.long+' min long break':S.brk+' min break') : 'focus');
+  $$('[data-go]').forEach(e=>e.innerHTML=(S.running?'Pause':(S.left===S.total?'Start':'Resume'))+' <span class="kbd">␣</span>');
+  $$('[data-dots]').forEach(e=>e.innerHTML=[1,2,3,4].map(i=>`<b class="${i<S.round||(i===S.round&&S.phase!=='focus')?'done':i===S.round?'cur':''}"></b>`).join(''));
+  $$('.tsp').forEach(cv=>smallTom(cv.getContext('2d'), col(), 1));
+  document.getElementById('fHint').style.opacity = S.running ? 0 : 1;
+  drawD(); drawE(t); drawF(); drawG(); drawH(t); drawMinis(t);
+}
+let last=performance.now(), lastPaint=0;
+function tick(now){ const dt=(now-last)/1000; last=now;
+  if (S.running){ S.left -= dt*S.speed; if (S.left<=0) skip(); }
+  if (now-lastPaint>60){ render(now); lastPaint=now; }
+  requestAnimationFrame(tick); }
+requestAnimationFrame(tick);
+
+$$('[data-go]').forEach(b=>b.onclick=()=>{ S.running=!S.running; render(); });
+$$('[data-skip]').forEach(b=>b.onclick=()=>{ skip(); render(); });
+$$('[data-reset]').forEach(b=>b.onclick=()=>{ S.running=false; S.left=S.total; render(); });
+document.addEventListener('keydown',e=>{ if(e.code==='Space'){ e.preventDefault(); S.running=!S.running; render(); }});
+$$('[data-sp]').forEach(b=>b.onclick=()=>{ S.speed=+b.dataset.sp; $$('[data-sp]').forEach(x=>x.setAttribute('aria-pressed', x===b)); });
+$$('[data-z]').forEach(b=>b.onclick=()=>{ document.documentElement.style.setProperty('--z', b.dataset.z); $$('[data-z]').forEach(x=>x.setAttribute('aria-pressed', x===b)); });
+render();
+</script>
+</body>
+</html>

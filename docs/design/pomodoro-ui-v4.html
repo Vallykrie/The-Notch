@@ -1,0 +1,492 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Focus Timer v4</title>
+<style>
+@font-face{font-family:'Departure';src:url('../../The%20Notch/Resources/Fonts/DepartureMono-Regular.otf') format('opentype')}
+:root{
+  --bg:#07070a; --line:#22222a; --text:#ecece4; --muted:#8a8a94; --amber:#ffaa1e; --green:#5fd17a;
+  --px:'Departure', ui-monospace, 'SF Mono', Menlo, monospace;
+  --t1:#fff; --t2:rgba(255,255,255,.62); --t3:rgba(255,255,255,.38);
+  --z:1.5;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:13px/1.55 var(--px)}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 16px 80px}
+h1{font:400 24px/1.1 var(--px);margin:0 0 8px;letter-spacing:.5px}
+.sub{color:var(--muted);margin:0 0 20px;max-width:880px}
+.sub a{color:var(--text)}
+.bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;position:sticky;top:0;background:var(--bg);padding:10px 0;z-index:5;border-bottom:1px solid var(--line);margin-bottom:26px}
+.bar .lab{color:var(--muted);margin:0 4px 0 10px}
+.bar .lab:first-child{margin-left:0}
+.bar a,.chip{font:400 12px var(--px);background:#0e0e12;color:var(--muted);border:1px solid var(--line);padding:7px 10px;border-radius:3px;cursor:pointer;text-decoration:none}
+.bar a:hover,.chip:hover{border-color:var(--muted);color:var(--text)}
+.chip[aria-pressed=true]{color:#000;background:var(--text);border-color:var(--text)}
+section{margin:0 0 54px}
+section h2{font:400 16px var(--px);margin:0 0 4px;letter-spacing:.5px}
+section h3{font:400 13px var(--px);margin:22px 0 4px;color:var(--text)}
+section h3 .tag{color:var(--amber);font-size:11px;margin-left:6px}
+section .pitch{color:var(--muted);margin:0 0 14px;max-width:880px}
+.stage{background:#5a5a60;border-radius:8px;padding:0 0 22px;overflow-x:auto;display:flex;flex-direction:column;align-items:center;gap:16px}
+.notes{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:12px;font-size:12px;color:var(--muted)}
+.notes b{color:var(--text);font-weight:400;display:block;margin-bottom:2px}
+@media (max-width:700px){.notes{grid-template-columns:1fr}}
+
+.panel{zoom:var(--z);width:640px;height:190px;background:#000;border-radius:0 0 30px 30px;position:relative;color:var(--t1);font-family:var(--px);overflow:hidden;flex:none;box-shadow:0 18px 40px rgba(0,0,0,.45)}
+.housing{position:absolute;top:0;left:227px;width:186px;height:32px;border-radius:0 0 11px 11px;background:repeating-linear-gradient(45deg,rgba(255,93,108,.22) 0 3px,transparent 3px 6px);outline:1px dashed rgba(255,93,108,.55);outline-offset:-1px;pointer-events:none;z-index:9}
+.hd{position:absolute;top:6px;left:28px;right:28px;height:26px;display:flex;align-items:center;justify-content:space-between}
+.tabs{display:inline-flex;gap:3px;padding:3px;background:rgba(255,255,255,.06);border-radius:8px}
+.tabs span{height:20px;min-width:20px;display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:0 3px;font-size:8px;color:var(--t3);border-radius:5px}
+.tabs span.on{background:rgba(255,255,255,.14);color:var(--t1);padding:0 5px}
+.tabs i{width:8px;height:8px;border-radius:2px;background:var(--t3);display:inline-block}
+.gear{width:12px;height:12px;border-radius:3px;border:3px solid var(--t2);margin-right:5px}
+.bd{position:absolute;top:42px;left:34px;right:34px;bottom:18px}
+canvas.px{image-rendering:pixelated;display:block}
+
+.micro{font-size:8px;line-height:10px}
+.cap{font-size:9px;line-height:12px}
+.t2{color:var(--t2)} .t3{color:var(--t3)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:4px;height:18px;padding:0 8px;font-size:9px;border-radius:5px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.14);color:var(--t1);white-space:nowrap;font-family:var(--px);cursor:pointer;user-select:none}
+.btn:hover{background:rgba(255,255,255,.16)}
+.btn.pri{background:var(--t1);color:#000;border-color:var(--t1)}
+.btn.sm{height:14px;padding:0 5px;font-size:8px;border-radius:4px}
+.kbd{font-size:8px;color:rgba(0,0,0,.5);border:1px solid rgba(0,0,0,.25);border-radius:3px;padding:0 3px;line-height:10px}
+.foot{position:absolute;left:0;right:0;bottom:0;height:18px;display:flex;align-items:center;gap:8px}
+.foot .sp{flex:1}
+
+/* ---------- panel contents ---------- */
+.hero{position:absolute;left:0;top:-4px;width:144px;height:84px}
+.rt{position:absolute;left:164px;right:0;top:0;bottom:0}
+.view{position:absolute;inset:0;transition:opacity .3s ease, transform .45s cubic-bezier(.3,1.25,.5,1)}
+.setupv{opacity:1;transform:none}
+.runv{opacity:0;transform:translateY(10px);pointer-events:none}
+.running .setupv{opacity:0;transform:translateY(-10px);pointer-events:none}
+.running .runv{opacity:1;transform:none;pointer-events:auto}
+
+.rrow{position:absolute;left:0;right:0;height:46px}
+.rrow .lab{display:flex;align-items:baseline;gap:8px}
+.rrow .val{font-size:15px;line-height:16px;font-variant-numeric:tabular-nums}
+.ruler{position:absolute;left:-6px;top:17px;width:414px;height:28px;cursor:grab;touch-action:none}
+.ruler:active{cursor:grabbing}
+
+.cd{font-size:46px;line-height:48px;font-variant-numeric:tabular-nums}
+.cdrow{display:flex;align-items:baseline;gap:10px}
+.prog{position:absolute;left:0;top:58px;width:408px;height:42px}
+
+/* collapsed */
+.row2{display:flex;gap:26px;flex-wrap:wrap;justify-content:center;align-items:flex-start}
+.mini{zoom:1.5;height:32px;width:300px;background:#000;border-radius:0 0 12px 12px;display:flex;align-items:center;justify-content:space-between;padding:0 10px;color:var(--t1);font-family:var(--px);flex:none;position:relative;overflow:hidden}
+.mini .cam{position:absolute;left:50%;transform:translateX(-50%);top:0;width:160px;height:32px;background:repeating-linear-gradient(45deg,rgba(255,93,108,.22) 0 3px,transparent 3px 6px)}
+.mini .tmn{font-size:11px;font-variant-numeric:tabular-nums}
+.lbl{font-size:11px;color:#eee;text-align:center;max-width:460px}
+
+/* board */
+.board{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media (max-width:900px){.board{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:560px){.board{grid-template-columns:1fr}}
+.tile{background:#000;border-radius:10px;padding:14px 14px 12px;display:flex;flex-direction:column;align-items:center;gap:8px;border:1px solid #16161c}
+.tile canvas{width:216px;height:126px}
+.tile b{font-weight:400;color:var(--text);font-size:13px}
+.tile p{margin:0;color:var(--muted);font-size:11px;text-align:center;line-height:1.45}
+.cmp{display:flex;gap:30px;flex-wrap:wrap;justify-content:center;background:#000;border-radius:10px;padding:18px;border:1px solid #16161c}
+.cmp figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11px;color:var(--muted)}
+.cmp canvas{width:96px;height:96px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Focus timer v4 · two-step setup, the agent mascot, three progress styles</h1>
+  <p class="sub">What changed from <a href="pomodoro-ui-v3.html">v3</a>:</p>
+  <ul class="sub" style="margin-top:-12px">
+    <li><b>Rulers are for setup only.</b> Set <b>Focus</b> and <b>Break</b> on two rulers. Once you press Start the rulers go away and only the countdown and a progress view are left.</li>
+    <li><b>Progress, three ways:</b> a day strip, the walk, and a strip with the walker on top. The three panels below share one clock, so you can compare them.</li>
+    <li><b>The mascot is the agent mascot.</b> Same 12 × 10 sprite, the same antennae, eyes and legs, and the same shading and glow as <code>AgentActivityGlyph</code>. Focus adds props around it (desk, keyboard, monitor, mug), and the blob fills with colour as the round goes on.</li>
+    <li><b>Typing you can see:</b> two paws tap the keys in turn, each key lights up as it's pressed, the antennae flick with each keystroke, and code appears on the monitor one character per keystroke, with a blinking cursor. Every few seconds the mascot stops to think, looking up at the screen.</li>
+  </ul>
+
+  <div class="bar">
+    <span class="lab">Jump</span>
+    <a href="#panels">Panels</a><a href="#notch">On the notch</a><a href="#moves">Mascot's moves</a><a href="#same">Same mascot</a>
+    <span class="lab">Speed</span>
+    <button class="chip" data-sp="1" aria-pressed="true">1×</button><button class="chip" data-sp="30">30×</button><button class="chip" data-sp="120">120×</button>
+    <span class="lab">Zoom</span>
+    <button class="chip" data-z="1">1×</button><button class="chip" data-z="1.5" aria-pressed="true">1.5×</button><button class="chip" data-z="2">2×</button>
+  </div>
+
+  <section id="panels">
+    <h2>The panel</h2>
+    <p class="pitch">Drag either ruler to set it (Focus 5–90 min, Break 1–30 min). Press <b>Start</b> or Space. The mascot hops, the rulers fade out, and it sits down at the desk. Pause, Skip and Reset sit at the bottom right. Reset brings the rulers back. Use <b>120×</b> to see a full set of four rounds in about a minute.</p>
+
+    <h3>1 · Day strip</h3>
+    <div class="stage" data-panel="strip"></div>
+    <h3>2 · The walk</h3>
+    <div class="stage" data-panel="walk"></div>
+    <h3>3 · Strip + walker <span class="tag">my pick</span></h3>
+    <div class="stage" data-panel="both"></div>
+    <div class="notes">
+      <div><b>Day strip</b> shows the whole set as blocks, focus in amber and breaks in green. The current block fills up, and the end time of the set is on the right. It's the most precise, but also the most like a chart.</div>
+      <div><b>The walk</b> turns the set into a path. A small copy of the mascot walks along it while you focus and sits by a campfire at each flag during breaks. It's charming, but with the big typing mascot on the left the mascot appears twice. <b>Strip + walker</b> keeps the strip's precision and puts the walker on top of it.</div>
+    </div>
+  </section>
+
+  <section id="notch">
+    <h2>On the notch</h2>
+    <p class="pitch">With the panel closed, the left side of the notch shows the same blob the Agents tab uses there, at the same 2 pt cell size. It fills with amber, flicks its antennae as it types, and turns green on a break. The countdown is on the right.</p>
+    <div class="stage" style="padding-top:0">
+      <div class="row2">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:8px"><div class="mini"><div class="cam"></div><canvas class="px" id="mini" width="96" height="96" style="width:24px;height:24px"></canvas><span class="tmn" data-time>25:00</span></div><div class="lbl">Live: mirrors the panels above.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="moves">
+    <h2>The mascot's moves</h2>
+    <p class="pitch">Each state looping on its own, at 9 pt cells so you can see every pixel. Amber means focus, green means a break, grey means not started yet, and dimmed means paused.</p>
+    <div class="board" id="board"></div>
+  </section>
+
+  <section id="same">
+    <h2>Same mascot</h2>
+    <p class="pitch">Left: the agent mascot exactly as the Agents tab draws it (working, in its blue). Right: the focus mascot with no props. The body, antennae, eyes, legs, shading and glow are identical. Only the colour differs, and the body can be partly filled.</p>
+    <div class="cmp" id="cmp"></div>
+  </section>
+</div>
+
+<template id="panelTpl">
+  <div class="panel"><div class="housing"></div>
+    <div class="hd"><div class="tabs"><span><i></i></span><span><i></i></span><span><i></i></span><span class="on"><canvas class="px" data-icon width="96" height="96" style="width:12px;height:12px"></canvas>Focus</span></div><div class="gear"></div></div>
+    <div class="bd">
+      <canvas class="px hero" width="432" height="252"></canvas>
+      <div class="rt">
+        <div class="view setupv">
+          <div class="rrow" style="top:0"><div class="lab"><span class="micro" style="color:var(--amber)">FOCUS</span><span class="val" data-val="focus">25 min</span></div><canvas class="ruler" data-ruler="focus"></canvas></div>
+          <div class="rrow" style="top:50px"><div class="lab"><span class="micro" style="color:var(--green)">BREAK</span><span class="val" data-val="brk">5 min</span></div><canvas class="ruler" data-ruler="brk"></canvas></div>
+          <div class="foot"><span class="micro t3">4 rounds · long break 15 min after the 4th</span><span class="sp"></span><span class="btn pri" data-go style="width:72px">Start <span class="kbd">␣</span></span></div>
+        </div>
+        <div class="view runv">
+          <div class="cdrow"><span class="cd" data-time>25:00</span><span class="cap" data-phase>Focus</span></div>
+          <canvas class="prog"></canvas>
+          <div class="foot"><span class="micro t3"><span data-today>3</span> rounds today</span><span class="sp"></span><span class="btn sm" data-reset>Reset</span><span class="btn sm" data-skip>Skip</span><span class="btn pri" data-go style="width:72px">Pause <span class="kbd">␣</span></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+// =====================================================================
+// The agent mascot, ported 1:1 from AgentActivityGlyph.swift
+// 12 x 10 grid, body rows, antennae from columns 4 and 7, eyes at row 5, two leg frames.
+// =====================================================================
+const REST={rows:{3:[4,7],4:[2,9],5:[1,10],6:[1,10],7:[2,9]}, antennaRow:2, eyeRow:5};
+const SQ  ={rows:{4:[3,8],5:[1,10],6:[1,10],7:[2,9]}, antennaRow:3, eyeRow:5};
+const EYE_COLS=[3,7], FLOOR=7;
+const LEGS=[[[3,8],[4,8],[7,8],[8,8],[2,9],[9,9]],[[2,8],[3,8],[8,8],[9,8],[4,9],[7,9]]];
+let seed=5; const rnd=()=>((seed=(seed*16807)%2147483647)/2147483647);
+function fillOrder(f){ const a=[]; for(const r in f.rows){ const [l,h]=f.rows[r]; for(let c=l;c<=h;c++) a.push({x:c,y:+r,k:-r+rnd()*1.4}); } return a.sort((p,q)=>p.k-q.k); }
+const ORDER={rest:fillOrder(REST), sq:fillOrder(SQ)};
+const pose=o=>Object.assign({bob:0,lean:0,shift:0,antL:1,antR:1,eyes:'open',eyeShift:0,eyeLift:0,legs:0,squash:false,fill:1,bright:1},o);
+
+// Returns cells in the blob's own 12 x 10 grid (rows may go negative for hops).
+function blob(p){
+  const art=p.squash?SQ:REST, parts=new Map(), key=(x,y)=>x+','+y;
+  for(const r in art.rows){ const [l,h]=art.rows[r]; for(let c=l;c<=h;c++) parts.set(key(c,+r),'body'); }
+  const antenna=(root,dir,lift)=>{ parts.set(key(root,art.antennaRow),'ant');
+    if(lift<=0){ parts.set(key(root+dir,art.antennaRow),'ant'); return; }
+    const reach=Math.min(lift,2); for(let s=1;s<=reach;s++) parts.set(key(root+dir*s,art.antennaRow-s), s===reach?'tip':'ant'); };
+  antenna(4,-1,p.antL); antenna(7,1,p.antR);
+  if(p.legs!==null) for(const [x,y] of LEGS[p.legs]) parts.set(key(x,y),'leg');
+  // eyes, clamped the way the Swift version clamps them
+  const holes=[], glints=[];
+  if(p.eyes!=='closed'){ const row=art.eyeRow+(p.eyes==='asleep'?1:p.eyeLift); const span=art.rows[row];
+    if(span){ const rows=p.eyes==='wide'?[row,row-1]:[row]; const sh=p.eyes==='asleep'?0:p.eyeShift;
+      for(const st of EYE_COLS){ const w=p.eyes==='narrow'?1:2; for(let o=0;o<w;o++){ const col=Math.min(Math.max(st+o+sh,span[0]+1),span[1]-2);
+        for(const er of rows) holes.push(key(col,er)); if(p.eyes==='wide'&&o===0) glints.push([col,row-1]); } } } }
+  const order=p.squash?ORDER.sq:ORDER.rest, n=Math.round(p.fill*order.length), filled=new Set(order.slice(0,n).map(c=>key(c.x,c.y)));
+  const holeSet=new Set(holes); const occ=new Set(parts.keys());
+  const out=[];
+  for(const [k,part] of parts){ const [x,y]=k.split(',').map(Number);
+    const isBody=part==='body', lit=!isBody||filled.has(k);
+    if(holeSet.has(k)){ if(!lit) out.push({x,y,tone:'eyeg'}); continue; }
+    let tone;
+    if(!lit){ const edge=!occ.has(key(x,y-1))||!occ.has(key(x,y+1))||!occ.has(key(x-1,y))||!occ.has(key(x+1,y)); tone=edge?'gedge':'ghost'; }
+    else if(part==='leg') tone='sh'; else if(part==='tip'||!occ.has(key(x,y-1))) tone='hl'; else if(!occ.has(key(x,y+1))) tone='sh'; else tone='body';
+    out.push({x,y,tone});
+  }
+  for(const [x,y] of glints) out.push({x,y,tone:'white'});
+  return out.map(c=>({...c, x:c.x+(c.y<=FLOOR?p.lean:0)+p.shift, y:c.y+p.bob, a:p.bright}));
+}
+
+// ---------- renderer (bloom radius 0.36 cell, strength 0.5, additive; hl 42% white, sh 36% black; 0.5 pt gap) ----------
+const rgb=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
+const mix=(h,to,t)=>{ const a=rgb(h), b=rgb(to); return `rgb(${a.map((v,i)=>Math.round(v+(b[i]-v)*t)).join(',')})`; };
+const rgba=(h,a)=>`rgba(${rgb(h).join(',')},${a})`;
+function paint(cv, cells, hue, cols, rows, gapPt=.5, ptPerCell=6){
+  const c=cv.getContext('2d'); const cp=cv.width/cols; const gap=ptPerCell>=2? cp*(gapPt/ptPerCell):0;
+  c.clearRect(0,0,cv.width,cv.height);
+  const col={body:hue, hl:mix(hue,'#ffffff',.42), sh:mix(hue,'#000000',.36), ghost:rgba(hue,.13), gedge:rgba(hue,.34), eyeg:'rgba(255,255,255,.38)', white:'#fff'};
+  const glow=cells.filter(k=>!['ghost','gedge','eyeg','prop'].includes(k.tone));
+  c.save(); c.globalCompositeOperation='lighter'; c.filter=`blur(${cp*.36}px)`;
+  glow.forEach(k=>{ c.globalAlpha=.5*(k.a??1); c.fillStyle=k.col||col[k.tone]; c.fillRect(k.x*cp,k.y*cp,cp,cp); }); c.restore();
+  cells.forEach(k=>{ c.globalAlpha=k.a??1; c.fillStyle=k.col||col[k.tone]; c.fillRect(k.x*cp+gap/2,k.y*cp+gap/2,cp-gap,cp-gap); });
+  c.globalAlpha=1;
+}
+
+// =====================================================================
+// The focus scene: 24 x 14 cells. Blob, desk, keyboard, monitor, mug.
+// =====================================================================
+const GW=24, GH=14, AMBER='#ffaa1e', GREEN='#5fd17a', NEUTRAL='#d9d7ce', BLUE='#299eff';
+const CONF=[AMBER,GREEN,'#8ab4ff','#ff6a4d','#ffffff'];
+const CODE=[[0,4],[1,3],[1,5],[2,2],[1,4],[0,2],[0,5],[1,3],[2,3],[1,2],[0,3],[0,6],[1,4],[1,2]]; // [indent,len]
+function scene(st){
+  // st: {mode, t, fill, hue, dim, ...}
+  const out=[]; const P=(x,y,col,a=1,tone='prop')=>out.push({x,y,col,a,tone});
+  const BX = st.mode==='ready'||st.mode==='setting'||st.mode==='hop' ? 6 : 1, BY=3;
+  const desk = !(st.mode==='ready'||st.mode==='setting'||st.mode==='hop');
+  let p, paws=null, pressed=null;
+  const t=st.t;
+  const blink=((t+st.seed)%4.3)<.13;
+  if(st.mode==='ready'){ const ph=(t+st.seed)%8; p=pose({antL:1,antR:1,eyeShift:ph>3&&ph<4.3?-1:ph>5&&ph<6.3?1:0});
+    if(ph>6.7&&ph<6.95){ p.bob=-1; p.legs=1; p.antL=p.antR=2; } if(blink) p.eyes='closed'; }
+  else if(st.mode==='setting'){ p=pose({eyeShift:1, eyeLift:st.which==='brk'?1:-1, antL:Math.floor(t*8)%2?2:1, antR:Math.floor(t*8)%2?1:2, legs:Math.floor(t*6)%2}); }
+  else if(st.mode==='hop'){ const h=t%1.1; p=pose({antL:2,antR:2,eyes:'wide'}); if(h<.12){p.squash=true;p.eyes='narrow';} else if(h<.5){p.bob=-2;p.legs=1;} else if(h<.62){p.squash=true;} }
+  else if(st.mode==='typing'||st.mode==='rush'){
+    const fast=st.mode==='rush', per=fast?.1:.2, cyc=5, work=4.1;
+    const inCyc=t%cyc, thinking=!fast&&inCyc>work;
+    const strokes=Math.floor(t/cyc)*Math.floor(work/per)+Math.floor(Math.min(inCyc,work)/per);
+    const n=Math.floor(t/per), down=!thinking&&((t%per)<per*.55);
+    const left=n%2===0;
+    p=pose({legs:null, fill:st.fill, eyes:fast?'wide':'narrow', eyeShift:1, eyeLift:0, antL:left&&down?2:1, antR:!left&&down?2:1});
+    if(thinking){ p.eyes='open'; p.eyeLift=-1; p.antL=p.antR=1; if(((t*1.3)%1)<.5) p.antR=2; }
+    if(fast){ p.antL=p.antR=2; }
+    if(!fast&&blink&&!thinking) p.eyes='closed';
+    paws={L:[3,4],R:[7,8], down:down?(left?'L':'R'):null};
+    pressed=down?(left? 2+(n*3)%4 : 8+(n*5)%4):null;
+    st.strokes=strokes; st.thinking=thinking;
+  }
+  else if(st.mode==='done'){ const h=t%3.4; p=pose({eyes:'narrow',antL:2,antR:2,legs:null});
+    if(h<1.3&&(h%.62)<.32){ p.bob=-2; } else if(h>=1.3){ const w=Math.floor(h*3)%2; p.antL=w?2:1; p.antR=w?1:2; }
+    paws={L:[3,4],R:[7,8],down:null}; }
+  else if(st.mode==='tea'){ const ph=t%5.5, sip=ph>4.2&&ph<5.1; p=pose({legs:null,fill:st.fill,eyes:sip?'closed':'narrow',lean:sip?1:0,antL:Math.floor(t/1.4)%2?2:1,antR:Math.floor(t/1.4)%2?1:2}); paws={L:[3,4],R:[7,8],down:null}; st.sip=sip; }
+  else if(st.mode==='nap'){ p=pose({legs:null,fill:st.fill,squash:true,eyes:'asleep',antL:0,antR:0,bright:.78+.22*Math.sin(t*2.2)}); paws={L:[3,4],R:[7,8],down:null}; }
+  else if(st.mode==='paused'){ p=pose({legs:null,fill:st.fill,eyes:'open',eyeShift:0,antL:1,antR:1}); paws={L:[3,4],R:[7,8],down:null}; }
+
+  const dim=st.dim??1;
+  // --- props behind / around ---
+  if(desk){
+    for(let x=0;x<GW;x++) P(x,13,'rgba(255,255,255,.16)');                          // desk edge
+    for(let x=1;x<=12;x++) P(x,12,(x===pressed)?'#ffffff':'rgba(255,255,255,'+(x%2?.30:.22)+')', 1); // keys
+    // monitor
+    const sx0=15,sx1=21,sy0=4,sy1=9;
+    for(let x=14;x<=22;x++){ P(x,3,'rgba(255,255,255,.32)'); P(x,10,'rgba(255,255,255,.32)'); }
+    for(let y=4;y<=9;y++){ P(14,y,'rgba(255,255,255,.32)'); P(22,y,'rgba(255,255,255,.32)'); }
+    P(18,11,'rgba(255,255,255,.25)'); for(let x=16;x<=20;x++) P(x,12,'rgba(255,255,255,.2)');
+    for(let y=sy0;y<=sy1;y++) for(let x=sx0;x<=sx1;x++) P(x,y,rgba(st.hue,st.mode==='nap'||st.mode==='tea'?.03:.07));
+    if(st.mode==='typing'||st.mode==='rush'||st.mode==='paused'){
+      const k=st.mode==='paused'?st.frozen:st.strokes;
+      // lay the code out and show the last 6 lines
+      const lines=[]; let left=k, i=0; while(true){ const [ind,len]=CODE[i%CODE.length]; if(left<=len){ lines.push([ind,left,true]); break; } lines.push([ind,len,false]); left-=len; i++; }
+      const vis=lines.slice(-6);
+      vis.forEach(([ind,len,cur],r)=>{ for(let j=0;j<len;j++) P(sx0+ind+j,sy0+r, j===0&&ind===0? mix(st.hue,'#ffffff',.42) : (j%3===2? rgba(st.hue,.55): mix(st.hue,'#ffffff',.2)), 1,'scr');
+        if(cur && (st.mode!=='paused') && (st.thinking? (t%1)<.5 : true)) P(sx0+ind+len,sy0+r,'#ffffff',1,'scr'); });
+      if(st.mode==='paused'){ for(let y=5;y<=8;y++){ P(17,y,'#ffffff',.85,'scr'); P(19,y,'#ffffff',.85,'scr'); } }
+    }
+    if(st.mode==='done'){ [[15,6],[16,7],[17,8],[18,7],[19,6],[20,5],[21,4]].forEach(([x,y])=>P(x,y,'#ffffff',1,'scr')); }
+    if(st.mode==='nap'){ const b=Math.floor(t*3); const bx=sx0+ (Math.abs((b%12)-6)), by=sy0+Math.abs(((b>>1)%10)-5); P(Math.min(sx1,bx),Math.min(sy1,by),rgba(GREEN,.7),1,'scr'); }
+    if(st.mode==='tea'){ P(21,9,rgba(GREEN,.8),1,'scr'); }
+    if(st.mode==='tea'||st.mode==='nap'){
+      // mug on the desk, right of the blob
+      const my=st.sip?0:1, mx=13;
+      if(st.mode==='tea'){ [[mx,10+my],[mx+1,10+my],[mx,11+my],[mx+1,11+my]].forEach(([x,y])=>P(x,y,'#ffffff',.85)); P(mx+2,10+my,'#ffffff',.5);
+        const s=Math.floor(t*2.2)%3; P(mx,9-s+my,'#ffffff',.35); P(mx+1,8-((s+1)%3)+my,'#ffffff',.25); }
+    }
+  }
+  // --- the blob ---
+  blob(p).forEach(c=>out.push({...c, x:c.x+BX, y:c.y+BY, a:(c.a??1)*dim}));
+  // paws on the keyboard (shadow tone, the same as legs)
+  if(paws){ for(const side of ['L','R']){ const down=paws.down===side; for(const x of paws[side]) out.push({x:x+BX+(p.lean||0), y:down?12:11, tone:'sh', a:dim}); } }
+  // --- effects ---
+  const hx=BX+p.lean, hy=BY+p.bob;
+  if(st.mode==='done'&&(t%3.4)<2.8) for(let i=0;i<14;i++){ const x=(i*7+3+Math.floor(t*2)*((i%3)-1)+48)%GW; const y=Math.floor((t*7+i*2.3)%GH); P(x,y,CONF[i%5],.95,'conf'); }
+  if(st.mode==='nap') for(let j=0;j<3;j++){ const ph=(t*1.1+j*1.4)%4.2; P(hx+11+j,hy+2-Math.floor(ph),'#ffffff',Math.max(0,.75-ph*.17),'conf'); }
+  if(st.mode==='paused'){ const lit=Math.floor(t*3)%4; [3,5,7].forEach((x,i)=>P(hx+x+1,hy-1,'#ffffff',i<lit?.95:.22,'conf')); }
+  if(st.mode==='rush'&&(t%1)<.25){ P(hx+2,hy,'#ffffff',.9,'conf'); P(hx+9,hy,'#ffffff',.9,'conf'); }
+  return out.filter(c=>c.x>=0&&c.x<GW&&c.y>=0&&c.y<GH);
+}
+
+// =====================================================================
+// Timer state
+// =====================================================================
+const S={focus:25, brk:5, long:15, phase:'focus', round:1, running:false, left:25*60, total:25*60, today:3, speed:1, started:false};
+const M={hopAt:-9, doneAt:-9, setAt:-9, which:'focus', frozen:0};
+const now=()=>performance.now()/1000;
+const phaseLen=p=>(p==='focus'?S.focus:p==='long'?S.long:S.brk)*60;
+const fmt=s=>{ s=Math.max(0,Math.ceil(s)); return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); };
+const frac=()=>1-S.left/S.total;
+function advance(natural){
+  if(S.phase==='focus'){ S.today++; if(natural) M.doneAt=now(); S.phase=S.round===4?'long':'brk'; }
+  else { if(S.phase==='long') S.round=1; else S.round++; S.phase='focus'; }
+  S.total=S.left=phaseLen(S.phase);
+}
+function sceneState(T){
+  if(!S.started){ return T-M.setAt<.4 ? {mode:'setting',t:T,which:M.which,hue:NEUTRAL,seed:0} : {mode:'ready',t:T,hue:NEUTRAL,seed:0}; }
+  if(T-M.hopAt<.75) return {mode:'hop',t:T-M.hopAt,hue:AMBER,seed:0};
+  if(T-M.doneAt<3.4) return {mode:'done',t:T-M.doneAt,hue:AMBER,seed:0};
+  const hue=S.phase==='focus'?AMBER:GREEN;
+  if(!S.running) return {mode:'paused',t:T,fill:frac(),hue,dim:.55,frozen:M.frozen,seed:0};
+  if(S.phase==='focus') return {mode:S.left<60?'rush':'typing',t:T,fill:frac(),hue,seed:0};
+  return {mode:S.phase==='long'?'nap':'tea',t:T,fill:frac(),hue,seed:0};
+}
+
+// =====================================================================
+// Rulers (setup only)
+// =====================================================================
+const RANGE={focus:[5,90,7.5,AMBER], brk:[1,30,13,GREEN]};
+function drawRuler(cv){
+  const which=cv.dataset.ruler, [lo,hi,PPM,hue]=RANGE[which], val=S[which];
+  const w=414,h=28,k=3; if(cv.width!==w*k){ cv.width=w*k; cv.height=h*k; }
+  const c=cv.getContext('2d'); c.setTransform(k,0,0,k,0,0); c.clearRect(0,0,w,h);
+  const needle=60, x0=needle-val*PPM;
+  c.fillStyle=rgba(hue,.13); c.fillRect(x0+lo*PPM,4,(val-lo)*PPM,13);
+  c.font='7px Departure, ui-monospace, monospace'; c.textAlign='center';
+  for(let m=0;m<=hi;m++){ const x=x0+m*PPM; if(x<-10||x>w+10) continue; const five=m%5===0, inr=m>=lo;
+    c.fillStyle=!inr?'rgba(255,255,255,.08)':m<=val?'rgba(255,255,255,.7)':'rgba(255,255,255,.28)';
+    c.fillRect(Math.round(x),4,1,five?9:4);
+    if(five&&inr){ c.fillText(String(m),x,25); } }
+  const g=c.createLinearGradient(0,0,w,0); g.addColorStop(0,'#000'); g.addColorStop(.05,'rgba(0,0,0,0)'); g.addColorStop(.85,'rgba(0,0,0,0)'); g.addColorStop(1,'#000');
+  c.fillStyle=g; c.fillRect(0,0,w,h);
+  c.fillStyle=hue; c.fillRect(needle-1,1,2,17); c.beginPath(); c.moveTo(needle-3,0); c.lineTo(needle+3,0); c.lineTo(needle,3); c.fill();
+}
+function bindRuler(cv){ let d=null;
+  cv.addEventListener('pointerdown',e=>{ if(S.started) return; d={x:e.clientX,v:S[cv.dataset.ruler]}; cv.setPointerCapture(e.pointerId); });
+  cv.addEventListener('pointermove',e=>{ if(!d) return; const which=cv.dataset.ruler, [lo,hi,PPM]=RANGE[which];
+    const z=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--z'))||1;
+    S[which]=Math.min(hi,Math.max(lo, d.v-(e.clientX-d.x)/z/PPM)); M.setAt=now(); M.which=which; });
+  cv.addEventListener('pointerup',()=>{ if(!d) return; d=null; const w=cv.dataset.ruler; S[w]=Math.round(S[w]); S.total=S.left=phaseLen('focus'); });
+}
+
+// =====================================================================
+// Progress views
+// =====================================================================
+function plan(){ const a=[]; for(let r=1;r<=4;r++){ a.push(['focus',r]); a.push([r===4?'long':'brk',r]); } return a; }
+function curIdx(pl){ return pl.findIndex(([p,r])=>r===S.round && (p==='focus')===(S.phase==='focus')); }
+function walkerCells(T, sitting){ const p= sitting ? pose({legs:null,eyes:'narrow',squash:true,antL:Math.floor(T/1.4)%2?2:1,antR:Math.floor(T/1.4)%2?1:2})
+  : pose({legs:S.running?Math.floor(T*4)%2:0, bob:S.running&&Math.floor(T*4)%2?-1:0, antL:2, antR:2, eyeShift:1, eyes:'open'}); return blob(p); }
+function drawProg(cv, variant, T){
+  const w=408,h=42,k=3; if(cv.width!==w*k){ cv.width=w*k; cv.height=h*k; }
+  const c=cv.getContext('2d'); c.setTransform(k,0,0,k,0,0); c.clearRect(0,0,w,h);
+  const pl=plan(), ci=curIdx(pl), tot=pl.reduce((a,[p])=>a+phaseLen(p),0);
+  const hue=S.phase==='focus'?AMBER:GREEN, sitting=S.phase!=='focus';
+  // walker positioned along a width
+  const posAt=(x0,width,gap)=>{ let x=x0; const sc=(width-gap*(pl.length-1))/tot; let px=x0;
+    pl.forEach(([p],i)=>{ const len=phaseLen(p)*sc; if(i===ci) px=x+len*frac(); x+=len+gap; }); return px; };
+  const drawWalker=(cx,baseY,cell)=>{ const cells=walkerCells(T,sitting); const ox=cx-6*cell;
+    // tiny bloom
+    c.save(); c.globalCompositeOperation='lighter'; c.filter=`blur(${cell*.36*k}px)`; c.globalAlpha=.5;
+    cells.forEach(q=>{ c.fillStyle=q.tone==='hl'?mix(hue,'#ffffff',.42):q.tone==='sh'?mix(hue,'#000000',.36):q.tone==='white'?'#fff':hue; c.fillRect(ox+q.x*cell,baseY-10*cell+q.y*cell,cell,cell); }); c.restore();
+    cells.forEach(q=>{ c.globalAlpha=S.running?1:.55; c.fillStyle=q.tone==='hl'?mix(hue,'#ffffff',.42):q.tone==='sh'?mix(hue,'#000000',.36):q.tone==='white'?'#fff':hue; c.fillRect(ox+q.x*cell,baseY-10*cell+q.y*cell,cell,cell); }); c.globalAlpha=1; };
+  if(variant==='strip'||variant==='both'){
+    const y= variant==='strip'?8:24, bh= variant==='strip'?12:8, gap=2; let x=0; const sc=(w-gap*(pl.length-1))/tot;
+    pl.forEach(([p,r],i)=>{ const len=phaseLen(p)*sc, f=p==='focus'; const done=i<ci?1:i===ci?frac():0;
+      c.fillStyle=rgba(f?AMBER:GREEN,.16); c.fillRect(x,y,len,bh);
+      c.fillStyle=f?AMBER:GREEN; c.fillRect(x,y,len*done,bh);
+      if(variant==='strip'&&f){ c.fillStyle=i===ci?'rgba(255,255,255,.75)':'rgba(255,255,255,.3)'; c.font='7px Departure, ui-monospace, monospace'; c.textAlign='left'; c.fillText(String(r),x+2,y+bh+9); }
+      x+=len+gap; });
+    if(variant==='strip'){ const px=posAt(0,w,gap); c.fillStyle='#fff'; c.fillRect(Math.round(px)-1,y-4,2,bh+8); }
+    // labels
+    c.font='7px Departure, ui-monospace, monospace'; c.fillStyle='rgba(255,255,255,.38)'; c.textAlign='right';
+    let rest=S.left; pl.slice(ci+1).forEach(([p])=>rest+=phaseLen(p));
+    const realEnd=new Date(Date.now()+rest*1000);
+    c.fillText('set ends ≈ '+realEnd.toTimeString().slice(0,5), w, variant==='strip'?y+bh+18:y+bh+12);
+    if(variant==='both'){ drawWalker(posAt(0,w,gap), y, 1.5); }
+  }
+  if(variant==='walk'){
+    const gy=34; let x=6; const sc=(w-20)/tot; let wx=6;
+    pl.forEach(([p,r],i)=>{ const len=phaseLen(p)*sc, done=i<ci?1:i===ci?frac():0;
+      for(let k2=0;k2<len;k2+=3){ c.fillStyle=k2/len<done?(p==='focus'?AMBER:GREEN):'rgba(255,255,255,.2)'; c.fillRect(Math.round(x+k2),gy,1.5,1.5); }
+      if(p!=='focus'){ const fx=Math.round(x); c.fillStyle='rgba(255,255,255,.45)'; c.fillRect(fx,gy-12,1,12); c.fillStyle=i<=ci?GREEN:'rgba(255,255,255,.3)'; c.fillRect(fx+1,gy-12,5,2); c.fillRect(fx+1,gy-10,3,1.5);
+        if(i===ci){ const fl=Math.floor(T*6)%2; c.fillStyle=fl?AMBER:'#ff6a4d'; c.fillRect(fx+10,gy-3,2,3); c.fillRect(fx+9,gy-1.5,4,1.5); } }
+      if(i===ci) wx = p==='focus' ? x+len*done : x-6;
+      x+=len; });
+    c.fillStyle='rgba(255,255,255,.6)'; c.fillRect(w-8,gy-14,1,14); for(let j=0;j<4;j++)for(let q=0;q<5;q++) if((j+q)%2===0) c.fillRect(w-7+q*1.2,gy-14+j*1.2,1.2,1.2);
+    drawWalker(wx, gy, 1.5);
+  }
+}
+
+// =====================================================================
+// Build panels
+// =====================================================================
+const tpl=document.getElementById('panelTpl');
+document.querySelectorAll('[data-panel]').forEach(st=>{ const n=tpl.content.cloneNode(true); n.querySelector('.prog').dataset.variant=st.dataset.panel; st.appendChild(n); });
+document.querySelectorAll('.ruler').forEach(bindRuler);
+function toggle(){ if(!S.started){ S.started=true; S.running=true; M.hopAt=now(); S.total=S.left=phaseLen('focus'); return; }
+  if(S.running){ const st=sceneState(now()); M.frozen=st.strokes||0; } S.running=!S.running; }
+document.addEventListener('click',e=>{ const b=e.target.closest('[data-go],[data-skip],[data-reset]'); if(!b) return;
+  if(b.hasAttribute('data-go')) toggle();
+  if(b.hasAttribute('data-skip')) advance(false);
+  if(b.hasAttribute('data-reset')){ S.running=false; S.started=false; S.phase='focus'; S.round=1; S.total=S.left=phaseLen('focus'); } });
+document.addEventListener('keydown',e=>{ if(e.code==='Space'){ e.preventDefault(); toggle(); }});
+document.querySelectorAll('[data-sp]').forEach(b=>b.onclick=()=>{ S.speed=+b.dataset.sp; document.querySelectorAll('[data-sp]').forEach(x=>x.setAttribute('aria-pressed', x===b)); });
+document.querySelectorAll('[data-z]').forEach(b=>b.onclick=()=>{ document.documentElement.style.setProperty('--z', b.dataset.z); document.querySelectorAll('[data-z]').forEach(x=>x.setAttribute('aria-pressed', x===b)); });
+
+// typing scene keeps its own stroke counter so pausing freezes the screen where it was
+let typingClock=0;
+function render(T){
+  const st=sceneState(T);
+  if(st.mode==='typing'||st.mode==='rush') st.t=typingClock;
+  const cells=scene(st);
+  document.querySelectorAll('.hero').forEach(cv=>paint(cv,cells,st.hue,GW,GH));
+  // notch mini: just the blob, as the Agents tab draws it in the shoulder
+  const mp = st.mode==='typing'||st.mode==='rush' ? pose({fill:st.fill,eyes:'narrow',eyeShift:1,antL:Math.floor(typingClock/.2)%2?2:1,antR:Math.floor(typingClock/.2)%2?1:2,legs:null})
+           : st.mode==='tea'||st.mode==='nap' ? pose({fill:st.fill,eyes:'narrow',legs:null,antL:1,antR:1})
+           : st.mode==='paused' ? pose({fill:st.fill,eyes:'open',legs:null,bright:.55}) : pose({legs:0});
+  paint(document.getElementById('mini'), blob(mp).map(c=>({...c,y:c.y+2})), st.hue, 12, 12, .5, 2);
+  document.querySelectorAll('[data-icon]').forEach(cv=>paint(cv, blob(pose({legs:0,eyes:'open'})).map(c=>({...c,y:c.y+2})), S.started?(S.phase==='focus'?AMBER:GREEN):NEUTRAL, 12, 12, 0, 1));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('running', S.started));
+  document.querySelectorAll('[data-time]').forEach(e=>e.textContent=fmt(S.left));
+  document.querySelectorAll('[data-today]').forEach(e=>e.textContent=S.today);
+  document.querySelectorAll('[data-val]').forEach(e=>e.textContent=Math.round(S[e.dataset.val])+' min');
+  document.querySelectorAll('[data-phase]').forEach(e=>{ e.textContent=(S.phase==='focus'?'Focus':S.phase==='long'?'Long break':'Break')+' · round '+S.round+'/4'+(S.running?'':' · paused'); e.style.color=S.phase==='focus'?AMBER:GREEN; });
+  document.querySelectorAll('.runv [data-go]').forEach(e=>e.innerHTML=(S.running?'Pause':'Resume')+' <span class="kbd">␣</span>');
+  document.querySelectorAll('.ruler').forEach(drawRuler);
+  document.querySelectorAll('.prog').forEach(cv=>drawProg(cv, cv.dataset.variant, T));
+}
+
+// =====================================================================
+// Board + comparison
+// =====================================================================
+const TILES=[
+  ['Ready','Before you start. Stands, looks around, blinks, the odd hop. Grey: nothing running.', t=>({mode:'ready',t,hue:NEUTRAL,seed:1.3})],
+  ['Setting the time','While you drag a ruler: eyes go up to the Focus ruler or down to the Break one, the antennae wiggle, the feet shuffle.', t=>({mode:'setting',t,which:Math.floor(t/2)%2?'brk':'focus',hue:NEUTRAL,seed:0})],
+  ['Start','Crouch, hop with both antennae up, land. Then it sits down at the desk.', t=>({mode:'hop',t:t%1.6,hue:AMBER,seed:0})],
+  ['Typing','Paws tap the keys in turn and each key lights up. The antennae flick with each keystroke, code appears on the monitor, and every few seconds it stops to think. Fills with amber as the round goes on.', t=>({mode:'typing',t,fill:(t%12)/12,hue:AMBER,seed:.7})],
+  ['Last minute','Types twice as fast, eyes wide, both antennae up, little sparks.', t=>({mode:'rush',t,fill:.96,hue:AMBER,seed:0})],
+  ['Round done','A check mark on the screen, two hops, confetti, then a happy wag.', t=>({mode:'done',t:t%3.4,hue:AMBER,seed:0})],
+  ['Break','Monitor off. A mug of tea with steam, a sip every few seconds, antennae wagging slowly. Fills with green.', t=>({mode:'tea',t,fill:(t%12)/12,hue:GREEN,seed:0})],
+  ['Long break','Naps, one row flatter (the same squash the agent blob uses for compacting), Z’s rising, a screensaver pixel bouncing on the monitor.', t=>({mode:'nap',t,fill:(t%12)/12,hue:GREEN,seed:0})],
+  ['Paused','Dims, looks straight at you with a “…”. The monitor shows a pause sign and the code stays where it was.', t=>({mode:'paused',t,fill:.45,hue:AMBER,dim:.55,frozen:23,seed:0})],
+];
+const board=document.getElementById('board');
+TILES.forEach(([n,d])=>{ const el=document.createElement('div'); el.className='tile'; el.innerHTML=`<canvas class="px" width="432" height="252"></canvas><b>${n}</b><p>${d}</p>`; board.appendChild(el); });
+const tileCv=[...board.querySelectorAll('canvas')];
+const cmp=document.getElementById('cmp');
+cmp.innerHTML=`<figure><canvas class="px" width="288" height="288"></canvas><span>agent mascot · working</span></figure><figure><canvas class="px" width="288" height="288"></canvas><span>focus mascot · half full</span></figure><figure><canvas class="px" width="288" height="288"></canvas><span>focus mascot · full</span></figure>`;
+const cmpCv=[...cmp.querySelectorAll('canvas')];
+
+const t0=now(); let last=now();
+function tick(){ const T=now(), dt=T-last; last=T;
+  if(S.running){ S.left-=dt*S.speed; if(S.left<=0) advance(true); typingClock+=dt; }
+  render(T);
+  TILES.forEach(([,,f],i)=>paint(tileCv[i], scene(f(T-t0+i*.37)), f(T-t0).hue, GW, GH, .5, 9));
+  const step=Math.floor(((T-t0)%0.9)/0.9*4)%4;
+  const work=pose({bob:[0,-1,-1,0][step],legs:step%2,antL:[2,1,2,2][step],antR:[2,1,2,2][step]});
+  paint(cmpCv[0], blob(work).map(c=>({...c,y:c.y+2})), BLUE, 12, 12, .5, 8);
+  paint(cmpCv[1], blob({...work,fill:.5}).map(c=>({...c,y:c.y+2})), AMBER, 12, 12, .5, 8);
+  paint(cmpCv[2], blob(work).map(c=>({...c,y:c.y+2})), AMBER, 12, 12, .5, 8);
+  requestAnimationFrame(tick); }
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>

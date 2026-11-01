@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Focus Mascot Tick</title>
+<style>
+@font-face{font-family:'Departure';src:url('../../The%20Notch/Resources/Fonts/DepartureMono-Regular.otf') format('opentype')}
+:root{
+  --bg:#07070a; --line:#22222a; --text:#ecece4; --muted:#8a8a94; --amber:#ffaa1e;
+  --px:'Departure', ui-monospace, 'SF Mono', Menlo, monospace;
+  --t1:#fff; --t2:rgba(255,255,255,.62); --t3:rgba(255,255,255,.38);
+  --focus:#ffaa1e; --brk:#5fd17a;
+  --z:1.5;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:13px/1.55 var(--px)}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 16px 80px}
+h1{font:400 24px/1.1 var(--px);margin:0 0 8px;letter-spacing:.5px}
+.sub{color:var(--muted);margin:0 0 20px;max-width:860px}
+.sub a{color:var(--text)}
+.bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;position:sticky;top:0;background:var(--bg);padding:10px 0;z-index:5;border-bottom:1px solid var(--line);margin-bottom:26px}
+.bar .lab{color:var(--muted);margin:0 4px 0 10px}
+.bar .lab:first-child{margin-left:0}
+.bar a,.chip{font:400 12px var(--px);background:#0e0e12;color:var(--muted);border:1px solid var(--line);padding:7px 10px;border-radius:3px;cursor:pointer;text-decoration:none}
+.bar a:hover,.chip:hover{border-color:var(--muted);color:var(--text)}
+.chip[aria-pressed=true]{color:#000;background:var(--text);border-color:var(--text)}
+section{margin:0 0 54px}
+section h2{font:400 16px var(--px);margin:0 0 4px;letter-spacing:.5px}
+section .pitch{color:var(--muted);margin:0 0 14px;max-width:860px}
+.stage{background:#5a5a60;border-radius:8px;padding:0 0 22px;overflow-x:auto;display:flex;flex-direction:column;align-items:center;gap:16px}
+.notes{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:12px;font-size:12px;color:var(--muted)}
+.notes b{color:var(--text);font-weight:400;display:block;margin-bottom:2px}
+@media (max-width:700px){.notes{grid-template-columns:1fr}}
+
+.panel{zoom:var(--z);width:640px;height:190px;background:#000;border-radius:0 0 30px 30px;position:relative;color:var(--t1);font-family:var(--px);overflow:hidden;flex:none;box-shadow:0 18px 40px rgba(0,0,0,.45)}
+.housing{position:absolute;top:0;left:227px;width:186px;height:32px;border-radius:0 0 11px 11px;background:repeating-linear-gradient(45deg,rgba(255,93,108,.22) 0 3px,transparent 3px 6px);outline:1px dashed rgba(255,93,108,.55);outline-offset:-1px;pointer-events:none;z-index:9}
+.hd{position:absolute;top:6px;left:28px;right:28px;height:26px;display:flex;align-items:center;justify-content:space-between}
+.tabs{display:inline-flex;gap:3px;padding:3px;background:rgba(255,255,255,.06);border-radius:8px}
+.tabs span{height:20px;min-width:20px;display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:0 3px;font-size:8px;color:var(--t3);border-radius:5px}
+.tabs span.on{background:rgba(255,255,255,.14);color:var(--t1);padding:0 5px}
+.tabs i{width:8px;height:8px;border-radius:2px;background:var(--t3);display:inline-block}
+.gear{width:12px;height:12px;border-radius:3px;border:3px solid var(--t2);margin-right:5px}
+.bd{position:absolute;top:42px;left:34px;right:34px;bottom:18px}
+canvas.px{image-rendering:pixelated;display:block}
+
+.micro{font-size:8px;line-height:10px}
+.cap{font-size:9px;line-height:12px}
+.t2{color:var(--t2)} .t3{color:var(--t3)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:4px;height:18px;padding:0 8px;font-size:9px;border-radius:5px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.14);color:var(--t1);white-space:nowrap;font-family:var(--px);cursor:pointer;user-select:none}
+.btn:hover{background:rgba(255,255,255,.16)}
+.btn.pri{background:var(--t1);color:#000;border-color:var(--t1)}
+.btn.sm{height:14px;padding:0 5px;font-size:8px;border-radius:4px}
+.kbd{font-size:8px;color:rgba(0,0,0,.5);border:1px solid rgba(0,0,0,.25);border-radius:3px;padding:0 3px;line-height:10px}
+.foot{position:absolute;left:0;right:0;bottom:0;height:18px;display:flex;align-items:center;gap:8px}
+.foot .sp{flex:1}
+
+/* ---------- the combined panel ---------- */
+#hero{position:absolute;left:0;top:-8px;width:120px;height:96px}
+.rt{position:absolute;left:146px;right:0;top:0;bottom:0}
+.tm-row{position:absolute;left:0;right:0;top:0;display:flex;align-items:baseline;gap:10px;transition:transform .45s cubic-bezier(.3,1.3,.5,1)}
+.tm{font-size:38px;line-height:40px;transition:font-size .45s cubic-bezier(.3,1.3,.5,1);font-variant-numeric:tabular-nums}
+.run .tm{font-size:46px;line-height:48px}
+.phase{font-size:9px;line-height:12px}
+#tape{position:absolute;left:-12px;width:472px;top:44px;height:54px;cursor:grab;touch-action:none;transition:top .45s cubic-bezier(.3,1.3,.5,1),height .45s cubic-bezier(.3,1.3,.5,1)}
+#tape:active{cursor:grabbing}
+.run #tape{top:58px;height:26px;cursor:default}
+#hint{position:absolute;left:0;right:0;top:100px;transition:opacity .25s}
+.run #hint{opacity:0}
+#harvest{display:block}
+
+/* collapsed + alert */
+.row2{display:flex;gap:26px;flex-wrap:wrap;justify-content:center;align-items:flex-start}
+.mini{zoom:1.5;height:32px;width:300px;background:#000;border-radius:0 0 12px 12px;display:flex;align-items:center;justify-content:space-between;padding:0 10px;color:var(--t1);font-family:var(--px);flex:none;position:relative;overflow:hidden}
+.mini .cam{position:absolute;left:50%;transform:translateX(-50%);top:0;width:160px;height:32px;background:repeating-linear-gradient(45deg,rgba(255,93,108,.22) 0 3px,transparent 3px 6px)}
+.mini .tmn{font-size:11px;font-variant-numeric:tabular-nums}
+.alert{zoom:1.5;width:300px;height:74px;background:#000;border-radius:0 0 20px 20px;position:relative;color:var(--t1);font-family:var(--px);overflow:hidden}
+.alert .cam{position:absolute;left:50%;transform:translateX(-50%);top:0;width:160px;height:32px;background:repeating-linear-gradient(45deg,rgba(255,93,108,.22) 0 3px,transparent 3px 6px)}
+.alert .body{position:absolute;left:12px;right:12px;bottom:8px;display:flex;align-items:center;gap:8px}
+.alert .body .sp{flex:1}
+.lbl{font-size:11px;color:#eee;text-align:center;max-width:460px}
+
+/* animation board */
+.board{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media (max-width:900px){.board{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:560px){.board{grid-template-columns:1fr}}
+.tile{background:#000;border-radius:10px;padding:14px 14px 12px;display:flex;flex-direction:column;align-items:center;gap:8px;border:1px solid #16161c}
+.tile canvas{width:180px;height:144px}
+.tile b{font-weight:400;color:var(--text);font-size:13px}
+.tile p{margin:0;color:var(--muted);font-size:11px;text-align:center;line-height:1.45}
+
+/* sprite sheet */
+.sheet{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;background:#000;border-radius:10px;padding:18px;border:1px solid #16161c}
+.sheet figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11px;color:var(--muted)}
+.sheet canvas{width:100px;height:80px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Focus timer · Kitchen tape + ripening, with Tick</h1>
+  <p class="sub">The merge you asked for: <b>F's kitchen tape for setting the time</b> and <b>D's ripening for the running timer</b>. The tomato is gone. In its place is a new mascot, <b>Tick</b>, who fills up with colour as the round goes on. Tick is a sibling of the agent blob, built the same way: a pixel sprite with eyes cut out as holes, shaded in one colour, with a soft glow. Tick is rounder, has a timer knob on top instead of antennae, and has small arms, so Tick can actually <i>do</i> things. Earlier rounds are kept in <a href="pomodoro-ui-v1.html">v1</a> and <a href="pomodoro-ui-v2.html">v2</a>. Everything below is live.</p>
+
+  <div class="bar">
+    <span class="lab">Jump</span>
+    <a href="#panel">The panel</a><a href="#notch">On the notch</a><a href="#moves">Tick's moves</a><a href="#sheet">Sprite sheet</a>
+    <span class="lab">Speed</span>
+    <button class="chip" data-sp="1" aria-pressed="true">1×</button><button class="chip" data-sp="30">30×</button><button class="chip" data-sp="120">120×</button>
+    <span class="lab">Zoom</span>
+    <button class="chip" data-z="1">1×</button><button class="chip" data-z="1.5" aria-pressed="true">1.5×</button><button class="chip" data-z="2">2×</button>
+  </div>
+
+  <!-- ================= main panel ================= -->
+  <section id="panel">
+    <h2>The panel</h2>
+    <p class="pitch"><b>Before you start:</b> drag the tape to pull out minutes. Tick watches the needle, and the knob on Tick's head turns as the minutes go by. <b>Press Start (or Space):</b> Tick hops and rings the knob, the tape folds down into a slim strip, and the time grows. Tick sits down at a little keyboard and gets to work, filling with amber from the bottom up as the round goes on. In the last minute Tick types faster and the knob starts rattling. When the round ends Tick celebrates, then has a cup of tea during the break while filling with green. During the long break Tick naps. While paused Tick dims, looks at you and shows "…". Try <b>120×</b> to see a whole set in about a minute.</p>
+    <div class="stage">
+      <div class="panel"><div class="housing"></div>
+        <div class="hd"><div class="tabs"><span><i></i></span><span><i></i></span><span><i></i></span><span class="on"><canvas class="px" data-icon width="9" height="8" style="width:10px;height:9px"></canvas>Focus</span></div><div class="gear"></div></div>
+        <div class="bd" id="bd">
+          <canvas class="px" id="hero" width="360" height="288"></canvas>
+          <div class="rt">
+            <div class="tm-row"><span class="tm" data-time>25:00</span><span class="phase" id="phase">Ready</span></div>
+            <canvas id="tape"></canvas>
+            <div id="hint" class="micro t3">drag the tape to set the focus length · then <span id="brkLen">5</span> min break · 4 rounds</div>
+            <div class="foot">
+              <canvas class="px" id="harvest" width="4" height="1"></canvas>
+              <span class="micro t3"><span data-today>3</span> rounds today</span>
+              <span class="sp"></span>
+              <span class="btn sm" id="reset">Reset</span>
+              <span class="btn sm" id="skip">Skip</span>
+              <span class="btn pri" id="go" style="width:72px">Start <span class="kbd">␣</span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <div><b>Setting the time</b>The tape is the only input, with no preset buttons. Drag goes from 1 to 120 min and snaps to whole minutes on release. The length you pick is remembered for next time. Break lengths and rounds per set stay in Settings → Focus.</div>
+      <div><b>While it runs</b>The tape stays as a slim strip that keeps creeping toward zero. It's the precise reading, and Tick is the at-a-glance one. The strip is locked while running, so a stray swipe can't change the time. Reset unlocks it.</div>
+    </div>
+  </section>
+
+  <!-- ================= collapsed ================= -->
+  <section id="notch">
+    <h2>On the notch</h2>
+    <p class="pitch">With the panel closed, a small Tick on the left side of the notch fills up in the same way, with the countdown on the right. When a round ends the notch drops open for a few seconds while Tick celebrates, with one button for what comes next.</p>
+    <div class="stage" style="padding-top:0">
+      <div class="row2">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:8px"><div class="mini"><div class="cam"></div><canvas class="px" id="mini" width="120" height="96" style="width:30px;height:24px"></canvas><span class="tmn" data-time>25:00</span></div><div class="lbl">Live: mirrors the panel above (focus, break, paused).</div></div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:8px"><div class="alert"><div class="cam"></div><div class="body"><canvas class="px" id="alertTick" width="160" height="128" style="width:40px;height:32px"></canvas><span style="font-size:10px">Round done<br><span class="t3" style="font-size:8px">5 min break next</span></span><span class="sp"></span><span class="btn sm pri">Start break</span></div></div><div class="lbl">Round end: drops open for 6 s. With auto-start on, the break just starts.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= moves ================= -->
+  <section id="moves">
+    <h2>Tick's moves</h2>
+    <p class="pitch">Every state Tick can be in, each looping on its own. Like the agent blob, Tick's outline never changes. What changes is the knob, the eyes, the arms, and how full Tick is. Colour has one meaning: amber is focus, green is a break, and dimmed means paused.</p>
+    <div class="board" id="board"></div>
+  </section>
+
+  <!-- ================= sheet ================= -->
+  <section id="sheet">
+    <h2>Sprite sheet</h2>
+    <p class="pitch">The parts Tick is built from, frozen, so you can judge the pixel art itself. 20 × 16 grid in the panel (6 pt cells), the same sprite at 1.5 pt cells on the notch.</p>
+    <div class="sheet" id="sheetRow"></div>
+  </section>
+</div>
+
+<script>
+// =====================================================================
+// Tick: grid, parts and renderer
+// =====================================================================
+const GW=20, GH=16, OX=2, OY=3;
+const AMBER='#ffaa1e', GREEN='#5fd17a', NEUTRAL='#e8e6dc';
+const REST={3:[4,10],4:[2,12],5:[1,13],6:[1,13],7:[1,13],8:[1,13],9:[2,12],10:[3,11]};
+const SQ  ={4:[3,11],5:[1,13],6:[1,13],7:[1,13],8:[1,13],9:[2,12],10:[3,11]};
+let seed=11; const rnd=()=>((seed=(seed*16807)%2147483647)/2147483647);
+function order(rows){ const a=[]; for(const r in rows){ const [l,h]=rows[r]; for(let c=l;c<=h;c++) a.push({x:c,y:+r,k:-r+rnd()*1.7}); } a.sort((p,q)=>p.k-q.k); return a; }
+const ORD={rest:order(REST), sq:order(SQ)};
+const ARMS={
+  side:{L:[[0,8]],R:[[14,8]]},
+  up:{L:[[0,6],[-1,5]],R:[[14,6],[15,5]]},
+  down:{L:[[1,10],[2,11]],R:[[13,10],[12,11]]},
+  lift:{L:[[0,9]],R:[[14,9]]},
+  mug:{L:[[0,8]],R:[[14,8]]},
+};
+const LEGS=[[[4,11],[5,11],[9,11],[10,11]],[[3,11],[4,11],[10,11],[11,11]]];
+const CONF=[AMBER,GREEN,'#8ab4ff','#ff6a4d','#ffffff'];
+const base=()=>({fill:1,eyes:'open',eyeShift:0,bob:0,lean:0,squash:false,knobDx:0,armL:'side',armR:'side',legs:0,sit:false,key:-1,mug:false,sip:false,ring:false,confetti:false,zz:false,dots:false,dim:1,t:0});
+
+function eyeCells(p){
+  const s=Math.max(-1,Math.min(1,p.eyeShift)); const holes=[], glints=[];
+  if(p.eyes==='open'||p.eyes==='wide'){ for(const x0 of [4,9]) for(const dx of [0,1]) for(const y of [5,6]) holes.push([x0+dx+s,y]);
+    if(p.eyes==='wide'){ glints.push([4+s,5],[9+s,5]); } }
+  else if(p.eyes==='narrow'){ for(const x0 of [4,9]) for(const dx of [0,1]) holes.push([x0+dx+s,6]); }
+  else if(p.eyes==='happy'){ holes.push([3,6],[4,5],[5,6],[9,6],[10,5],[11,6]); }
+  else if(p.eyes==='asleep'){ for(const x0 of [4,9]) for(const dx of [0,1]) holes.push([x0+dx,7]); }
+  return {holes, glints};
+}
+
+function cellsFor(p){
+  const out=[]; const rows=p.squash?SQ:REST, ord=p.squash?ORD.sq:ORD.rest, kb=p.squash?1:0;
+  const body=(x,y,tone,a=1)=>out.push({x:x+OX+p.lean,y:y+OY+p.bob,tone,a});
+  const abs=(x,y,tone,a=1,col)=>out.push({x,y,tone,a,col});
+  const has=(x,y)=>rows[y]&&x>=rows[y][0]&&x<=rows[y][1];
+  const {holes,glints}=eyeCells(p); const H=new Set(holes.map(h=>h+'')); const G=new Set(glints.map(h=>h+''));
+  const n=Math.round(p.fill*ord.length);
+  ord.forEach((c,i)=>{ const key=[c.x,c.y]+''; const filled=i<n;
+    if(G.has(key)){ body(c.x,c.y,'white'); return; }
+    if(H.has(key)){ if(!filled) body(c.x,c.y,'eyeg'); return; }
+    const up=!has(c.x,c.y-1), dn=!has(c.x,c.y+1), edge=up||dn||!has(c.x-1,c.y)||!has(c.x+1,c.y);
+    body(c.x,c.y, filled ? (up?'hl':dn?'sh':'body') : (edge?'gedge':'ghost'));
+  });
+  // the knob: always lit, it's the timer
+  for(let x=6;x<=8;x++){ body(x+p.knobDx,kb,'hl'); body(x+p.knobDx,kb+1,'body'); }
+  body(7,kb+2,'sh');
+  for(const [x,y] of ARMS[p.armL].L) body(x,y,'sh');
+  for(const [x,y] of ARMS[p.armR].R) body(x,y,'sh');
+  if(!p.sit) for(const [x,y] of LEGS[p.legs]) body(x,y,'sh');
+  if(p.sit){ for(let x=1;x<=13;x++) abs(x+OX,12+OY,'key',.32); if(p.key>=0) abs(p.key+OX,12+OY,'white',1); }
+  if(p.mug){ const my=p.sip?-1:0; for(const [x,y] of [[15,7],[16,7],[15,8],[16,8],[15,9],[16,9]]) body(x,y+my,'white',.82); body(17,8+my,'white',.5);
+    const s=Math.floor(p.t*2.2)%3; body(15,6-s+my,'white',.35); body(16,5-((s+1)%3)+my,'white',.25); }
+  if(p.ring){ const ph=Math.floor(p.t*8)%2; const kx=OX+p.lean+p.knobDx, ky=OY+p.bob+kb;
+    (ph?[[5,-1],[9,-1]]:[[4,1],[10,1]]).forEach(([x,y])=>abs(kx+x,ky+y,'white',.9)); }
+  if(p.confetti) for(let i=0;i<12;i++){ const x=(i*7+3+Math.floor(p.t*2)*((i%3)-1)+40)%GW; const y=Math.floor((p.t*7+i*2.3)%GH); abs(x,y,'conf',.95,CONF[i%5]); }
+  if(p.zz) for(let j=0;j<3;j++){ const ph=(p.t*1.1+j*1.4)%4.2; abs(OX+14+j,OY+3-Math.floor(ph),'white',Math.max(0,.7-ph*.16)); }
+  if(p.dots){ const lit=Math.floor(p.t*3)%4; [5,7,9].forEach((x,i)=>abs(OX+x,OY+kb-2+p.bob,'white',i<lit?.95:.22)); }
+  return out.filter(c=>c.x>=0&&c.x<GW&&c.y>=0&&c.y<GH);
+}
+
+const rgb=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
+const mix=(h,to,t)=>{ const a=rgb(h), b=rgb(to); return `rgb(${a.map((v,i)=>Math.round(v+(b[i]-v)*t)).join(',')})`; };
+const rgba=(h,a)=>`rgba(${rgb(h).join(',')},${a})`;
+function draw(cv, p, hue, gapOn=true){
+  const c=cv.getContext('2d'); const cp=cv.width/GW; const gap=gapOn&&cp>=10?Math.max(1,Math.round(cp*.1)):0;
+  c.clearRect(0,0,cv.width,cv.height);
+  const col={body:hue, hl:mix(hue,'#ffffff',.4), sh:mix(hue,'#000000',.4), ghost:rgba(hue,.12), gedge:rgba(hue,.32), eyeg:'rgba(255,255,255,.4)', white:'#ffffff', key:'rgba(255,255,255,1)'};
+  const cells=cellsFor(p);
+  const lit=cells.filter(k=>k.tone!=='ghost'&&k.tone!=='gedge'&&k.tone!=='key'&&k.tone!=='eyeg');
+  c.save(); c.filter=`blur(${cp*.75}px)`; c.globalAlpha=.42*p.dim;
+  lit.forEach(k=>{ c.fillStyle=k.col||col[k.tone]; c.fillRect(k.x*cp,k.y*cp,cp,cp); }); c.restore();
+  cells.forEach(k=>{ c.globalAlpha=k.a*p.dim; c.fillStyle=k.col||col[k.tone]; c.fillRect(k.x*cp+gap/2,k.y*cp+gap/2,cp-gap,cp-gap); });
+  c.globalAlpha=1;
+}
+
+// =====================================================================
+// Poses
+// =====================================================================
+const blink=(t,s)=>((t+s)%4.1)<.13;
+const P={
+  ready(t,s=0){ const p=base(); p.t=t; const ph=(t+s)%8;
+    if(ph>=3&&ph<4.2) p.eyeShift=-1; else if(ph>=5&&ph<6.2) p.eyeShift=1;
+    if(ph>=6.6&&ph<6.85){ p.bob=-1; p.legs=1; }
+    if(ph>=7.3&&ph<7.5) p.knobDx=1;
+    if(blink(t,s)) p.eyes='closed'; return p; },
+  winding(t,dir,minute){ const p=base(); p.t=t; p.eyeShift=dir; p.knobDx=minute%2?1:-1; p.armL=dir<0?'up':'side'; p.armR=dir>0?'up':'side'; if(dir) p.legs=Math.floor(t*6)%2; return p; },
+  windup(t){ const p=base(); p.t=t;
+    if(t<.15){ p.squash=true; p.eyes='narrow'; }
+    else if(t<.55){ p.bob=-2; p.armL=p.armR='up'; p.eyes='wide'; p.ring=true; p.legs=1; }
+    else if(t<.7){ p.squash=true; p.ring=true; }
+    else { p.ring=t<1; }
+    return p; },
+  focus(t,fill,fast,tick,s=0){ const p=base(); p.t=t; p.fill=fill; p.sit=true;
+    const per=fast?.15:.4, st=Math.floor(t/per);
+    if(st%2){ p.armL='down'; p.armR='lift'; p.key=2+(st*5)%5; } else { p.armL='lift'; p.armR='down'; p.key=7+(st*3)%5; }
+    if(fast){ p.eyes='wide'; p.knobDx=Math.floor(t*6)%2?1:-1; p.ring=(t%1)<.3; }
+    else { p.eyes='narrow'; if(blink(t,s)) p.eyes='closed'; if(tick<.2) p.knobDx=1; }
+    return p; },
+  done(t){ const p=base(); p.t=t; p.eyes='happy'; p.confetti=t<2.6; p.ring=t<1.1;
+    if(t<1.25&&(t%.62)<.32){ p.bob=-2; p.armL=p.armR='up'; p.legs=1; } else if(t<1.25) { p.squash=(t%.62)<.4; }
+    else { p.armL=Math.floor(t*3)%2?'up':'side'; p.armR=Math.floor(t*3)%2?'side':'up'; }
+    return p; },
+  brk(t,fill){ const p=base(); p.t=t; p.fill=fill; p.mug=true; p.armR='mug'; p.eyes='happy';
+    const ph=t%5; if(ph>3.6&&ph<4.4){ p.sip=true; p.eyes='closed'; } return p; },
+  nap(t,fill){ const p=base(); p.t=t; p.fill=fill; p.squash=true; p.eyes='asleep'; p.zz=true; p.dim=.8+.2*Math.sin(t*2.2); return p; },
+  paused(p,t){ const q={...p}; q.t=t; q.dots=true; q.dim=.55; q.eyes='open'; q.eyeShift=0; q.key=-1; q.ring=false; q.knobDx=0; q.confetti=false; q.zz=false; return q; },
+};
+
+// =====================================================================
+// The timer
+// =====================================================================
+const S={focus:25, brk:5, long:15, phase:'focus', round:1, running:false, left:25*60, total:25*60, today:3, speed:1};
+const M={windupAt:-9, doneAt:-9, dragDir:0, dragAt:-9, lastMinute:25, tickAt:-9, startedAt:0};
+const phaseLen=p=>(p==='focus'?S.focus:p==='long'?S.long:S.brk)*60;
+const fmt=s=>{ s=Math.max(0,Math.ceil(s)); return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); };
+const frac=()=>1-S.left/S.total;
+const now=()=>performance.now()/1000;
+const ready=()=>!S.running && S.phase==='focus' && S.left===S.total;
+function advance(natural){
+  if(S.phase==='focus'){ S.today++; if(natural) M.doneAt=now(); S.phase=S.round===4?'long':'brk'; }
+  else { if(S.phase==='long') S.round=1; else S.round++; S.phase='focus'; }
+  S.total=S.left=phaseLen(S.phase);
+}
+function heroPose(t){
+  const T=now();
+  if(T-M.doneAt<2.6) return {p:P.done(T-M.doneAt), hue:AMBER};
+  if(ready()){
+    if(T-M.dragAt<.35) return {p:P.winding(T, M.dragDir, Math.round(S.left/60)), hue:NEUTRAL};
+    return {p:P.ready(T), hue:NEUTRAL};
+  }
+  if(T-M.windupAt<1.1) return {p:P.windup(T-M.windupAt), hue:AMBER};
+  let r;
+  if(S.phase==='focus') r={p:P.focus(T, frac(), S.left<60, T-M.tickAt), hue:AMBER};
+  else if(S.phase==='brk') r={p:P.brk(T, frac()), hue:GREEN};
+  else r={p:P.nap(T, frac()), hue:GREEN};
+  if(!S.running) r.p=P.paused(r.p, T);
+  return r;
+}
+
+// ---------- tape ----------
+const tape=document.getElementById('tape'); const PPM=22;
+function drawTape(){
+  const cs=getComputedStyle(tape); const w=parseFloat(cs.width), h=parseFloat(cs.height); const k=3;
+  if(tape.width!==Math.round(w*k)||tape.height!==Math.round(h*k)){ tape.width=Math.round(w*k); tape.height=Math.round(h*k); }
+  const c=tape.getContext('2d'); c.setTransform(k,0,0,k,0,0); c.clearRect(0,0,w,h);
+  const needle=110, lm=S.left/60, x0=needle-lm*PPM;
+  const hue=S.phase==='focus'?(ready()?NEUTRAL:AMBER):GREEN;
+  const big=h>36, top=big?10:5, band=big?26:14;
+  c.fillStyle=rgba(hue,ready()?.10:.16); c.fillRect(x0,top,lm*PPM,band);
+  c.font=`${big?9:7}px Departure, ui-monospace, monospace`; c.textAlign='center';
+  for(let m=0;m<=125;m++){ const x=x0+m*PPM; if(x<-20||x>w+20) continue; const five=m%5===0;
+    c.fillStyle=m<=lm?'rgba(255,255,255,.78)':'rgba(255,255,255,.3)';
+    c.fillRect(Math.round(x),top,1,five?(big?14:8):(big?7:4));
+    for(let q=1;q<4;q++){ c.fillStyle='rgba(255,255,255,.13)'; c.fillRect(Math.round(x+q*PPM/4),top,1,big?3:2); }
+    if(five&&big){ c.fillStyle=m<=lm?'rgba(255,255,255,.7)':'rgba(255,255,255,.3)'; c.fillText(String(m),x,top+band+8); } }
+  const g=c.createLinearGradient(0,0,w,0); g.addColorStop(0,'#000'); g.addColorStop(.06,'rgba(0,0,0,0)'); g.addColorStop(.8,'rgba(0,0,0,0)'); g.addColorStop(1,'#000');
+  c.fillStyle=g; c.fillRect(0,0,w,h);
+  c.fillStyle=AMBER; c.fillRect(needle-1,top-4,2,band+8); c.beginPath(); c.moveTo(needle-4,top-6); c.lineTo(needle+4,top-6); c.lineTo(needle,top-1); c.fill();
+}
+let drag=null;
+tape.addEventListener('pointerdown',e=>{ if(!ready()) return; drag={x:e.clientX,left:S.left,lx:e.clientX}; tape.setPointerCapture(e.pointerId); });
+tape.addEventListener('pointermove',e=>{ if(!drag) return; const z=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--z'))||1;
+  const dx=(e.clientX-drag.x)/z; S.left=S.total=Math.min(120*60,Math.max(60, drag.left - dx/PPM*60));
+  M.dragDir=Math.sign(drag.lx-e.clientX); drag.lx=e.clientX; M.dragAt=now(); });
+tape.addEventListener('pointerup',()=>{ if(!drag) return; drag=null; S.left=S.total=Math.round(S.left/60)*60; S.focus=S.left/60; M.dragDir=0; });
+
+// ---------- small pieces ----------
+const ICON=["....K....","..KKKKK..",".KKKKKKK.",".KK.K.KK.",".KKKKKKK.","..KKKKK..","..K...K.."];
+function drawIcon(cv,hue){ const c=cv.getContext('2d'); c.clearRect(0,0,9,8); c.fillStyle=hue; ICON.forEach((r,y)=>[...r].forEach((ch,x)=>{ if(ch==='K') c.fillRect(x,y,1,1); })); }
+function drawHarvest(){ const cv=document.getElementById('harvest'); const W=4*11, k=3; if(cv.width!==W*k){ cv.width=W*k; cv.height=8*k; cv.style.width=W+'px'; cv.style.height='8px'; }
+  const c=cv.getContext('2d'); c.setTransform(k,0,0,k,0,0); c.clearRect(0,0,W,8);
+  for(let i=0;i<4;i++){ const done=i<S.round-1||(i===S.round-1&&S.phase!=='focus'); const cur=i===S.round-1&&S.phase==='focus';
+    c.fillStyle= done?AMBER: cur? rgba(AMBER,.55):'rgba(255,255,255,.16)';
+    ICON.forEach((r,y)=>[...r].forEach((ch,x)=>{ if(ch==='K' && !(cur && y < 7-Math.ceil(frac()*7))) c.fillRect(i*11+x,y,1,1); })); } }
+
+// ---------- main render ----------
+const bd=document.getElementById('bd');
+function render(){
+  const T=now();
+  const {p,hue}=heroPose(T);
+  draw(document.getElementById('hero'), p, hue);
+  draw(document.getElementById('mini'), p, hue, false);
+  const at=(T%4); draw(document.getElementById('alertTick'), P.done(at), AMBER, false);
+  document.querySelectorAll('[data-time]').forEach(e=>e.textContent=fmt(S.left));
+  document.querySelectorAll('[data-today]').forEach(e=>e.textContent=S.today);
+  document.querySelectorAll('[data-icon]').forEach(cv=>drawIcon(cv, S.phase==='focus'?AMBER:GREEN));
+  bd.classList.toggle('run', !ready());
+  const ph=document.getElementById('phase');
+  if(ready()){ ph.textContent='Ready · round '+S.round+' of 4'; ph.style.color='var(--t2)'; }
+  else { ph.textContent=(S.phase==='focus'?'Focus':S.phase==='long'?'Long break':'Short break')+' · round '+S.round+'/4'+(S.running?'':' · paused'); ph.style.color=S.phase==='focus'?AMBER:GREEN; }
+  document.getElementById('go').innerHTML=(S.running?'Pause':ready()?'Start':'Resume')+' <span class="kbd">␣</span>';
+  drawTape(); drawHarvest();
+}
+
+let last=now();
+function tick(){ const T=now(), dt=T-last; last=T;
+  if(S.running){ const before=Math.ceil(S.left/60); S.left-=dt*S.speed; if(Math.ceil(S.left/60)!==before) M.tickAt=T; if(S.left<=0) advance(true); }
+  render(); renderBoard(T); requestAnimationFrame(tick); }
+
+function toggle(){ if(ready()){ M.windupAt=now(); } S.running=!S.running; }
+document.getElementById('go').onclick=toggle;
+document.getElementById('skip').onclick=()=>{ advance(false); };
+document.getElementById('reset').onclick=()=>{ S.running=false; S.phase='focus'; S.total=S.left=phaseLen('focus'); };
+document.addEventListener('keydown',e=>{ if(e.code==='Space'){ e.preventDefault(); toggle(); }});
+document.querySelectorAll('[data-sp]').forEach(b=>b.onclick=()=>{ S.speed=+b.dataset.sp; document.querySelectorAll('[data-sp]').forEach(x=>x.setAttribute('aria-pressed', x===b)); });
+document.querySelectorAll('[data-z]').forEach(b=>b.onclick=()=>{ document.documentElement.style.setProperty('--z', b.dataset.z); document.querySelectorAll('[data-z]').forEach(x=>x.setAttribute('aria-pressed', x===b)); });
+
+// =====================================================================
+// Animation board + sprite sheet
+// =====================================================================
+const TILES=[
+  ['Ready','Waiting for you. Looks around, blinks, the odd little hop. Light grey: nothing is running.', t=>[P.ready(t,1.3),NEUTRAL]],
+  ['Winding','While you drag the tape: eyes follow the needle, one arm reaches that way, the knob turns a notch per minute.', t=>[P.winding(t, Math.floor(t/1.6)%2?1:-1, Math.floor(t*4)),NEUTRAL]],
+  ['Wind-up','Start pressed: crouch, hop, ring the knob. Plays once, about one second.', t=>[P.windup(t%1.8),AMBER]],
+  ['Focusing','Sits down at the keyboard and types. Fills with amber from the bottom as the round goes on. The knob ticks once a minute.', t=>[P.focus(t,(t%9)/9,false,(t%3)),AMBER]],
+  ['Last minute','Types twice as fast, eyes wide, the knob rattles and rings now and then.', t=>[P.focus(t,.95,true,9),AMBER]],
+  ['Round done','Full. Two hops, confetti, then waves both arms.', t=>[P.done(t%3.6),AMBER]],
+  ['Short break','Tea. Steam rises, sips every few seconds, happy eyes. Fills with green, recharging.', t=>[P.brk(t,(t%9)/9),GREEN]],
+  ['Long break','Naps, flattened by a row (the only time the outline changes, like the agent blob compacting). Slow breathing, Z’s.', t=>[P.nap(t,(t%9)/9),GREEN]],
+  ['Paused','Freezes where it was, dims, looks right at you with a “…” bubble.', t=>[P.paused(P.focus(1,.45,false,9),t),AMBER]],
+];
+const board=document.getElementById('board');
+TILES.forEach(([n,d])=>{ const el=document.createElement('div'); el.className='tile'; el.innerHTML=`<canvas class="px" width="360" height="288"></canvas><b>${n}</b><p>${d}</p>`; board.appendChild(el); });
+const tileCv=[...board.querySelectorAll('canvas')]; const t0=now();
+function renderBoard(T){ TILES.forEach(([,,f],i)=>{ const [p,h]=f(T-t0+i*.37); draw(tileCv[i],p,h); }); }
+
+const SHEET=[
+  ['rest',()=>[base(),NEUTRAL]],
+  ['empty',()=>[{...base(),fill:0},AMBER]],
+  ['half full',()=>[{...base(),fill:.5,eyes:'narrow'},AMBER]],
+  ['full',()=>[base(),AMBER]],
+  ['arms up',()=>[{...base(),armL:'up',armR:'up',eyes:'wide',bob:-2,legs:1},AMBER]],
+  ['typing',()=>[{...base(),sit:true,armL:'down',armR:'lift',key:4,eyes:'narrow',fill:.6},AMBER]],
+  ['tea',()=>[{...base(),mug:true,armR:'mug',eyes:'happy',fill:.4},GREEN]],
+  ['asleep',()=>[{...base(),squash:true,eyes:'asleep',fill:.7},GREEN]],
+];
+const sheetRow=document.getElementById('sheetRow');
+SHEET.forEach(([n,f])=>{ const fig=document.createElement('figure'); fig.innerHTML=`<canvas class="px" width="300" height="240"></canvas><span>${n}</span>`; sheetRow.appendChild(fig); const [p,h]=f(); draw(fig.firstChild,p,h); });
+const fig=document.createElement('figure'); fig.innerHTML=`<div style="width:100px;height:80px;display:flex;align-items:center;justify-content:center;background:#000"><canvas class="px" width="120" height="96" style="width:30px;height:24px"></canvas></div><span>notch size</span>`; sheetRow.appendChild(fig);
+draw(fig.querySelector('canvas'), {...base(),fill:.6,eyes:'narrow'}, AMBER, false);
+
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>

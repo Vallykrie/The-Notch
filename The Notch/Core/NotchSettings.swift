@@ -42,6 +42,23 @@ final class NotchSettings: ObservableObject {
     /// written stays where it was.
     @Published var notesEnabled: Bool { didSet { commit(notesEnabled, .notesEnabled) } }
 
+    /// Focus: the Pomodoro timer tab and its shoulder. Off out of the box like crypto and notes.
+    @Published var focusEnabled: Bool { didSet { commit(focusEnabled, .focusEnabled) } }
+
+    // MARK: Focus
+
+    /// Whether a running timer earns the collapsed shoulders.
+    @Published var focusShowOnNotch: Bool { didSet { commit(focusShowOnNotch, .focusShowOnNotch) } }
+    /// A chime when a focus round or a break ends.
+    @Published var focusChime: Bool { didSet { commit(focusChime, .focusChime) } }
+    /// Whether a break starts by itself when a focus round ends.
+    @Published var focusAutoStartBreaks: Bool { didSet { commit(focusAutoStartBreaks, .focusAutoStartBreaks) } }
+    /// Whether the next round starts by itself when a break ends. Off by default: coming back
+    /// from a break is the moment to decide whether there is another round in you.
+    @Published var focusAutoStartRounds: Bool { didSet { commit(focusAutoStartRounds, .focusAutoStartRounds) } }
+    @Published var focusLongBreak: FocusLongBreak { didSet { commit(focusLongBreak.rawValue, .focusLongBreak) } }
+    @Published var focusRounds: FocusRounds { didSet { commit(focusRounds.rawValue, .focusRounds) } }
+
     // MARK: Calendar
 
     /// Whether all-day events (holidays, birthdays, "Out of office") are listed.
@@ -234,6 +251,17 @@ final class NotchSettings: ObservableObject {
         cryptoEnabled = defaults.bool(forKey: Key.cryptoEnabled.rawValue)
         calendarEnabled = defaults.bool(forKey: Key.calendarEnabled.rawValue)
         notesEnabled = defaults.bool(forKey: Key.notesEnabled.rawValue)
+        focusEnabled = defaults.bool(forKey: Key.focusEnabled.rawValue)
+        focusShowOnNotch = defaults.bool(forKey: Key.focusShowOnNotch.rawValue)
+        focusChime = defaults.bool(forKey: Key.focusChime.rawValue)
+        focusAutoStartBreaks = defaults.bool(forKey: Key.focusAutoStartBreaks.rawValue)
+        focusAutoStartRounds = defaults.bool(forKey: Key.focusAutoStartRounds.rawValue)
+        focusLongBreak = FocusLongBreak(
+            rawValue: defaults.string(forKey: Key.focusLongBreak.rawValue) ?? ""
+        ) ?? .default
+        focusRounds = FocusRounds(
+            rawValue: defaults.string(forKey: Key.focusRounds.rawValue) ?? ""
+        ) ?? .default
         calendarShowsAllDay = defaults.bool(forKey: Key.calendarShowsAllDay.rawValue)
         showMediaActivity = defaults.bool(forKey: Key.showMediaActivity.rawValue)
         hideMediaWhenPaused = defaults.bool(forKey: Key.hideMediaWhenPaused.rawValue)
@@ -290,6 +318,7 @@ final class NotchSettings: ObservableObject {
         )
         settings.cryptoEnabled = true
         settings.notesEnabled = true
+        settings.focusEnabled = true
         return settings
     }
 
@@ -308,6 +337,13 @@ final class NotchSettings: ObservableObject {
             Key.cryptoEnabled.rawValue: false,
             Key.calendarEnabled.rawValue: true,
             Key.notesEnabled.rawValue: false,
+            Key.focusEnabled.rawValue: false,
+            Key.focusShowOnNotch.rawValue: true,
+            Key.focusChime.rawValue: true,
+            Key.focusAutoStartBreaks.rawValue: true,
+            Key.focusAutoStartRounds.rawValue: false,
+            Key.focusLongBreak.rawValue: FocusLongBreak.default.rawValue,
+            Key.focusRounds.rawValue: FocusRounds.default.rawValue,
             Key.calendarShowsAllDay.rawValue: true,
             Key.showMediaActivity.rawValue: true,
             Key.hideMediaWhenPaused.rawValue: true,
@@ -342,6 +378,13 @@ final class NotchSettings: ObservableObject {
             && !cryptoEnabled
             && calendarEnabled
             && !notesEnabled
+            && !focusEnabled
+            && focusShowOnNotch
+            && focusChime
+            && focusAutoStartBreaks
+            && !focusAutoStartRounds
+            && focusLongBreak == .default
+            && focusRounds == .default
             && calendarShowsAllDay
             && showMediaActivity
             && hideMediaWhenPaused
@@ -382,6 +425,13 @@ final class NotchSettings: ObservableObject {
         cryptoEnabled = false
         calendarEnabled = true
         notesEnabled = false
+        focusEnabled = false
+        focusShowOnNotch = true
+        focusChime = true
+        focusAutoStartBreaks = true
+        focusAutoStartRounds = false
+        focusLongBreak = .default
+        focusRounds = .default
         calendarShowsAllDay = true
         showMediaActivity = true
         hideMediaWhenPaused = true
@@ -437,6 +487,11 @@ final class NotchSettings: ObservableObject {
         return status.isPlaying || !hideMediaWhenPaused
     }
 
+    /// Whether a focus session (running, paused, or waiting between phases) earns the shoulders.
+    func showsFocus(isActive: Bool) -> Bool {
+        focusEnabled && focusShowOnNotch && isActive
+    }
+
     func showsAgents(sessionCount: Int) -> Bool {
         agentsEnabled && showAgentActivity && sessionCount > 0
     }
@@ -449,6 +504,7 @@ final class NotchSettings: ObservableObject {
         case .trading: cryptoEnabled
         case .calendar: calendarEnabled
         case .notes: notesEnabled
+        case .focus: focusEnabled
         }
     }
 
@@ -465,6 +521,13 @@ final class NotchSettings: ObservableObject {
         case cryptoEnabled = "NotchCryptoEnabled"
         case calendarEnabled = "NotchCalendarEnabled"
         case notesEnabled = "NotchNotesEnabled"
+        case focusEnabled = "NotchFocusEnabled"
+        case focusShowOnNotch = "NotchFocusShowOnNotch"
+        case focusChime = "NotchFocusChime"
+        case focusAutoStartBreaks = "NotchFocusAutoStartBreaks"
+        case focusAutoStartRounds = "NotchFocusAutoStartRounds"
+        case focusLongBreak = "NotchFocusLongBreak"
+        case focusRounds = "NotchFocusRounds"
         case calendarShowsAllDay = "NotchCalendarShowsAllDay"
         case showMediaActivity = "NotchShowMediaActivity"
         case hideMediaWhenPaused = "NotchHideMediaWhenPaused"
@@ -599,6 +662,44 @@ nonisolated enum FinishedRetention: String, CaseIterable, Identifiable, Sendable
         case .keep: 10 * 365 * 24 * 60 * 60
         }
     }
+}
+
+/// How long the long break is. Auto scales with the break the user set — see
+/// `FocusTimer.longBreakMinutes(for:)` — because a fixed 15 minutes is *shorter* than a
+/// 30-minute break.
+nonisolated enum FocusLongBreak: String, CaseIterable, Identifiable, Sendable {
+    case auto
+    case off
+    case fifteen
+    case thirty
+
+    static let `default` = FocusLongBreak.auto
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .auto: "Auto"
+        case .off: "Off"
+        case .fifteen: "15 min"
+        case .thirty: "30 min"
+        }
+    }
+}
+
+/// How many focus rounds make a set, the last of which is followed by the long break.
+nonisolated enum FocusRounds: String, CaseIterable, Identifiable, Sendable {
+    case two = "2"
+    case three = "3"
+    case four = "4"
+    case five = "5"
+    case six = "6"
+
+    static let `default` = FocusRounds.four
+
+    var id: String { rawValue }
+    var label: String { rawValue }
+    var count: Int { Int(rawValue) ?? 4 }
 }
 
 nonisolated enum HUDDwell: String, CaseIterable, Identifiable, Sendable {

@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Focus Timer Rules</title>
+<style>
+@font-face{font-family:'Departure';src:url('../../The%20Notch/Resources/Fonts/DepartureMono-Regular.otf') format('opentype')}
+:root{
+  --bg:#07070a; --line:#22222a; --text:#ecece4; --muted:#8a8a94; --amber:#ffaa1e; --green:#5fd17a;
+  --px:'Departure', ui-monospace, 'SF Mono', Menlo, monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:13px/1.55 var(--px)}
+.wrap{max-width:1100px;margin:0 auto;padding:28px 16px 80px}
+h1{font:400 24px/1.1 var(--px);margin:0 0 8px}
+h2{font:400 17px var(--px);margin:40px 0 6px}
+p,li{color:var(--muted);max-width:860px}
+b{color:var(--text);font-weight:400}
+code{color:var(--text)}
+.card{background:#0d0d11;border:1px solid var(--line);border-radius:10px;padding:18px;margin-top:12px}
+
+/* long break */
+.sl{display:grid;grid-template-columns:90px 1fr 70px;gap:10px;align-items:center;margin:8px 0}
+.sl input{width:100%;accent-color:var(--amber)}
+.sl.b input{accent-color:var(--green)}
+.out{font-size:15px;margin:14px 0 6px}
+.strip{display:flex;gap:2px;height:14px;margin:6px 0 4px}
+.strip i{display:block;height:100%;border-radius:2px}
+table{border-collapse:collapse;margin-top:14px;font-size:12px}
+td,th{border-bottom:1px solid var(--line);padding:6px 14px 6px 0;text-align:left;font-weight:400}
+th{color:var(--muted)}
+td.hl{color:var(--amber)}
+
+/* notch rows */
+.grid{display:grid;grid-template-columns:1fr;gap:14px;margin-top:12px}
+.row{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:18px;align-items:center;background:#0d0d11;border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+@media (max-width:820px){.row{grid-template-columns:1fr}}
+.row .stagebox{background:#5a5a60;border-radius:8px;height:86px;display:flex;justify-content:center;overflow:hidden}
+.row .txt b{display:block;margin-bottom:3px}
+.row .txt span{font-size:12px;color:var(--muted)}
+.row .tag{font-size:10px;color:#000;background:var(--amber);border-radius:3px;padding:0 4px;margin-left:6px;vertical-align:2px}
+.row .tag.same{background:#3a3a44;color:var(--muted)}
+.notch{zoom:1.4;height:32px;background:#000;border-radius:0 0 11px 11px;display:flex;align-items:center;position:relative;color:#fff;font-family:var(--px);transition:width .4s cubic-bezier(.3,1.2,.5,1)}
+.notch .cam{position:absolute;top:0;height:32px;left:50%;transform:translateX(-50%);background:repeating-linear-gradient(45deg,rgba(255,93,108,.22) 0 3px,transparent 3px 6px)}
+.sh{position:absolute;top:0;height:32px;display:flex;align-items:center;gap:4px}
+.sh.l{left:0;padding-left:5px;justify-content:flex-start}
+.sh.r{right:0;padding-right:5px;justify-content:flex-end}
+.art{width:18px;height:18px;border-radius:4px;background:linear-gradient(135deg,#ff7a59,#a04bd8 60%,#2c6cf0);flex:none}
+.cdw{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.cd{font-size:11px;line-height:11px;font-variant-numeric:tabular-nums}
+.pl{width:32px;height:2px;background:rgba(255,255,255,.14);border-radius:1px;position:relative;overflow:hidden}
+.pl i{position:absolute;left:0;top:0;bottom:0}
+.blinkdim{animation:bd 1.2s ease-in-out infinite}
+@keyframes bd{50%{opacity:.35}}
+.hudbar{width:70px;height:4px;border-radius:2px;background:rgba(255,255,255,.18);position:relative}
+.hudbar i{position:absolute;left:0;top:0;bottom:0;width:62%;background:#fff;border-radius:2px}
+.ring{position:absolute;inset:-3px;border-radius:7px;box-shadow:0 0 0 1.5px #ff850f;animation:rg 1s ease-in-out infinite}
+@keyframes rg{50%{opacity:.25}}
+.crypto{font-size:9px;white-space:nowrap}
+canvas.px{image-rendering:pixelated;display:block}
+.alert{zoom:1.6;width:300px;height:64px;background:#000;border-radius:0 0 18px 18px;position:relative;color:#fff;font-family:var(--px)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Focus timer · two rules to settle before building</h1>
+  <p>Building on <b>v4, option 3 (Strip + walker)</b>. These are the two questions you raised. Each section has my recommendation, shown live.</p>
+
+  <!-- ===================== LONG BREAK ===================== -->
+  <h2>1 · The long break has to scale with your break</h2>
+  <p>A fixed 15-minute long break only makes sense for short breaks. With a 30-minute break, the "long" break would actually be shorter. My recommendation: <b>no fixed number. The long break is 3× your break, rounded to 5 minutes, between 10 and 45 minutes. If your break is 15 minutes or more, there's no long break at all</b>, because every break is already a long one, and the set simply repeats. The setup screen always shows what you'll get, in the line under the rulers, so it's never a surprise. For anyone who wants a fixed number, Settings → Focus has a <b>Long break</b> option: Auto (default), Off, or a fixed length.</p>
+  <div class="card">
+    <div class="sl"><span style="color:var(--amber)">FOCUS</span><input type="range" id="fIn" min="5" max="90" value="25"><span id="fOut">25 min</span></div>
+    <div class="sl b"><span style="color:var(--green)">BREAK</span><input type="range" id="bIn" min="1" max="30" value="5"><span id="bOut">5 min</span></div>
+    <div class="out" id="lbOut"></div>
+    <div class="strip" id="strip"></div>
+    <div style="font-size:11px;color:var(--muted)" id="setLine"></div>
+    <table>
+      <tr><th>Break</th><th>Long break (Auto)</th><th>Why</th></tr>
+      <tr><td>1–3 min</td><td class="hl">10 min</td><td>the 10-minute floor: shorter than that isn't really a long break</td></tr>
+      <tr><td>5 min</td><td class="hl">15 min</td><td>the classic Pomodoro</td></tr>
+      <tr><td>8 min</td><td class="hl">25 min</td><td>3 × 8 = 24, rounded to 25</td></tr>
+      <tr><td>10 min</td><td class="hl">30 min</td><td>3 ×</td></tr>
+      <tr><td>12–14 min</td><td class="hl">35–40 min</td><td>3 ×, rounded to 5</td></tr>
+      <tr><td>15–30 min</td><td class="hl">none</td><td>breaks are already long; every round is the same</td></tr>
+    </table>
+  </div>
+
+  <!-- ===================== SHARING THE NOTCH ===================== -->
+  <h2>2 · Sharing the notch with Media and Agents</h2>
+  <p>How it works today (from <code>LiveActivityLayout</code>): the closed notch has a left and a right side, 40 pt each, and each side holds one icon. Media plus agents shows the <b>artwork on the left and the agent sprite on the right</b>. A volume or brightness change outranks everything, and a pinned crypto price replaces media and agents unless an agent needs you.</p>
+  <p>The focus timer adds a third live thing, and it's the only one that needs <b>text</b> (the countdown). My recommendation:</p>
+  <ul>
+    <li><b>Focus always owns the right side.</b> The countdown sits there with a thin 2 pt progress line under it (amber in focus, green on break). The timer is the one thing <i>you</i> started and are watching, so it gets a fixed home and never moves around.</li>
+    <li><b>The left side shows what else is live</b>, following today's rules. If nothing else is live, it's the focus mascot filling up. Media shows the artwork, agents show the agent's own sprite in its status colour, and with both it shows the artwork and the sprite side by side.</li>
+    <li><b>Never two mascots.</b> When agents are live, the one mascot on the left is the agent's and shows agent status. Focus progress moves to the line under the countdown, so a blob never means two things at once.</li>
+    <li>Both sides grow from 40 to <b>56 pt</b> while focus is running. That's enough for the countdown, or for artwork plus sprite. Both sides stay the same width so the notch stays centred, which the current code requires.</li>
+    <li><b>Order of priority:</b> a volume/brightness change (brief) &gt; an agent asking for approval &gt; focus &gt; media / agents &gt; crypto. A running focus session takes over from the pinned crypto price, and the price comes back after Reset.</li>
+  </ul>
+  <div class="grid" id="rows"></div>
+
+  <h2>Round end while an agent needs you</h2>
+  <p>When a round ends, the notch normally drops open for 6 s with "Round done · Start break". If an agent's approval card is already open, <b>the approval stays and the round-end message waits its turn</b>. It shows once the approval is dealt with, or straight away if auto-start already began the break. Blocking an agent costs more than a late "time for a break".</p>
+</div>
+
+<script>
+// ---------- long break ----------
+const autoLong=b=> b>=15 ? 0 : Math.min(45, Math.max(10, Math.round(b*3/5)*5));
+const fIn=document.getElementById('fIn'), bIn=document.getElementById('bIn');
+function upd(){
+  const f=+fIn.value, b=+bIn.value, L=autoLong(b);
+  document.getElementById('fOut').textContent=f+' min'; document.getElementById('bOut').textContent=b+' min';
+  document.getElementById('lbOut').innerHTML = L ? `Long break: <b style="color:var(--green)">${L} min</b> after the 4th round` : `Long break: <b style="color:var(--green)">none</b>. A ${b}-minute break is already a long one, so every round is the same`;
+  const parts=[]; for(let r=1;r<=4;r++){ parts.push(['f',f]); parts.push(['b', r===4 ? (L||b) : b]); }
+  const tot=parts.reduce((a,[,m])=>a+m,0);
+  document.getElementById('strip').innerHTML=parts.map(([k,m],i)=>`<i style="flex:${m};background:${k==='f'?'#ffaa1e':(i===7&&L?'#3fa35a':'#5fd17a')};opacity:${k==='f'?.85:.7}"></i>`).join('');
+  const h=Math.floor(tot/60), m=tot%60;
+  document.getElementById('setLine').textContent=`Under the rulers: "4 rounds · ${L?`long break ${L} min after the 4th`:'no long break'}" · one set ≈ ${h?h+' h ':''}${m} min`;
+}
+fIn.oninput=bIn.oninput=upd; upd();
+
+// ---------- the agent blob (same port as v4) ----------
+const REST={rows:{3:[4,7],4:[2,9],5:[1,10],6:[1,10],7:[2,9]}, antennaRow:2, eyeRow:5};
+const LEGS=[[[3,8],[4,8],[7,8],[8,8],[2,9],[9,9]],[[2,8],[3,8],[8,8],[9,8],[4,9],[7,9]]];
+let seed=5; const rnd=()=>((seed=(seed*16807)%2147483647)/2147483647);
+const ORD=(()=>{ const a=[]; for(const r in REST.rows){ const [l,h]=REST.rows[r]; for(let c=l;c<=h;c++) a.push({x:c,y:+r,k:-r+rnd()*1.4}); } return a.sort((p,q)=>p.k-q.k); })();
+function blob(p){
+  p=Object.assign({bob:0,antL:1,antR:1,eyes:'open',eyeShift:0,legs:0,fill:1},p);
+  const parts=new Map(), key=(x,y)=>x+','+y;
+  for(const r in REST.rows){ const [l,h]=REST.rows[r]; for(let c=l;c<=h;c++) parts.set(key(c,+r),'body'); }
+  const ant=(root,dir,lift)=>{ parts.set(key(root,2),'ant'); if(lift<=0){ parts.set(key(root+dir,2),'ant'); return; } for(let s=1;s<=Math.min(lift,2);s++) parts.set(key(root+dir*s,2-s), s===Math.min(lift,2)?'tip':'ant'); };
+  ant(4,-1,p.antL); ant(7,1,p.antR);
+  if(p.legs!==null) for(const [x,y] of LEGS[p.legs]) parts.set(key(x,y),'leg');
+  const holes=new Set(); if(p.eyes!=='closed'){ const row=5; const span=REST.rows[row]; for(const st of [3,7]){ const w=p.eyes==='narrow'?1:2; for(let o=0;o<w;o++){ const col=Math.min(Math.max(st+o+p.eyeShift,span[0]+1),span[1]-2); holes.add(key(col,row)); if(p.eyes==='wide') holes.add(key(col,row-1)); } } }
+  const filled=new Set(ORD.slice(0,Math.round(p.fill*ORD.length)).map(c=>key(c.x,c.y))), occ=new Set(parts.keys()), out=[];
+  for(const [k,part] of parts){ const [x,y]=k.split(',').map(Number); const lit=part!=='body'||filled.has(k);
+    if(holes.has(k)){ if(!lit) out.push({x,y,tone:'eyeg'}); continue; }
+    let tone; if(!lit) tone=(!occ.has(key(x,y-1))||!occ.has(key(x,y+1))||!occ.has(key(x-1,y))||!occ.has(key(x+1,y)))?'gedge':'ghost';
+    else if(part==='leg') tone='sh'; else if(part==='tip'||!occ.has(key(x,y-1))) tone='hl'; else if(!occ.has(key(x,y+1))) tone='sh'; else tone='body';
+    out.push({x,y:y+p.bob+2,tone}); }
+  return out;
+}
+const rgb=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
+const mix=(h,to,t)=>{ const a=rgb(h), b=rgb(to); return `rgb(${a.map((v,i)=>Math.round(v+(b[i]-v)*t)).join(',')})`; };
+const rgba=(h,a)=>`rgba(${rgb(h).join(',')},${a})`;
+function paint(cv,cells,hue,dim=1){ const c=cv.getContext('2d'), cp=cv.width/12; c.clearRect(0,0,cv.width,cv.height);
+  const col={body:hue,hl:mix(hue,'#ffffff',.42),sh:mix(hue,'#000000',.36),ghost:rgba(hue,.13),gedge:rgba(hue,.34),eyeg:'rgba(255,255,255,.38)'};
+  c.save(); c.globalCompositeOperation='lighter'; c.filter=`blur(${cp*.36}px)`; c.globalAlpha=.5*dim;
+  cells.filter(k=>!['ghost','gedge','eyeg'].includes(k.tone)).forEach(k=>{ c.fillStyle=col[k.tone]; c.fillRect(k.x*cp,k.y*cp,cp,cp); }); c.restore();
+  const g=cp*.125; cells.forEach(k=>{ c.globalAlpha=dim; c.fillStyle=col[k.tone]; c.fillRect(k.x*cp+g,k.y*cp+g,cp-2*g,cp-2*g); }); c.globalAlpha=1; }
+
+// ---------- scenarios ----------
+const AMBER='#ffaa1e', GREEN='#5fd17a', BLUE='#299eff', ORANGE='#ff850f';
+const mascot=(id)=>`<canvas class="px" data-m="${id}" width="96" height="96" style="width:24px;height:24px"></canvas>`;
+const cd=(paused)=>`<div class="cdw ${paused?'blinkdim':''}"><span class="cd" data-cd>18:42</span><div class="pl"><i data-pl style="width:25%;background:${AMBER}"></i></div></div>`;
+const ROWS=[
+  {t:'Nothing else live',d:'Focus mascot on the left, filling with amber. Countdown on the right.',tag:'new',sh:56,L:mascot('focus'),R:cd()},
+  {t:'+ Media playing',d:'Artwork takes the left side, the way it does today. Focus is still easy to spot by the countdown and its line.',tag:'new',sh:56,L:'<div class="art"></div>',R:cd()},
+  {t:'+ Agent working',d:'The left mascot is the agent’s, in its blue working colour, doing the agent’s animation. Focus shows only on the right.',tag:'new',sh:56,L:mascot('agent'),R:cd()},
+  {t:'+ Media and agent',d:'Artwork and the agent sprite share the left side (that’s why both sides grow to 56 pt). Countdown on the right.',tag:'new',sh:56,L:'<div class="art"></div>'+mascot('agent2'),R:cd()},
+  {t:'Agent needs approval',d:'The agent sprite turns orange and the attention ring pulses, exactly as today. The countdown stays, because time keeps running.',tag:'new',sh:56,L:'<div style="position:relative">'+mascot('appr')+'<div class="ring"></div></div>',R:cd()},
+  {t:'Volume key pressed',d:'The HUD takes over for its usual 1.5 s, then the focus layout comes back. (Animated: press, release.)',tag:'same',sh:'hud',L:'',R:''},
+  {t:'Paused',d:'Countdown blinks slowly at 35%. The mascot is dimmed. Nothing else changes.',tag:'new',sh:56,L:mascot('paused'),R:cd(true)},
+  {t:'Crypto pinned',d:'A running focus session takes over from the price. After Reset, the price comes back.',tag:'new',sh:56,L:mascot('focus2'),R:cd()},
+  {t:'Reference: media + agent today (no focus)',d:'Unchanged: 40 pt sides, artwork left, sprite right.',tag:'same',sh:40,L:'<div class="art"></div>',R:mascot('agent3')},
+];
+const HOUSING=186;
+const rows=document.getElementById('rows');
+ROWS.forEach((r,i)=>{ const el=document.createElement('div'); el.className='row';
+  const w=r.sh==='hud'?HOUSING+2*56:HOUSING+2*r.sh;
+  el.innerHTML=`<div class="stagebox"><div class="notch" id="n${i}" style="width:${w}px"><div class="cam" style="width:${HOUSING}px"></div><div class="sh l" style="width:${r.sh==='hud'?56:r.sh}px">${r.L}</div><div class="sh r" style="width:${r.sh==='hud'?56:r.sh}px">${r.R}</div></div></div><div class="txt"><b>${r.t}<span class="tag ${r.tag==='same'?'same':''}">${r.tag==='same'?'as today':'with focus'}</span></b><span>${r.d}</span></div>`;
+  rows.appendChild(el); });
+
+// HUD row toggles between HUD and the focus layout
+const hudRow=ROWS.findIndex(r=>r.sh==='hud'); const hudN=document.getElementById('n'+hudRow);
+function setHud(on){ const l=hudN.querySelector('.sh.l'), r=hudN.querySelector('.sh.r');
+  if(on){ hudN.style.width=(HOUSING+2*92)+'px'; l.style.width=r.style.width='92px'; l.innerHTML='<span style="font-size:10px">🔊</span>'; r.innerHTML='<div class="hudbar"><i></i></div>'; }
+  else { hudN.style.width=(HOUSING+2*56)+'px'; l.style.width=r.style.width='56px'; l.innerHTML=mascot('hud'); r.innerHTML=cd(); } }
+let hudOn=false; setHud(false); setInterval(()=>{ hudOn=!hudOn; setHud(hudOn); }, 2200);
+
+// ---------- animate ----------
+let left=18*60+42; const total=25*60; const t0=performance.now()/1000;
+function tick(){ const t=performance.now()/1000-t0; left=Math.max(0, 18*60+42 - t);
+  const fr=1-left/total, s=Math.ceil(left), txt=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+  document.querySelectorAll('[data-cd]').forEach(e=>e.textContent=txt);
+  document.querySelectorAll('[data-pl]').forEach(e=>e.style.width=(fr*100)+'%');
+  const step=Math.floor((t%0.9)/0.9*4)%4, typ=Math.floor(t/.2)%2;
+  document.querySelectorAll('canvas[data-m]').forEach(cv=>{ const m=cv.dataset.m;
+    if(m.startsWith('focus')||m==='hud') paint(cv, blob({fill:fr,eyes:'narrow',eyeShift:1,legs:null,antL:typ?2:1,antR:typ?1:2}), AMBER);
+    else if(m==='paused') paint(cv, blob({fill:fr,legs:null}), AMBER, .55);
+    else if(m==='appr'){ const hop=(t%0.8)<.3; paint(cv, blob({antL:2,antR:2,eyes:'wide',bob:hop?-1:0,legs:hop?1:0}), ORANGE); }
+    else paint(cv, blob({bob:[0,-1,-1,0][step],legs:step%2,antL:[2,1,2,2][step],antR:[2,1,2,2][step]}), BLUE);
+  });
+  requestAnimationFrame(tick); }
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>

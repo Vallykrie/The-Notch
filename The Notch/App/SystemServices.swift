@@ -30,6 +30,8 @@ final class SystemServices {
     /// The scratchpad's pages. Kept whether or not the feature is on, so switching it off and
     /// back loses nothing.
     let notes: NotesStore
+    /// The Pomodoro timer. Exists whether or not Focus is on; nothing ticks until it is started.
+    let focus: FocusTimer
     /// Lyrics for the playing track, read by both the media panel and the collapsed notch.
     let lyrics: LyricsController
     /// Scheduled and manual update checks. Inert in Debug builds and when no public key is set.
@@ -44,6 +46,7 @@ final class SystemServices {
         trading = TradingStore()
         calendar = CalendarStore()
         notes = NotesStore()
+        focus = FocusTimer(settings: settings)
         lyrics = LyricsController(nowPlaying: nowPlaying)
         integrations = AgentIntegrationManager(settings: settings)
         updater = AppUpdater()
@@ -62,7 +65,8 @@ final class SystemServices {
         systemHUD: SystemHUDMonitor,
         trading: TradingStore? = nil,
         calendar: CalendarStore? = nil,
-        notes: NotesStore? = nil
+        notes: NotesStore? = nil,
+        focus: FocusTimer? = nil
     ) {
         self.nowPlaying = nowPlaying
         self.systemHUD = systemHUD
@@ -73,6 +77,7 @@ final class SystemServices {
         self.trading = trading ?? TradingPreviewData.emptyStore()
         self.calendar = calendar ?? CalendarPreviewData.emptyStore()
         self.notes = notes ?? NotesStore(defaults: nil)
+        self.focus = focus ?? FocusTimer(settings: settings, defaults: nil)
         lyrics = LyricsController(nowPlaying: nowPlaying)
         integrations = AgentIntegrationManager()
         updater = AppUpdater(enabled: false)
