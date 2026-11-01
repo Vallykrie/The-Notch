@@ -141,7 +141,8 @@ struct SettingsExpandedView: View {
         .padding(.vertical, Theme.Metrics.Settings.railItemSpacing)
     }
 
-    private static let railSpace = "settingsRail"
+    /// Read from `onGeometryChange`'s Sendable closure, so it cannot be main-actor isolated.
+    nonisolated private static let railSpace = "settingsRail"
 
     /// Only the edges with something beyond them fade, so the first entry is crisp at rest.
     private var railFade: some View {
